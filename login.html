@@ -1,0 +1,34 @@
+<div id="center">
+<h1>GPGMAIL</h1>
+<form action="/login" method="post" >
+    <div>
+        <label>Handle</label><input type="text" name="hash"></input>@gpgmail.io
+    </div>
+    <div>
+        <label>Password</label><input type="password" name="password"></input>
+    </div>
+    <div id="confirmPassword" style="display:none">
+        <label>Confirm password:</label><input type="password" name="confirmPassword"></input>
+    </div>
+    <div id="privKey" style="display:none">
+        <label for="key">Private key</label><textarea name="privateKey" rows="20" cols="90"></textarea>
+        <div class="warning">Store this somewhere safe. 
+            Note that the server never receives and does NOT store your private key. 
+            It is instead stored in HTML5 Local Storage. 
+            If you lose the key, your email will be gone and unrecoverable.
+        </div>
+    </div>
+    <div id="pubkey" style="display:none">
+        <label for="key">Public key</label>
+        <textarea name="publicKey" rows="20" cols="90"></textarea>
+    </div>
+
+    <input type="submit">Login</input>
+</form>
+</div>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+<script type="text/javascript" src="app.js"></script>
+
+
+

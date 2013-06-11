@@ -3,7 +3,7 @@
 <h2>Inbox</h1>
 <ul>
 {{range .}}
-    <li data-from="{{.From}}" data-to="{{.To}}" data-body="{{.Body}}">{{.Subject}}</li>
+<li data-from="{{.From}}" data-to="{{.To}}" data-id="{{.ID}}">{{.Subject}}</li>
 {{end}}
 </ul>
 </div>
@@ -15,33 +15,5 @@
 </div>
 
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
-<script type="text/javascript">
-function read(target){
-    if(target.size()==0) return;
-    $("li.current").removeClass("current");
-    target.addClass("current");
+<script type="text/javascript" src="app.js"></script>
 
-    $("#from").html(target.data("from"));
-    $("#to").html(target.data("to"));
-    $("#subject").html(target.text());
-    $("#body").html(target.data("body"));
-    $("label").show();
-}
-
-$("li").click(function(e){
-    read($(e.target));
-});
-
-$(document).keypress(function(e){
-    var code = e.charCode || e.which;
-    if(code==106){ //j
-        var msg = $(".current").next();
-        if(msg.size() == 0){
-            msg = $("li").first();
-        }
-        read(msg);
-    } else if (code==107){ //k
-        read($(".current").prev());
-    }
-});
-</script>

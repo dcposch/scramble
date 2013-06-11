@@ -29,7 +29,9 @@ margin:0px;
 ul li {
 border-top:1px solid #ddd;
 padding:6px 0;
-overflow:ellipsis;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
 cursor:pointer;
 }
 ul li:hover, ul li.current {
@@ -37,7 +39,7 @@ background:#eee;
 }
 
 
-/* content */
+/* CONTENT */
 #content {
 margin-left:306px;
 padding:6px;
@@ -49,4 +51,12 @@ color: #448;
 }
 #body {
 margin:10px 0;
+}
+
+
+/* POPUP */
+#center {
+width:500px;
+margin:100px auto;
+text-align:center;
 }
