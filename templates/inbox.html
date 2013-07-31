@@ -1,12 +1,14 @@
 <div id="sidebar">
 <h1>GPGMAIL</h1>
-<h2>Inbox</h1>
+<h2><a href='compose'>Compose</a></h2>
+<h2 class="selected">Inbox</h2>
 <ul>
 {{range .}}
 <li data-from="{{.From}}" data-to="{{.To}}" data-id="{{.ID}}">{{.Subject}}</li>
 {{end}}
 </ul>
 </div>
+
 <div id="content">
 <h2 id="subject"></h2>
 <div><label for="from">From</label><span id="from"></span></div>
@@ -15,5 +17,6 @@
 </div>
 
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+<script type="text/javascript" src="openpgp.js"></script>
 <script type="text/javascript" src="app.js"></script>
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log"
     "net/http"
 
     //"io/ioutil"
@@ -13,11 +14,23 @@ import (
 func main() {
     http.HandleFunc("/email/", emailHandler)
     http.HandleFunc("/login", loginHandler)
-    http.HandleFunc("/", indexHandler)
+    http.HandleFunc("/user/", userHandler)
+    http.HandleFunc("/", inboxHandler)
 
-    http.HandleFunc("/app.js", staticHandler)
     http.HandleFunc("/style.css", staticHandler)
     http.HandleFunc("/favicon.ico", staticHandler)
 
-    http.ListenAndServe(":8888", nil)
+    http.HandleFunc("/js/app.js", staticHandler)
+    http.HandleFunc("/js/openpgp.js", staticHandler)
+    http.HandleFunc("/js/jquery.min.js", staticHandler)
+
+    http.ListenAndServe(":8888", Log(http.DefaultServeMux))
 }
+
+func Log(handler http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+        handler.ServeHTTP(w, r)
+    })
+}
+

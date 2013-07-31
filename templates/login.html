@@ -1,0 +1,24 @@
+<div id="center">
+<h1>GPGMAIL</h1>
+
+<form id="loginForm" method="post" action="/login" onsubmit="return login(this);">
+    <div><label>User</label><input type="text" name="user"></input></div>
+    <div><label>Passphrase</label><input type="password" name="password"></input>
+        <input type="submit" name="enterButton" value="Enter"></input></div>
+
+    <input type="hidden" name="passwordHash"></input>
+</form>
+
+<div class="strike"><hr /><span>or</span><hr /></div>
+
+<form id="createForm" method="post" onsubmit="return create(this);">
+    <div><label>Confirm passphrase</label><input type="password" name="confirmPassword"></input>
+    <input type="submit" name="createButton" value="Create"></input></div>
+
+    <input type="hidden" name="user"></input>
+    <input type="hidden" name="passwordHash"></input>
+    <input type="hidden" name="publicKey"></input>
+    <input type="hidden" name="cipherPrivateKey"></input>
+</form>
+
+</div>

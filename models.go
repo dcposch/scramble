@@ -2,8 +2,10 @@ package main
 
 type User struct {
     // The email address is <hash>@gpgmail.io
-    Hash string
+    User string
+    PasswordHash string
     PublicKey string
+    CipherPrivateKey string
 }
 
 type EmailHeader struct {
