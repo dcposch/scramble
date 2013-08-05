@@ -19,10 +19,8 @@ func main() {
 
     http.HandleFunc("/style.css", staticHandler)
     http.HandleFunc("/favicon.ico", staticHandler)
-
-    http.HandleFunc("/js/app.js", staticHandler)
-    http.HandleFunc("/js/openpgp.js", staticHandler)
-    http.HandleFunc("/js/jquery.min.js", staticHandler)
+    http.HandleFunc("/doc/", staticHandler)
+    http.HandleFunc("/js/", staticHandler)
 
     http.ListenAndServe(":8888", Log(http.DefaultServeMux))
 }
