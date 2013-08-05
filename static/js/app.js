@@ -1,5 +1,5 @@
 //
-// GPGMAIL.IO
+// SCRAMBLE.IO
 //
 
 //
@@ -65,7 +65,7 @@ function create(form){
     // create a new mailbox
     var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
     var publicHash = new jsSHA(keys.publicKeyArmored, "ASCII").getHash("SHA-1", "HEX");
-    console.log("Creating "+publicHash+"@gpgmail.io");
+    console.log("Creating "+publicHash+"@"+window.location.hostname);
 
     // encrypt the private key with the user's passphrase
     var hash = new jsSHA("salt"+user+pass, "ASCII").getHash("SHA-1", "ASCII");

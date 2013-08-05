@@ -31,7 +31,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
         // TODO: REST for address book
     } else {
-        createHandler(w, r);
+        createHandler(w, r)
     }
 }
 
@@ -42,8 +42,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     user.PublicKey = r.FormValue("publicKey")
     user.CipherPrivateKey = r.FormValue("cipherPrivateKey")
 
-    fmt.Printf("Woot! New user %s %s\n",
-        user.User, sha1hex(user.PublicKey)+"@gpgmail.io")
+    fmt.Printf("Woot! New user %s %s\n", user.User, sha1hex(user.PublicKey))
 
     SaveUser(user)
 

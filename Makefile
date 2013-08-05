@@ -1,8 +1,8 @@
 run: build
-	~/go/bin/gpgmail.io
+	~/go/bin/scramble
 
 build: static/doc/why.html
-	go install gpgmail.io
+	go install scramble
 
 static/doc/why.html: doc/why.md
 	mkdir -p static/doc

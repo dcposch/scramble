@@ -2,7 +2,11 @@ package main
 
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
-import "fmt"
+
+import "os"
+import "io/ioutil"
+import "strings"
+import "log"
 
 var db *sql.DB
 
@@ -31,9 +35,16 @@ var migrations = [...]string{
 
 
 func init() {
-    mysqlHost := "gpgmail:gpgmail@/gpgmail?charset=utf8"
-    fmt.Println("Connecting to "+mysqlHost)
-    var err error
+    configFile := os.Getenv("HOME")+"/.scramble/db.config"
+    mysqlHostBytes,err := ioutil.ReadFile(configFile)
+    if err != nil {
+        log.Panicf("Please create config file %s.\n" +
+            "One line, <db user>:<db pass>@<db host, empty if local>/scramble",
+            configFile)
+    }
+
+    mysqlHost := strings.TrimSpace(string(mysqlHostBytes))+"?charset=utf8"
+    log.Printf("Connecting to %s\n", mysqlHost)
     db,err = sql.Open("mysql", mysqlHost)
     if err!=nil {
         panic(err)
@@ -84,7 +95,7 @@ func LoadMessage (id int) Email {
 }
 
 func LoadInbox(userHash string) []EmailHeader {
-    user := userHash+"@gpgmail.io"
+    user := userHash+"@test.test"
     return []EmailHeader{
         {1, "foo@bar.com", user, "test123 abc"},
         {2, "bar@bar.com", user, "this is an email with a very long subject line yes it is"},

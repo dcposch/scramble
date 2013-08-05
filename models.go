@@ -1,7 +1,7 @@
 package main
 
 type User struct {
-    // The email address is <hash>@gpgmail.io
+    // The email address is <hash>@<host>
     User string
     PasswordHash string
     PublicKey string
