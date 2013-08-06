@@ -5,7 +5,8 @@
 </div>
 
 <div id="content" class="compose">
-<form name="compose" action="email" method="post">
+<form name="compose" action="/email/" method="post" onsubmit="return sendEmail(this);">
+
 <div><label for="subject">Subject</label><input type="text" name="subject"></span></div>
 <div><label for="to">To</label><input type="text" name="to"></span></div>
 <textarea name="body" />
@@ -13,6 +14,10 @@
 --
 Encrypted with https://scramble.io
 </textarea>
+<input type="submit" name="sendButton" value="Send"></input>
+
+<input type="hidden" name="cipherSubject"></input>
+<input type="hidden" name="cipherBody"></input>
+
 </form>
-<input type="submit" value="Send"></input>
 </div>

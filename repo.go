@@ -25,7 +25,7 @@ var migrations = [...]string{
         id bigint not null auto_increment,
         from_email varchar(254) not null,
         to_email varchar(254) not null,
-        subject varchar(998) not null,
+        subject varchar(1500) not null,
         body longtext not null,
 
         primary key (id),
@@ -83,14 +83,22 @@ func LoadPassHash (user string) string {
     return passHash
 }
 
-func LoadUser (hash string) *User {
-    //TODO
-    return nil
+func LoadPubKey (pubHash string) string {
+    var pubKey string
+    err := db.QueryRow("select public_key" +
+        " from user where public_hash=?", pubHash).Scan(&pubKey)
+    if err == sql.ErrNoRows {
+        return ""
+    }
+    if err != nil {
+        panic(err)
+    }
+    return pubKey
 }
 
 func LoadMessage (id int) Email {
     return Email{
-        &EmailHeader{id, "foo@bar.com", "3298jf98j22j8", "testing 123 abc"},
+        EmailHeader{id, "foo@bar.com", "3298jf98j22j8", "testing 123 abc"},
         "lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol <embedded> tags \" escaped \" strings "}
 }
 
@@ -104,7 +112,10 @@ func LoadInbox(userHash string) []EmailHeader {
         {5, "baz@bar.com", user, "yo"}}
 }
 
-func SaveMessage(e Email) {
-    //result,err := db.Exec("lolwut?")
-    db.Exec("lolwut?")
+func SaveMessage(e *Email) {
+    _,err := db.Exec("insert into email (from_email, to_email, subject, body) "+
+        "values (?,?,?,?)", e.From, e.To, e.Subject, e.Body)
+    if(err != nil){
+        panic(err)
+    }
 }

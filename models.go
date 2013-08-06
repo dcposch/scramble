@@ -16,6 +16,6 @@ type EmailHeader struct {
 }
 
 type Email struct {
-    *EmailHeader
+    EmailHeader
     Body string
 }

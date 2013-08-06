@@ -8,6 +8,7 @@ import (
 )
 
 
+
 //
 // HELPERS
 //
@@ -29,15 +30,26 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
 //
 // USER ROUTE
 //
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
-        // TODO: REST for address book
+        fetchUserHandler(w, r)
     } else {
         createHandler(w, r)
+    }
+}
+
+func fetchUserHandler(w http.ResponseWriter, r *http.Request) {
+    userPubHash := r.URL.Path[len("/user/"):]
+    userPub := LoadPubKey(userPubHash)
+    if userPub == "" {
+        http.Error(w, "Not found", 404)
+    } else {
+        w.Write([]byte(userPub))
     }
 }
 
@@ -98,6 +110,7 @@ func validate(r *http.Request) string{
 }
 
 
+
 //
 // INBOX ROUTE
 //
@@ -116,7 +129,14 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method == "GET" {
+        emailFetchHandler(w, r)
+    } else if r.Method == "POST" {
+        emailSendHandler(w, r)
+    }
+}
 
+func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
     idStr := r.URL.Path[len("/email/"):]
     id,err := strconv.Atoi(idStr)
     if err!=nil {
@@ -129,25 +149,36 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
 //
 // COMPOSE ROUTE
 //
 
 func composeHandler(w http.ResponseWriter, r *http.Request) {
     user := validate(r)
+    if user=="" {
+        http.Error(w, "Not logged in", 401)
+        return
+    }
 
     templates.ExecuteTemplate(w, "header.html", nil)
-    if user != "" {
-        templates.ExecuteTemplate(w, "compose.html", nil)
-    } else {
-        templates.ExecuteTemplate(w, "login.html", nil)
-    }
+    templates.ExecuteTemplate(w, "compose.html", nil)
     templates.ExecuteTemplate(w, "footer.html", nil)
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
-    //to := r.FormValue("to")
-    //subject := r.FormValue("subject")
-    //body := r.FormValue("body")
+    user := validate(r)
+    if user=="" {
+        http.Error(w, "Not logged in", 401)
+        return
+    }
+
+    email := new(Email)
+    email.From = user
+    email.To = r.FormValue("to")
+    email.Subject = r.FormValue("cipherSubject")
+    email.Body = r.FormValue("cipherBody")
+
+    SaveMessage(email)
 }
 
