@@ -4,20 +4,15 @@
 <h2><a href='/inbox'>Inbox</a></h2>
 </div>
 
-<div id="content">
+<div id="content" class="compose">
 <form name="compose" action="email" method="post">
 <div><label for="subject">Subject</label><input type="text" name="subject"></span></div>
 <div><label for="to">To</label><input type="text" name="to"></span></div>
-<textarea rows="50" cols="100" name="body">
+<textarea name="body" />
 
 --
 Encrypted with https://scramble.io
 </textarea>
 </form>
-<input type="submit">Send</input>
+<input type="submit" value="Send"></input>
 </div>
-
-<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
-<script type="text/javascript" src="openpgp.js"></script>
-<script type="text/javascript" src="app.js"></script>
-

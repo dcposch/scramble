@@ -1,11 +1,16 @@
 package main
 
 import (
-    "fmt"
+    "log"
     "strconv"
-    "html/template"
     "net/http"
+    "html/template"
 )
+
+
+//
+// HELPERS
+//
 
 var templates = template.Must(template.ParseFiles(
     file("header"),
@@ -25,8 +30,9 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 
 
 //
-// LOGIN
+// USER ROUTE
 //
+
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
         // TODO: REST for address book
@@ -42,7 +48,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     user.PublicKey = r.FormValue("publicKey")
     user.CipherPrivateKey = r.FormValue("cipherPrivateKey")
 
-    fmt.Printf("Woot! New user %s %s\n", user.User, sha1hex(user.PublicKey))
+    log.Printf("Woot! New user %s %s\n", user.User, sha1hex(user.PublicKey))
 
     SaveUser(user)
 
@@ -93,7 +99,7 @@ func validate(r *http.Request) string{
 
 
 //
-// INBOX
+// INBOX ROUTE
 //
 
 func inboxHandler(w http.ResponseWriter, r *http.Request) {
@@ -103,11 +109,10 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
     if user != "" {
         emailHeaders := LoadInbox(user)
         templates.ExecuteTemplate(w, "inbox.html", emailHeaders)
-        templates.ExecuteTemplate(w, "footer.html", nil)
     } else {
         templates.ExecuteTemplate(w, "login.html", nil)
-        templates.ExecuteTemplate(w, "footer.html", nil)
     }
+    templates.ExecuteTemplate(w, "footer.html", nil)
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
@@ -125,8 +130,20 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
 
 
 //
-// COMPOSE
+// COMPOSE ROUTE
 //
+
+func composeHandler(w http.ResponseWriter, r *http.Request) {
+    user := validate(r)
+
+    templates.ExecuteTemplate(w, "header.html", nil)
+    if user != "" {
+        templates.ExecuteTemplate(w, "compose.html", nil)
+    } else {
+        templates.ExecuteTemplate(w, "login.html", nil)
+    }
+    templates.ExecuteTemplate(w, "footer.html", nil)
+}
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
     //to := r.FormValue("to")

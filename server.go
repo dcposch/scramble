@@ -12,10 +12,12 @@ import (
 
 // WEB UI
 func main() {
-    http.HandleFunc("/email/", emailHandler)
-    http.HandleFunc("/login", loginHandler)
-    http.HandleFunc("/user/", userHandler)
     http.HandleFunc("/", inboxHandler)
+    http.HandleFunc("/login", loginHandler)
+    http.HandleFunc("/compose", composeHandler)
+
+    http.HandleFunc("/email/", emailHandler)
+    http.HandleFunc("/user/", userHandler)
 
     http.HandleFunc("/style.css", staticHandler)
     http.HandleFunc("/favicon.ico", staticHandler)

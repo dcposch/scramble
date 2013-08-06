@@ -1,3 +1,4 @@
+/* EVERYWHERE */
 body {
 font: 16px "Trebuchet MS",sans-serif;
 }
@@ -14,6 +15,73 @@ margin:10px 0;
 }
 
 
+
+/* FORMS */
+input[type=password], input[type=text] {
+width:200px;
+border:1px solid #ccc;
+}
+textarea {
+border:1px solid #ccc;
+}
+input[type=submit] {
+width:70px;
+height:24px;
+font: 14px "Trebuchet MS",sans-serif;
+color:#03a;
+}
+label {
+display:inline-block;
+width:140px;
+margin:0 10px 0 0;
+text-align:right;
+}
+
+
+
+/* LOGIN FORM */
+#login {
+width:460px;
+margin:100px auto;
+white-space:nowrap;
+}
+#login form {
+margin:10px 0;
+}
+#login h1 {
+margin-left:150px;
+}
+
+#login .strike {
+text-align:center;
+font-style:italic;
+}
+#login .strike hr {
+position:relative;
+top:4px;
+display:inline-block;
+width:150px;
+height:1px;
+background-color:#ccc;
+border:none;
+}
+#login .strike span {
+margin:4px;
+}
+
+
+
+/* INBOX */
+#content {
+position:absolute;
+left:306px;
+top:0px;
+right:0px;
+padding:6px;
+}
+
+
+
 /* SIDEBAR */
 #sidebar {
 position:fixed;
@@ -24,12 +92,12 @@ width:300px;
 border-right:1px solid #ddd;
 padding:6px;
 }
-ul {
+#sidebar ul {
 list-style-type:none;
 padding:0px;
 margin:0px;
 }
-ul li {
+#sidebar ul li {
 border-top:1px solid #ddd;
 padding:6px 0;
 white-space:nowrap;
@@ -37,65 +105,30 @@ overflow:hidden;
 text-overflow:ellipsis;
 cursor:pointer;
 }
-ul li:hover, ul li.current {
+#sidebar ul li:hover, ul li.current {
 background:#eee;
 }
-
-
-/* FORMS */
-input[type=password], input[type=text] {
-width:200px;
-}
-input[type=submit] {
-width:70px;
-height:24px;
-font: 14px "Trebuchet MS",sans-serif;
-}
-label {
-display:inline-block;
-width:140px;
-margin:0 10px 0 0;
-text-align:right;
-}
-
-
-/* CONTENT */
-#content {
-margin-left:306px;
-padding:6px;
-}
-#body {
-margin:10px 0;
+#sidebar a, 
+#sidebar a:visited,
+#sidebar a:hover {
+color:#03a;
+text-decoration:none;
 }
 
 
 
-/* LOGIN FORM */
-#center {
-width:460px;
-margin:100px auto;
-white-space:nowrap;
+/* COMPOSE */
+#content.compose {
+bottom:0px;
 }
-#center form {
-margin:10px 0;
-}
-#center h1 {
+#content.compose input[type=submit]{
 margin-left:150px;
 }
-
-.strike {
-text-align:center;
-font-style:italic;
-}
-.strike hr {
-position:relative;
-top:4px;
-display:inline-block;
-width:150px;
-height:1px;
-background-color:#ccc;
-border:none;
-}
-.strike span {
-margin:4px;
+textarea {
+position:absolute;
+top:90px;
+left:16px;
+right:8px;
+bottom:8px;
+background:#f8f8f8;
 }
