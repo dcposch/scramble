@@ -63,11 +63,29 @@ func SaveUser (user *User) {
         " (user, password_hash, public_hash, public_key, cipher_private_key)" +
         " values (?, ?, ?, ?, ?)",
         user.User, user.PasswordHash,
-        sha1hex(user.PublicKey), user.PublicKey,
+        user.PublicHash, user.PublicKey,
         user.CipherPrivateKey)
     if err != nil {
         panic(err)
     }
+}
+
+func LoadUser (userName string) *User {
+    var user User
+    err := db.QueryRow("select" +
+        " password_hash, public_hash, public_key, cipher_private_key" +
+        " from user where user=?", userName).Scan(
+        &user.PasswordHash,
+        &user.PublicHash,
+        &user.PublicKey,
+        &user.CipherPrivateKey)
+    if err == sql.ErrNoRows {
+        return nil
+    }
+    if err != nil {
+        panic(err)
+    }
+    return &user
 }
 
 func LoadPassHash (user string) string {
@@ -86,7 +104,8 @@ func LoadPassHash (user string) string {
 func LoadPubKey (pubHash string) string {
     var pubKey string
     err := db.QueryRow("select public_key" +
-        " from user where public_hash=?", pubHash).Scan(&pubKey)
+        " from user where public_hash=?",
+        pubHash).Scan(&pubKey)
     if err == sql.ErrNoRows {
         return ""
     }
@@ -97,19 +116,39 @@ func LoadPubKey (pubHash string) string {
 }
 
 func LoadMessage (id int) Email {
-    return Email{
-        EmailHeader{id, "foo@bar.com", "3298jf98j22j8", "testing 123 abc"},
-        "lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol lorem ipsum lol lol trololo lololol lol <embedded> tags \" escaped \" strings "}
+    var email Email
+    err := db.QueryRow("select id, from_email, to_email, subject, body" +
+        " from email where id=?",id).Scan(
+        &email.ID,
+        &email.From,
+        &email.To,
+        &email.Subject,
+        &email.Body)
+    if err != nil {
+        panic(err)
+    }
+    return email
 }
 
 func LoadInbox(userHash string) []EmailHeader {
-    user := userHash+"@test.test"
-    return []EmailHeader{
-        {1, "foo@bar.com", user, "test123 abc"},
-        {2, "bar@bar.com", user, "this is an email with a very long subject line yes it is"},
-        {3, "baz@bar.com", user, "lulz man (eom)"},
-        {4, "baz@bar.com", user, "yolo swag 420"},
-        {5, "baz@bar.com", user, "yo"}}
+    log.Printf("Fetching inbox %s\n", userHash)
+
+    // query
+    rows,err := db.Query("select id, from_email, to_email, subject"+
+        " from email where to_email like ?", userHash+"@%")
+    if err != nil {
+        panic(err)
+    }
+
+    // collect a short description of each email in the inbox
+    headers := make([]EmailHeader, 0)
+    for rows.Next() {
+        var header EmailHeader
+        rows.Scan(&header.ID, &header.From, &header.To, &header.Subject)
+        headers = append(headers, header)
+    }
+
+    return headers
 }
 
 func SaveMessage(e *Email) {

@@ -35,6 +35,8 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 // USER ROUTE
 //
 
+// GET /user/<public key hash> for public key lookup
+// POST /user to create an account
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
         fetchUserHandler(w, r)
@@ -58,9 +60,10 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     user.User = r.FormValue("user")
     user.PasswordHash = r.FormValue("passwordHash")
     user.PublicKey = r.FormValue("publicKey")
+    user.PublicHash = sha1hex(user.PublicKey)
     user.CipherPrivateKey = r.FormValue("cipherPrivateKey")
 
-    log.Printf("Woot! New user %s %s\n", user.User, sha1hex(user.PublicKey))
+    log.Printf("Woot! New user %s %s\n", user.User, user.PublicHash)
 
     SaveUser(user)
 
@@ -76,6 +79,24 @@ func makeCookie(name string, value string) *http.Cookie {
     cookie.Value=value
     return cookie
 }
+
+// GET /user/me for our encrypted private key 
+func privateHandler(w http.ResponseWriter, r *http.Request) {
+    userName := validate(r)
+
+    user := LoadUser(userName)
+    if user == nil {
+        http.Error(w, "Not found", 404)
+        return
+    }
+    w.Write([]byte(user.CipherPrivateKey))
+}
+
+
+
+//
+// LOGIN AND AUTH
+//
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
     user := r.FormValue("user")
@@ -116,11 +137,12 @@ func validate(r *http.Request) string{
 //
 
 func inboxHandler(w http.ResponseWriter, r *http.Request) {
-    user := validate(r)
+    userName := validate(r)
 
     templates.ExecuteTemplate(w, "header.html", nil)
-    if user != "" {
-        emailHeaders := LoadInbox(user)
+    if userName != "" {
+        user := LoadUser(userName)
+        emailHeaders := LoadInbox(user.PublicHash)
         templates.ExecuteTemplate(w, "inbox.html", emailHeaders)
     } else {
         templates.ExecuteTemplate(w, "login.html", nil)

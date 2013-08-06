@@ -4,6 +4,7 @@ type User struct {
     // The email address is <hash>@<host>
     User string
     PasswordHash string
+    PublicHash string
     PublicKey string
     CipherPrivateKey string
 }
