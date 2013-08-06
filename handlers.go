@@ -2,6 +2,8 @@ package main
 
 import (
     "log"
+    "encoding/json"
+    "strings"
     "strconv"
     "net/http"
     "html/template"
@@ -26,7 +28,13 @@ func file(name string) string {
 }
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
-    http.ServeFile(w, r, "static/"+r.URL.Path)
+    var path string
+    if strings.HasSuffix(r.URL.Path, "/") {
+        path = r.URL.Path + "index.html"
+    } else {
+        path = r.URL.Path
+    }
+    http.ServeFile(w, r, "static/"+path)
 }
 
 
@@ -149,12 +157,27 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 
     templates.ExecuteTemplate(w, "header.html", nil)
     if userId != nil {
-        emailHeaders := LoadInbox(userId.PublicHash)
-        templates.ExecuteTemplate(w, "inbox.html", emailHeaders)
+        templates.ExecuteTemplate(w, "inbox.html", nil)
     } else {
         templates.ExecuteTemplate(w, "login.html", nil)
     }
     templates.ExecuteTemplate(w, "footer.html", nil)
+}
+
+func inboxFetchHandler(w http.ResponseWriter, r *http.Request) {
+    userId := authenticate(r)
+    if userId==nil {
+        http.Error(w, "Not logged in", 401)
+        return
+    }
+
+    emailHeaders := LoadInbox(userId.PublicHash)
+    emailHeadersJson, err := json.Marshal(emailHeaders)
+    if err!=nil {
+        panic(err)
+    }
+
+    w.Write(emailHeadersJson)
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {

@@ -19,6 +19,7 @@ func main() {
     http.HandleFunc("/user/", userHandler)
     http.HandleFunc("/user/me", privateHandler)
     http.HandleFunc("/email/", emailHandler)
+    http.HandleFunc("/email", inboxFetchHandler)
 
     http.HandleFunc("/style.css", staticHandler)
     http.HandleFunc("/favicon.ico", staticHandler)

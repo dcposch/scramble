@@ -145,6 +145,39 @@ function validateNewPassword(){
 //
 // INBOX
 //
+
+if(document.cookie){
+    if(!initPGP()) return;
+
+    $.get("/email", function(headers){
+        decryptPrivateKey(function(privateKey){
+            decryptSubjects(headers, privateKey)
+            displayInbox(headers)
+        })
+    }, 'json')
+}
+
+function decryptSubjects(headers, privateKey){
+    for(var i = 0; i < headers.length; i++){
+        var h = headers[i]
+        h.PlaintextSubject = decodePgp(h.CipherSubject, privateKey)
+    }
+}
+
+function displayInbox(headers){
+    var html = "";
+    for(var i = 0; i < headers.length; i++){
+        var h = headers[i];
+        html += "<li " + 
+            "data-id='"  +h.ID+"' "+
+            "data-from='"+h.From+"' "+
+            "data-to='"  +h.To+"'>"+
+            h.PlaintextSubject + 
+            "</li>";
+    }
+    $("#sidebar ul").html(html);
+}
+
 function readEmail(target){
     if(target.size()==0) return
     $("li.current").removeClass("current")
@@ -195,6 +228,8 @@ function decryptPrivateKey(fn){
     })
 }
 function decodePgp(armoredText, privateKey){
+    console.log([armoredText, privateKey]);
+
     var msgs = openpgp.read_message(armoredText)
     if(msgs.length != 1){
         alert("Warning. Expected 1 PGP message, found "+msgs.length)
@@ -311,12 +346,3 @@ function bin2hex(str){
 function hex2bin(str){
     return util.hex2bin(str)
 }
-
-/*window.util = {}
-window.util.print_debug_hexstr_dump = function(a,b){
-    console.log(a + b)
-}
-window.util.print_error =
-window.util.print_debug = function(a) {
-    console.log(a)
-}*/
