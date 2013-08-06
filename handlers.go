@@ -39,14 +39,15 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 // POST /user to create an account
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
-        fetchUserHandler(w, r)
+        getPublicKeyHandler(w, r)
     } else {
         createHandler(w, r)
     }
 }
 
-func fetchUserHandler(w http.ResponseWriter, r *http.Request) {
-    userPubHash := r.URL.Path[len("/user/"):]
+// GET /user/<public key hash> for public key lookup
+func getPublicKeyHandler(w http.ResponseWriter, r *http.Request) {
+    userPubHash := validateHash(r.URL.Path[len("/user/"):])
     userPub := LoadPubKey(userPubHash)
     if userPub == "" {
         http.Error(w, "Not found", 404)
@@ -57,19 +58,19 @@ func fetchUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
     user := new(User)
-    user.User = r.FormValue("user")
-    user.PasswordHash = r.FormValue("passwordHash")
-    user.PublicKey = r.FormValue("publicKey")
+    user.Token = validateToken(r.FormValue("token"))
+    user.PasswordHash = validateHash(r.FormValue("passHash"))
+    user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
     user.PublicHash = sha1hex(user.PublicKey)
-    user.CipherPrivateKey = r.FormValue("cipherPrivateKey")
+    user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 
-    log.Printf("Woot! New user %s %s\n", user.User, user.PublicHash)
+    log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
     SaveUser(user)
 
     // redirect to inbox
-    http.SetCookie(w, makeCookie("user", user.User))
-    http.SetCookie(w, makeCookie("passwordHash", user.PasswordHash))
+    http.SetCookie(w, makeCookie("token", user.Token))
+    http.SetCookie(w, makeCookie("passHash", user.PasswordHash))
     http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -82,9 +83,9 @@ func makeCookie(name string, value string) *http.Cookie {
 
 // GET /user/me for our encrypted private key 
 func privateHandler(w http.ResponseWriter, r *http.Request) {
-    userName := validate(r)
+    userId := authenticate(r)
 
-    user := LoadUser(userName)
+    user := LoadUser(userId.Token)
     if user == nil {
         http.Error(w, "Not found", 404)
         return
@@ -99,35 +100,42 @@ func privateHandler(w http.ResponseWriter, r *http.Request) {
 //
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-    user := r.FormValue("user")
-    passwordHash := r.FormValue("passwordHash")
+    token := r.FormValue("token")
+    passHash := r.FormValue("passHash")
 
-    if validateUserPass(user, passwordHash) {
+    userId := authenticateUserPass(token, passHash)
+    if userId != nil {
         // redirect to inbox
-        http.SetCookie(w, makeCookie("user", user))
-        http.SetCookie(w, makeCookie("passwordHash", passwordHash))
+        http.SetCookie(w, makeCookie("token", token))
+        http.SetCookie(w, makeCookie("passHash", passHash))
         http.Redirect(w, r, "/", http.StatusFound)
     } else {
         http.Error(w, "Incorrect user or passphrase", 401)
     }
 }
 
-func validateUserPass(user string, passHash string) bool{
-    correctHash := LoadPassHash(user)
-    return correctHash != "" && passHash == correctHash
+func authenticateUserPass(token string, passHash string) *UserID {
+    userId := LoadUserID(token)
+    if userId == nil {
+        return nil
+    }
+    if passHash != userId.PasswordHash || passHash == "" {
+        return nil
+    }
+    return userId
 }
 
-// Checks cookies, returns the logged-in user id or empty string
-func validate(r *http.Request) string{
-    user, err := r.Cookie("user")
+// Checks cookies, returns the logged-in user token or empty string
+func authenticate(r *http.Request) *UserID {
+    token, err := r.Cookie("token")
     if err != nil {
-        return ""
+        return nil
     }
-    passHash, err := r.Cookie("passwordHash")
-    if err != nil || !validateUserPass(user.Value, passHash.Value) {
-        return ""
+    passHash, err := r.Cookie("passHash")
+    if err != nil {
+        return nil
     }
-    return user.Value
+    return authenticateUserPass(token.Value, passHash.Value)
 }
 
 
@@ -137,12 +145,11 @@ func validate(r *http.Request) string{
 //
 
 func inboxHandler(w http.ResponseWriter, r *http.Request) {
-    userName := validate(r)
+    userId := authenticate(r)
 
     templates.ExecuteTemplate(w, "header.html", nil)
-    if userName != "" {
-        user := LoadUser(userName)
-        emailHeaders := LoadInbox(user.PublicHash)
+    if userId != nil {
+        emailHeaders := LoadInbox(userId.PublicHash)
         templates.ExecuteTemplate(w, "inbox.html", emailHeaders)
     } else {
         templates.ExecuteTemplate(w, "login.html", nil)
@@ -167,7 +174,7 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     message := LoadMessage(id)
-    w.Write([]byte(message.Body))
+    w.Write([]byte(message.CipherBody))
 }
 
 
@@ -177,8 +184,8 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
 //
 
 func composeHandler(w http.ResponseWriter, r *http.Request) {
-    user := validate(r)
-    if user=="" {
+    userId := authenticate(r)
+    if userId==nil {
         http.Error(w, "Not logged in", 401)
         return
     }
@@ -189,17 +196,17 @@ func composeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
-    user := validate(r)
-    if user=="" {
+    userId := authenticate(r)
+    if userId==nil {
         http.Error(w, "Not logged in", 401)
         return
     }
 
     email := new(Email)
-    email.From = user
+    email.From = userId.PublicHash + "@" + r.URL.Host
     email.To = r.FormValue("to")
-    email.Subject = r.FormValue("cipherSubject")
-    email.Body = r.FormValue("cipherBody")
+    email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
+    email.CipherBody = validateHex(r.FormValue("cipherBody"))
 
     SaveMessage(email)
 }

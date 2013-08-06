@@ -13,12 +13,12 @@ var KEY_SIZE = 2048
 var ALGO_SHA1 = 2
 var ALGO_AES128 = 7
 
-var REGEX_USER = /^[a-z0-9][a-z0-9][a-z0-9]+$/
+var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
-var REGEX_COOKIE_USER = /user=([^;]+)/
-var REGEX_COOKIE_PASS_HASH = /passwordHash=([^;]+)/
+var REGEX_COOKIE_TOKEN = /token=([^;]+)/
+var REGEX_COOKIE_PASS_HASH = /passHash=([^;]+)/
 
 function getCookie(regex){
     var match = regex.exec(document.cookie)
@@ -33,41 +33,41 @@ function getCookie(regex){
 
 function login(form){
     if(!initPGP()) return false
-    var user = getUser()
+    var token = getToken()
     var pass = getPassword()
 
     // make sure we don't send private data
     form.enterButton.disabled = true
-    form.password.disabled = true
+    form.pass.disabled = true
 
-    // two hashes of (user, pass), one encrypts the private key
+    // two hashes of (token, pass), one encrypts the private key
     // save to local storage. the server must never see it
-    var hashKey = computeKeyHash(user, pass)
+    var hashKey = computeKeyHash(token, pass)
     var aes128Key = hashKey.substring(0,16)
     localStorage["passKey"] = aes128Key
 
     // the other one authenticates us
-    var hashLogin = computePassHash(user, pass)
-    form.passwordHash.value = hashLogin
+    var hashLogin = computePassHash(token, pass)
+    form.passHash.value = hashLogin
     
     return true
 }
 
 function create(form){
     if(!initPGP()) return false
-    var user = validateUser()
-    if(user == null) return false
+    var token = validateToken()
+    if(token == null) return false
     var pass = validateNewPassword()
     if(pass == null) return false
 
     // make sure we don't send private data
     form.createButton.disabled = true
-    form.confirmPassword.disabled = true
+    form.confirmPass.disabled = true
 
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
-    var hashLogin = computePassHash(user, pass)
-    var hashKey   = computeKeyHash(user, pass)
+    var hashLogin = computePassHash(token, pass)
+    var hashKey   = computeKeyHash(token, pass)
     
     // create a new mailbox
     var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
@@ -87,9 +87,8 @@ function create(form){
     localStorage["privateKeyArmored"] = keys.privateKeyArmored
 
     // send it
-    form.action = "/user/"+user
-    form.user.value = user
-    form.passwordHash.value = hashLogin
+    form.token.value = token
+    form.passHash.value = hashLogin
     form.publicKey.value = keys.publicKeyArmored
     form.cipherPrivateKey.value = bin2hex(cipherPrivateKey); 
     
@@ -99,25 +98,25 @@ function create(form){
 function computePublicHash(publicKeyArmored){
     return new jsSHA(publicKeyArmored, "ASCII").getHash("SHA-1", "HEX")
 }
-function computePassHash(user, pass){
-    return new jsSHA("1"+user+pass, "ASCII").getHash("SHA-1", "HEX")
+function computePassHash(token, pass){
+    return new jsSHA("1"+token+pass, "ASCII").getHash("SHA-1", "HEX")
 }
-function computeKeyHash(user, pass){
-    return new jsSHA("2"+user+pass, "ASCII").getHash("SHA-1", "ASCII")
+function computeKeyHash(token, pass){
+    return new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
 }
 
-function getUser(){
-    return document.forms.loginForm.user.value.toLowerCase()
+function getToken(){
+    return document.forms.loginForm.token.value.toLowerCase()
 }
 
 function getPassword(){
-    return document.forms.loginForm.password.value
+    return document.forms.loginForm.pass.value
 }
 
-function validateUser(){
-    var user = getUser()
-    if(user.match(REGEX_USER)) {
-        return user
+function validateToken(){
+    var token = getToken()
+    if(token.match(REGEX_TOKEN)) {
+        return token
     } else {
         alert("User must be at least three letters and numbers.\n"
             + "No special characters.\n")
@@ -126,8 +125,8 @@ function validateUser(){
 }
 
 function validateNewPassword(){
-    var pass1 = document.forms.loginForm.password.value
-    var pass2 = document.forms.createForm.confirmPassword.value
+    var pass1 = document.forms.loginForm.pass.value
+    var pass2 = document.forms.createForm.confirmPass.value
     if(pass1 != pass2){
         alert("Passphrases must match")
         return null

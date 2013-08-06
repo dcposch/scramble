@@ -12,21 +12,21 @@ var db *sql.DB
 
 var migrations = [...]string{
     `create table if not exists user (
-        user varchar(100) not null,
+        token varchar(100) not null,
         password_hash char(40) not null,
         public_hash char(40) not null,
         public_key varchar(4000) not null,
         cipher_private_key varchar(4000) not null,
 
-        primary key (user),
+        primary key (token),
         unique index (public_hash)
     )`,
     `create table if not exists email (
         id bigint not null auto_increment,
         from_email varchar(254) not null,
         to_email varchar(254) not null,
-        subject varchar(1500) not null,
-        body longtext not null,
+        cipher_subject varchar(1500) not null,
+        cipher_body longtext not null,
 
         primary key (id),
         index (from_email, to_email),
@@ -60,9 +60,9 @@ func init() {
 
 func SaveUser (user *User) {
     _,err := db.Exec("insert into user" +
-        " (user, password_hash, public_hash, public_key, cipher_private_key)" +
+        " (token, password_hash, public_hash, public_key, cipher_private_key)" +
         " values (?, ?, ?, ?, ?)",
-        user.User, user.PasswordHash,
+        user.Token, user.PasswordHash,
         user.PublicHash, user.PublicKey,
         user.CipherPrivateKey)
     if err != nil {
@@ -70,11 +70,12 @@ func SaveUser (user *User) {
     }
 }
 
-func LoadUser (userName string) *User {
+func LoadUser (token string) *User {
     var user User
+    user.Token = token
     err := db.QueryRow("select" +
         " password_hash, public_hash, public_key, cipher_private_key" +
-        " from user where user=?", userName).Scan(
+        " from user where token=?", token).Scan(
         &user.PasswordHash,
         &user.PublicHash,
         &user.PublicKey,
@@ -88,54 +89,43 @@ func LoadUser (userName string) *User {
     return &user
 }
 
-func LoadPassHash (user string) string {
-    var passHash string
-    err := db.QueryRow("select password_hash" +
-        " from user where user=?", user).Scan(&passHash)
+func LoadUserID (token string) *UserID {
+    var user UserID
+    user.Token = token
+    err := db.QueryRow("select" +
+        " password_hash, public_hash" +
+        " from user where token=?", token).Scan(
+        &user.PasswordHash,
+        &user.PublicHash)
     if err == sql.ErrNoRows {
-        return ""
+        return nil
     }
     if err != nil {
         panic(err)
     }
-    return passHash
+    return &user
 }
 
-func LoadPubKey (pubHash string) string {
-    var pubKey string
+func LoadPubKey (publicHash string) string {
+    var publicKey string
     err := db.QueryRow("select public_key" +
         " from user where public_hash=?",
-        pubHash).Scan(&pubKey)
+        publicHash).Scan(&publicKey)
     if err == sql.ErrNoRows {
         return ""
     }
     if err != nil {
         panic(err)
     }
-    return pubKey
+    return publicKey
 }
 
-func LoadMessage (id int) Email {
-    var email Email
-    err := db.QueryRow("select id, from_email, to_email, subject, body" +
-        " from email where id=?",id).Scan(
-        &email.ID,
-        &email.From,
-        &email.To,
-        &email.Subject,
-        &email.Body)
-    if err != nil {
-        panic(err)
-    }
-    return email
-}
-
-func LoadInbox(userHash string) []EmailHeader {
-    log.Printf("Fetching inbox %s\n", userHash)
+func LoadInbox(publicHash string) []EmailHeader {
+    log.Printf("Fetching inbox %s\n", publicHash)
 
     // query
-    rows,err := db.Query("select id, from_email, to_email, subject"+
-        " from email where to_email like ?", userHash+"@%")
+    rows,err := db.Query("select id, from_email, to_email, cipher_subject"+
+        " from email where to_email like ?", publicHash+"@%")
     if err != nil {
         panic(err)
     }
@@ -144,7 +134,7 @@ func LoadInbox(userHash string) []EmailHeader {
     headers := make([]EmailHeader, 0)
     for rows.Next() {
         var header EmailHeader
-        rows.Scan(&header.ID, &header.From, &header.To, &header.Subject)
+        rows.Scan(&header.ID, &header.From, &header.To, &header.CipherSubject)
         headers = append(headers, header)
     }
 
@@ -152,9 +142,25 @@ func LoadInbox(userHash string) []EmailHeader {
 }
 
 func SaveMessage(e *Email) {
-    _,err := db.Exec("insert into email (from_email, to_email, subject, body) "+
-        "values (?,?,?,?)", e.From, e.To, e.Subject, e.Body)
+    _,err := db.Exec("insert into email (from_email, to_email, cipher_subject, cipher_body) "+
+        "values (?,?,?,?)", e.From, e.To, e.CipherSubject, e.CipherBody)
     if(err != nil){
         panic(err)
     }
 }
+
+func LoadMessage (id int) Email {
+    var email Email
+    err := db.QueryRow("select id, from_email, to_email, cipher_subject, cipher_body" +
+        " from email where id=?",id).Scan(
+        &email.ID,
+        &email.From,
+        &email.To,
+        &email.CipherSubject,
+        &email.CipherBody)
+    if err != nil {
+        panic(err)
+    }
+    return email
+}
+
