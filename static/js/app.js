@@ -17,12 +17,140 @@ var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
-var REGEX_COOKIE_TOKEN = /token=([^;]+)/
-var REGEX_COOKIE_PASS_HASH = /passHash=([^;]+)/
 
-function getCookie(regex){
-    var match = regex.exec(document.cookie)
-    return match == null ? null : unescape(match[1])
+
+//
+// LOAD THE SITE
+//
+
+$(function(){
+    if(!initPGP()) return
+
+    // are we logged in?
+    var token = $.cookie("token")
+    if(!token || !session.passKey) {
+        displayLogin()
+    } else {
+        loadDecryptAndDisplayInbox()
+    }
+})
+
+// Renders a Handlebars template, reading from a <script> tag. Returns HTML.
+function render(templateId, data) {
+    var source = document.getElementById(templateId).textContent
+    var template = Handlebars.compile(source)
+    return template(data)
+}
+
+// These variables are never seen by the server
+// They are for this session only, never stored in a cookie or localStorage
+var session = {
+    passKey: null, // AES128 key derived from passphrase, used to encrypt to private key
+    privateKeyArmored: null, // The plaintext private key
+}
+
+
+
+//
+// CONTROLLER
+//
+
+function bindLoginEvents() {
+    $("#enterButton").click(function(){
+        var token = $("#token").val()
+        var pass = $("#pass").val()
+        login(token, pass)
+    })
+
+    var keys = null;
+    $("#generateButton").click(function(){
+        var modalHtml = render("create-account-template")
+        $("#login").append(modalHtml)
+
+        setTimeout(function(){
+            // create a new mailbox
+            keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
+            var publicHash = computePublicHash(keys.publicKeyArmored)
+            var email = publicHash+"@"+window.location.hostname;
+
+            // Change "Generating..." to "Done", explain what's going on to the user
+            $("#createAccountModal h4").text("Welcome, "+email)
+            $("#spinner").css("display", "none")
+            $("#createForm").css("display", "block")
+        }, 0)
+
+        $("#createButton").click(function(){
+            createAccount(keys);
+        });
+    })
+}
+
+function bindSidebarEvents() {
+    // Navigate to Inbox
+    $("#tab-inbox").click(function(e){
+        console.log("inbox")
+        loadDecryptAndDisplayInbox()
+    })
+    
+    // Navigate to Compose
+    $("#tab-compose").click(function(e){
+        console.log("compose")
+        setSelectedTab($(e.target))
+        $("#inbox").html("")
+        $("#content").attr("class", "compose").html(render("compose-template"))
+        bindComposeEvents()
+    })
+    
+    // Log out: click a link, deletes cookies and refreshes the page
+    $("#link-logout").click(function(){
+        console.log("logout")
+        $.removeCookie("token")
+        $.removeCookie("passHash")
+    })
+}
+
+function bindInboxEvents() {
+    // Click on an email to open it
+    $("#inbox li").click(function(e){
+        readEmail($(e.target))
+    })
+
+    // Keyboard shortcuts: j for the email below, k for above
+    $(document).keypress(function(e){
+        var code = e.charCode || e.which
+        if(code==106){ //j
+            if($(".current").size() == 0){
+                msg = $("li").first()
+            } else {
+                msg = $(".current").next()
+            }
+            readEmail(msg)
+        } else if (code==107){ //k
+            readEmail($(".current").prev())
+        }
+    })
+}
+
+function bindComposeEvents() {
+    $("#sendButton").click(function(){
+        var subject = $("#subject").val()
+        var from = $("#from").val()
+        var to = $("#to").val()
+        var body = $("#body").val()
+
+        sendEmail(from, to, subject, body)
+    })
+}
+
+
+
+//
+// SIDEBAR
+//
+
+function setSelectedTab(tab) {
+    $("#sidebar .tab").removeClass("selected")
+    tab.addClass("selected")
 }
 
 
@@ -31,66 +159,89 @@ function getCookie(regex){
 // LOGIN
 //
 
-function login(form){
-    if(!initPGP()) return false
-    var token = getToken()
-    var pass = getPassword()
-
-    // make sure we don't send private data
-    form.enterButton.disabled = true
-    form.pass.disabled = true
-
-    // two hashes of (token, pass), one encrypts the private key
-    // save to local storage. the server must never see it
-    var hashKey = computeKeyHash(token, pass)
-    var aes128Key = hashKey.substring(0,16)
-    localStorage["passKey"] = aes128Key
-
-    // the other one authenticates us
-    var hashLogin = computePassHash(token, pass)
-    form.passHash.value = hashLogin
-    
-    return true
+function displayLogin(){
+    $("#wrapper").html(render("login-template"))
+    bindLoginEvents()
 }
 
-function create(form){
-    if(!initPGP()) return false
+function login(token, pass){
+    // two hashes of (token, pass)
+    // ...one encrypts the private key. the server must never see it
+    var keyHash = computeKeyHash(token, pass)
+    var aes128Key = keyHash.substring(0,16)
+
+    // save for this session only, never in a cookie or localStorage
+    session.passKey = aes128Key
+
+    // ...the other one authenticates us
+    var passHash = computePassHash(token, pass)
+
+    // set cookies, try loading the inbox
+    $.cookie("token", token) //, {"secure":true})
+    $.cookie("passHash", passHash) //, {"secure":true})
+    $.get("/inbox", function(inbox){
+        decryptAndDisplayInbox(inbox)
+    }, 'json').fail(function(){
+        alert("Incorrect user or passphrase")
+    })
+}
+
+// Generates a new PGP key pair. This takes a while.
+function createKeys() {
+    // create a new mailbox
+    var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
+    var publicHash = computePublicHash(keys.publicKeyArmored)
+    console.log("Creating "+publicHash+"@"+window.location.hostname)
+}
+
+// Attempts to creates a new account, given a freshly generated key pair.
+// Reads token and passphrase. Validates that the token is unique, 
+// and the passphrase strong enough.
+// Posts the token, a hash of the passphrase, public key, and 
+// encrypted private key to the server.
+function createAccount(keys){
     var token = validateToken()
     if(token == null) return false
     var pass = validateNewPassword()
     if(pass == null) return false
 
-    // make sure we don't send private data
-    form.createButton.disabled = true
-    form.confirmPass.disabled = true
-
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
-    var hashLogin = computePassHash(token, pass)
-    var hashKey   = computeKeyHash(token, pass)
-    
-    // create a new mailbox
-    var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
-    var publicHash = computePublicHash(keys.publicKeyArmored)
-    console.log("Creating "+publicHash+"@"+window.location.hostname)
+    var passHash = computePassHash(token, pass)
+    var keyHash  = computeKeyHash(token, pass)
+
+    // save for this session only, never in a cookie or localStorage
+    session.passKey = aes128Key
+    session.privateKeyArmored = keys.privateKeyArmored
 
     // encrypt the private key with the user's passphrase
     // first 16 bytes = 128 bits. the hash is binary, not actually "ASCII"
-    var aes128Key = hashKey.substring(0,16); 
+    var aes128Key = keyHash.substring(0,16); 
     var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128)
     var cipherPrivateKey = openpgp_crypto_symmetricEncrypt(
         prefixRandom, ALGO_AES128, aes128Key, keys.privateKeyArmored)
 
-
-    // save to local storage
-    localStorage["passKey"] = aes128Key
-    localStorage["privateKeyArmored"] = keys.privateKeyArmored
-
     // send it
-    form.token.value = token
-    form.passHash.value = hashLogin
-    form.publicKey.value = keys.publicKeyArmored
-    form.cipherPrivateKey.value = bin2hex(cipherPrivateKey); 
+    var data = {
+        token:token,
+        passHash:passHash,
+        publicKey:keys.publicKeyArmored,
+        cipherPrivateKey:bin2hex(cipherPrivateKey)
+    }
+    $.post("/user/", data, function(){
+        alert("Successfully created account")
+
+        // set cookies, try loading the inbox
+        $.cookie("token", token) //, {"secure":true})
+        $.cookie("passHash", passHash) //, {"secure":true})
+        $.get("/inbox", function(inbox){
+            decryptAndDisplayInbox(inbox)
+        }, 'json').fail(function(){
+            alert("Try refreshing the page, then logging in.")
+        })
+    }).fail(function(){
+        alert("Account creation failed")
+    })
     
     return true
 }
@@ -98,23 +249,17 @@ function create(form){
 function computePublicHash(publicKeyArmored){
     return new jsSHA(publicKeyArmored, "ASCII").getHash("SHA-1", "HEX")
 }
+
 function computePassHash(token, pass){
     return new jsSHA("1"+token+pass, "ASCII").getHash("SHA-1", "HEX")
 }
+
 function computeKeyHash(token, pass){
     return new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
 }
 
-function getToken(){
-    return document.forms.loginForm.token.value.toLowerCase()
-}
-
-function getPassword(){
-    return document.forms.loginForm.pass.value
-}
-
 function validateToken(){
-    var token = getToken()
+    var token = $("#createToken").val()
     if(token.match(REGEX_TOKEN)) {
         return token
     } else {
@@ -125,8 +270,8 @@ function validateToken(){
 }
 
 function validateNewPassword(){
-    var pass1 = document.forms.loginForm.pass.value
-    var pass2 = document.forms.createForm.confirmPass.value
+    var pass1 = $("#createPass").val()
+    var pass2 = $("#confirmPass").val()
     if(pass1 != pass2){
         alert("Passphrases must match")
         return null
@@ -146,80 +291,58 @@ function validateNewPassword(){
 // INBOX
 //
 
-if(document.cookie){
-    if(!initPGP()) return;
+function loadDecryptAndDisplayInbox(){
+    $.get("/inbox", function(inbox){
+        decryptAndDisplayInbox(inbox)
+    }, 'json').fail(function(){
+        displayLogin()
+    })
+}
 
-    $.get("/email", function(headers){
-        decryptPrivateKey(function(privateKey){
-            decryptSubjects(headers, privateKey)
-            displayInbox(headers)
-        })
-    }, 'json')
+function decryptAndDisplayInbox(inboxSummary){
+    decryptPrivateKey(function(privateKey){
+        decryptSubjects(inboxSummary.EmailHeaders, privateKey)
+        var data = {
+            token:        $.cookie("token"),
+            pubHash:      inboxSummary.PublicHash,
+            domain:       document.location.hostname,
+            emailHeaders: inboxSummary.EmailHeaders
+        }
+        $("#wrapper").html(render("page-template", data))
+        bindSidebarEvents()
+        setSelectedTab($("#tab-inbox"))
+        $("#inbox").html(render("inbox-template", data))
+        bindInboxEvents()
+    })
 }
 
 function decryptSubjects(headers, privateKey){
     for(var i = 0; i < headers.length; i++){
         var h = headers[i]
-        h.PlaintextSubject = decodePgp(h.CipherSubject, privateKey)
+        try {
+            h.Subject = decodePgp(h.CipherSubject, privateKey)
+        } catch (fuu){
+            h.Subject = "Decryption Failed"
+        }
     }
-}
-
-function displayInbox(headers){
-    var html = "";
-    for(var i = 0; i < headers.length; i++){
-        var h = headers[i];
-        html += "<li " + 
-            "data-id='"  +h.ID+"' "+
-            "data-from='"+h.From+"' "+
-            "data-to='"  +h.To+"'>"+
-            h.PlaintextSubject + 
-            "</li>";
-    }
-    $("#sidebar ul").html(html);
-}
-
-function readEmail(target){
-    if(target.size()==0) return
-    $("li.current").removeClass("current")
-    target.addClass("current")
-
-    if(!initPGP()) return
-
-    $.get("/email/"+target.data("id"), function(cipherBody){
-        $("label").show()
-
-        var plaintextSubject = target.text()
-        var emailFrom = target.data("from")
-        var emailTo = target.data("to")
-
-        $("#from").text(emailFrom)
-        $("#to").text(emailTo)
-        $("#subject").text(plaintextSubject)
-        decryptPrivateKey(function(privateKey){
-            var plaintextBody = decodePgp(cipherBody, privateKey)
-            $("#body").text(plaintextBody)
-        })
-    }, "text")
 }
 
 function decryptPrivateKey(fn){
-    if(localStorage["privateKeyArmored"]){
-        var privateKey = openpgp.read_privateKey(localStorage["privateKeyArmored"])
+    if(session.privateKeyArmored){
+        var privateKey = openpgp.read_privateKey(session.privateKeyArmored)
         fn(privateKey)
         return
     }
-    var passKeyAes128 = localStorage["passKey"]
-    if(!passKeyAes128){
-        alert("Did you delete localStorage?\nPlease log out and back in.")
+    if(!session.passKey){
+        alert("Missing passphrase. Please log out and back in.")
         return
     }
-    alert(passKeyAes128)
 
     $.get("/user/me", function(cipherPrivateKeyHex){
         var cipherPrivateKey = hex2bin(cipherPrivateKeyHex)
         var privateKeyArmored = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, passKeyAes128, cipherPrivateKey)
-        localStorage["privateKeyArmored"] = privateKeyArmored
+            ALGO_AES128, session.passKey, cipherPrivateKey)
+        session.privateKeyArmored = privateKeyArmored
         var privateKey = openpgp.read_privateKey(privateKeyArmored)
         fn(privateKey)
     }, "text").fail(function(){
@@ -228,7 +351,7 @@ function decryptPrivateKey(fn){
     })
 }
 function decodePgp(armoredText, privateKey){
-    console.log([armoredText, privateKey]);
+    console.log([armoredText, privateKey])
 
     var msgs = openpgp.read_message(armoredText)
     if(msgs.length != 1){
@@ -250,23 +373,26 @@ function decodePgp(armoredText, privateKey){
     return text
 }
 
-$("li").click(function(e){
-    readEmail($(e.target))
-})
+// Takes a subject-line <li>, selects it, shows the full email
+function readEmail(target){
+    if(target.size()==0) return
+    $("li.current").removeClass("current")
+    target.addClass("current")
 
-$(document).keypress(function(e){
-    var code = e.charCode || e.which
-    if(code==106){ //j
-        if($(".current").size() == 0){
-            msg = $("li").first()
-        } else {
-            msg = $(".current").next()
-        }
-        readEmail(msg)
-    } else if (code==107){ //k
-        readEmail($(".current").prev())
-    }
-})
+    $.get("/email/"+target.data("id"), function(cipherBody){
+        decryptPrivateKey(function(privateKey){
+            var plaintextBody = decodePgp(cipherBody, privateKey)
+
+            var data = {
+                emailFrom: target.data("from"),
+                emailTo: target.data("to"),
+                subject: target.text(),
+                body: plaintextBody
+            }
+            $("#content").attr("class", "email").html(render("email-template", data))
+        })
+    }, "text")
+}
 
 
 
@@ -274,11 +400,8 @@ $(document).keypress(function(e){
 // COMPOSE
 //
 
-function sendEmail(form){
-    if(!initPGP()) return false
-
+function sendEmail(from,to,subject,body){
     // send encrypted if possible
-    var to = form.to.value
     if(!to.match(REGEX_EMAIL)){
         alert("Invalid email address "+to)
         return false
@@ -291,23 +414,33 @@ function sendEmail(form){
     // look up the recipient's public key
     $.get("/user/"+toPubHash, function(data){
         var toPub = openpgp.read_publicKey(data)
-        var cipherSubject = openpgp.write_encrypted_message(toPub, form.subject.value)
-        var cipherBody = openpgp.write_encrypted_message(toPub, form.body.value)
+        var cipherSubject = openpgp.write_encrypted_message(toPub, subject)
+        var cipherBody = openpgp.write_encrypted_message(toPub, body)
         alert("This message is going to be sent:\n" + cipherBody)
 
-        // make sure we don't send plaintext
-        form.sendButton.disabled = true
-        form.subject.disabled = true
-        form.body.disabled = true
-
-        form.cipherSubject.value = cipherSubject
-        form.cipherBody.value = cipherBody
-
-        form.submit()
+        var data = {
+            from: from,
+            to: to,
+            cipherSubject: cipherSubject,
+            cipherBody: cipherBody
+        }
+        $.post("/email/", data, function(){
+            clearComposeForm()
+            alert("Sent successfully")
+        }).fail(function(){
+            alert("Sending failed")
+        })
     }).fail(function(){
         alert("Could not find public key for "+toPubHash+"@...")
     })
     return false
+}
+
+function clearComposeForm(){
+    $("#from").val("")
+    $("#to").val("")
+    $("#subject").val("")
+    $("#body").val("")
 }
 
 function sendEmailUnencrypted(from, to, subject, body){

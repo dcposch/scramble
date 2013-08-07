@@ -13,6 +13,19 @@ h2 {
 font-size:24px;
 margin:10px 0;
 }
+a, 
+a:visited,
+a:hover {
+color:#03a;
+text-decoration:none;
+}
+#content {
+position:absolute;
+left:312px;
+top:0px;
+right:0px;
+padding:6px;
+}
 
 
 
@@ -24,17 +37,17 @@ border:1px solid #ccc;
 textarea {
 border:1px solid #ccc;
 }
-input[type=submit] {
-width:70px;
-height:24px;
-font: 14px "Trebuchet MS",sans-serif;
-color:#03a;
-}
 label {
 display:inline-block;
 width:140px;
 margin:0 10px 0 0;
 text-align:right;
+}
+input[type=submit] {
+width:70px;
+height:24px;
+font: 14px "Trebuchet MS",sans-serif;
+color:#03a;
 }
 
 
@@ -43,10 +56,6 @@ text-align:right;
 #login {
 width:460px;
 margin:100px auto;
-white-space:nowrap;
-}
-#login form {
-margin:10px 0;
 }
 #login h1 {
 margin-left:150px;
@@ -55,6 +64,7 @@ margin-left:150px;
 #login .strike {
 text-align:center;
 font-style:italic;
+margin:10px 0;
 }
 #login .strike hr {
 position:relative;
@@ -68,16 +78,43 @@ border:none;
 #login .strike span {
 margin:4px;
 }
+#login input[type=submit] {
+margin-left:150px;
+width:160px;
+}
+#login label {
+white-space:nowrap;
+}
 
 
-
-/* INBOX */
-#content {
+/* MODAL CREATE ACCOUNT */
+#modalBackground {
+position:fixed;
+top:0;
+right:0;
+bottom:0;
+left:0;
+background:#000;
+opacity:0.5;
+transition: opacity 400ms ease-in;
+}
+#createAccountModal {
 position:absolute;
-left:306px;
-top:0px;
-right:0px;
-padding:6px;
+top:100px;
+background:#fff;
+width:600px;
+height:450px;
+margin:0 auto;
+text-align:center;
+border-radius:3px;
+}
+#createAccountModal h4 {
+margin:40px 0;
+}
+#createAccountModal #createForm {
+display:none;
+margin:50px;
+text-align:left;
 }
 
 
@@ -92,12 +129,30 @@ width:300px;
 border-right:1px solid #ddd;
 padding:6px;
 }
-#sidebar ul {
+#sidebar .welcome {
+margin:8px 0;
+font-weight:bold;
+}
+#sidebar .email {
+font:10px monospace;
+}
+#sidebar .tab {
+color:#03a;
+cursor:pointer;
+}
+#sidebar .tab.selected {
+color:#000;
+}
+
+
+
+/* INBOX */
+#inbox {
 list-style-type:none;
 padding:0px;
 margin:0px;
 }
-#sidebar ul li {
+#inbox li {
 border-top:1px solid #ddd;
 padding:6px 0;
 white-space:nowrap;
@@ -105,16 +160,9 @@ overflow:hidden;
 text-overflow:ellipsis;
 cursor:pointer;
 }
-#sidebar ul li:hover, ul li.current {
+#inbox li:hover, ul li.current {
 background:#eee;
 }
-#sidebar a, 
-#sidebar a:visited,
-#sidebar a:hover {
-color:#03a;
-text-decoration:none;
-}
-
 
 
 /* COMPOSE */

@@ -6,26 +6,13 @@ import (
     "strings"
     "strconv"
     "net/http"
-    "html/template"
 )
 
 
 
 //
-// HELPERS
+// SERVE HTML, CSS, JS
 //
-
-var templates = template.Must(template.ParseFiles(
-    file("header"),
-    file("footer"),
-    file("login"),
-    file("inbox"),
-    file("email"),
-    file("compose")))
-
-func file(name string) string {
-    return "templates/"+name+".html"
-}
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
     var path string
@@ -43,8 +30,6 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 // USER ROUTE
 //
 
-// GET /user/<public key hash> for public key lookup
-// POST /user to create an account
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
         getPublicKeyHandler(w, r)
@@ -54,16 +39,21 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /user/<public key hash> for public key lookup
+// The server is untrusted, so the client will verify in Javascript
+// that the public key we send here matches the hash they requested
 func getPublicKeyHandler(w http.ResponseWriter, r *http.Request) {
     userPubHash := validateHash(r.URL.Path[len("/user/"):])
     userPub := LoadPubKey(userPubHash)
     if userPub == "" {
-        http.Error(w, "Not found", 404)
+        http.Error(w, "Not found", http.StatusNotFound)
     } else {
         w.Write([]byte(userPub))
     }
 }
 
+// POST /user to create a new account
+// Remember that public and private key generation happens
+// on the client. Public key, encrypted private key posted here.
 func createHandler(w http.ResponseWriter, r *http.Request) {
     user := new(User)
     user.Token = validateToken(r.FormValue("token"))
@@ -75,27 +65,15 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
     SaveUser(user)
-
-    // redirect to inbox
-    http.SetCookie(w, makeCookie("token", user.Token))
-    http.SetCookie(w, makeCookie("passHash", user.PasswordHash))
-    http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func makeCookie(name string, value string) *http.Cookie {
-    cookie := new(http.Cookie)
-    cookie.Name=name
-    cookie.Value=value
-    return cookie
-}
-
-// GET /user/me for our encrypted private key 
+// GET /user/me for the logged-in user's encrypted private key 
 func privateHandler(w http.ResponseWriter, r *http.Request) {
     userId := authenticate(r)
 
     user := LoadUser(userId.Token)
     if user == nil {
-        http.Error(w, "Not found", 404)
+        http.Error(w, "Not found", http.StatusNotFound)
         return
     }
     w.Write([]byte(user.CipherPrivateKey))
@@ -104,34 +82,8 @@ func privateHandler(w http.ResponseWriter, r *http.Request) {
 
 
 //
-// LOGIN AND AUTH
+// AUTHENTICATION
 //
-
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-    token := r.FormValue("token")
-    passHash := r.FormValue("passHash")
-
-    userId := authenticateUserPass(token, passHash)
-    if userId != nil {
-        // redirect to inbox
-        http.SetCookie(w, makeCookie("token", token))
-        http.SetCookie(w, makeCookie("passHash", passHash))
-        http.Redirect(w, r, "/", http.StatusFound)
-    } else {
-        http.Error(w, "Incorrect user or passphrase", 401)
-    }
-}
-
-func authenticateUserPass(token string, passHash string) *UserID {
-    userId := LoadUserID(token)
-    if userId == nil {
-        return nil
-    }
-    if passHash != userId.PasswordHash || passHash == "" {
-        return nil
-    }
-    return userId
-}
 
 // Checks cookies, returns the logged-in user token or empty string
 func authenticate(r *http.Request) *UserID {
@@ -146,39 +98,50 @@ func authenticate(r *http.Request) *UserID {
     return authenticateUserPass(token.Value, passHash.Value)
 }
 
+func authenticateUserPass(token string, passHash string) *UserID {
+    userId := LoadUserID(token)
+    if userId == nil {
+        return nil
+    }
+    if passHash != userId.PasswordHash || passHash == "" {
+        return nil
+    }
+    return userId
+}
+
 
 
 //
 // INBOX ROUTE
 //
 
+// Takes no arguments, returns all the metadata about a user's inbox.
+// Encrypted subjects are returned, but no message bodies.
+// The caller must have auth cookies set.
 func inboxHandler(w http.ResponseWriter, r *http.Request) {
     userId := authenticate(r)
-
-    templates.ExecuteTemplate(w, "header.html", nil)
-    if userId != nil {
-        templates.ExecuteTemplate(w, "inbox.html", nil)
-    } else {
-        templates.ExecuteTemplate(w, "login.html", nil)
-    }
-    templates.ExecuteTemplate(w, "footer.html", nil)
-}
-
-func inboxFetchHandler(w http.ResponseWriter, r *http.Request) {
-    userId := authenticate(r)
     if userId==nil {
-        http.Error(w, "Not logged in", 401)
+        http.Error(w, "Not logged in", http.StatusUnauthorized)
         return
     }
 
-    emailHeaders := LoadInbox(userId.PublicHash)
-    emailHeadersJson, err := json.Marshal(emailHeaders)
+    var inbox InboxSummary
+    inbox.Token = userId.Token
+    inbox.PublicHash = userId.PublicHash
+    inbox.EmailHeaders = LoadInbox(userId.PublicHash)
+    inboxJson, err := json.Marshal(inbox)
     if err!=nil {
         panic(err)
     }
 
-    w.Write(emailHeadersJson)
+    w.Write(inboxJson)
 }
+
+
+
+//
+// EMAIL ROUTE
+//
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "GET" {
@@ -188,11 +151,12 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+// GET /email/id fetches the body
 func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
     idStr := r.URL.Path[len("/email/"):]
     id,err := strconv.Atoi(idStr)
     if err!=nil {
-        http.Error(w, "Invalid email ID "+idStr, 500)
+        http.Error(w, "Invalid email ID "+idStr, http.StatusBadRequest)
         return
     }
 
@@ -200,28 +164,10 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
     w.Write([]byte(message.CipherBody))
 }
 
-
-
-//
-// COMPOSE ROUTE
-//
-
-func composeHandler(w http.ResponseWriter, r *http.Request) {
-    userId := authenticate(r)
-    if userId==nil {
-        http.Error(w, "Not logged in", 401)
-        return
-    }
-
-    templates.ExecuteTemplate(w, "header.html", nil)
-    templates.ExecuteTemplate(w, "compose.html", nil)
-    templates.ExecuteTemplate(w, "footer.html", nil)
-}
-
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
     userId := authenticate(r)
     if userId==nil {
-        http.Error(w, "Not logged in", 401)
+        http.Error(w, "Not logged in", http.StatusUnauthorized)
         return
     }
 

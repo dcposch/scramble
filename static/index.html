@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SCRAMBLE.IO</title>
+    <link rel="stylesheet" href="/style.css"></link>
+</head>
+<body>
+<div id="wrapper"></div>
+
+
+<!-- LOGIN -->
+<script id="login-template" type="text/x-handlebars-template">
+<div id="login">
+    <h1>SCRAMBLE</h1>
+
+    <div><label>User</label><input type="text" id="token"></input></div>
+    <div><label>Passphrase</label><input type="password" id="pass"></input></div>
+    <div><input type="submit" id="enterButton" value="Log In"></input></div>
+
+    <div class="strike"><hr /><span>or</span><hr /></div>
+
+    <input type="submit" id="generateButton" value="Generate Account"></input></div>
+</div>
+</script>
+
+
+
+<!-- CREATE ACCOUNT MODAL -->
+<script id="create-account-template" type="text/x-handlebars-template">
+<div id="modalBackground">
+</div>
+<div id="createAccountModal">
+    <h4>Generating public and private key...</h4>
+    <div id="spinner"><img src="spinner.gif" /></div>
+
+    <div id="createForm">
+    <p>You've just generated a public and private key in your browser!</p>
+    <p>If you don't know what those are, don't worry. Scramble is easy to use.</p>
+    <p>(If you're curious, learn about PGP <a href="http://www.pgpi.org/doc/pgpintro/">here</a> or about our design <a href="https://scramble.io/doc/">here</a>.)</p>
+       
+    <p><strong>Pick a strong passphrase, and don't forget it.</strong> <a href="http://xkcd.com/936/">Here's how.</a></p>
+    <p>All encryption happens in the browser. The Scramble servers only see ciphertext, which is great for security. The flip side is that if you forget your passphrase, your email is lost.</p>
+
+    <div><label>User</label><input type="text" id="createToken"></input></div>
+    <div><label>Passphrase</label><input type="password" id="createPass"></input></div>
+    <div><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
+    <div><input type="submit" id="createButton" value="Create Account"></input></div>
+    </div>
+</div>
+</script>
+
+
+
+<!-- PAGE STRUCTURE -->
+<script id="page-template" type="text/x-handlebars-template">
+<div id="sidebar">
+    <h1>SCRAMBLE</h1>
+    <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout">Log Out</a></div>
+    <div class="email">{{pubHash}}@{{domain}}</div>
+    <h2 id="tab-compose" class="tab">Compose</h2>
+    <h2 id="tab-inbox" class="tab">Inbox</h2>
+    <ul id="inbox"></ul>
+    <div class="email">Keyboard shortcuts: j and k</div>
+</div>
+
+<div id="content">
+</div>
+</script>
+
+
+<!-- INBOX -->
+<script id="inbox-template" type="text/x-handlebars-template">
+{{#each emailHeaders}}
+    <li data-id="{{ID}}">{{Subject}}</li>
+{{/each}}
+</script>
+
+
+<!-- SINGLE EMAIL -->
+<script id="email-template" type="text/x-handlebars-template">
+<h1 class="subject">{{subject}}</h1>
+<h2 class="from">{{from}}</h2>
+<h2 class="to">{{to}}</h2>
+<pre class="body">{{body}}</pre>
+</script>
+
+
+<!-- COMPOSE -->
+<script id="compose-template" type="text/x-handlebars-template">
+<div><label for="subject">Subject</label><input type="text" id="subject"></span></div>
+<div><label for="to">To</label><input type="text" id="to"></span></div>
+<textarea id="body">
+
+--
+Encrypted with https://scramble.io
+</textarea>
+<input type="submit" id="sendButton" value="Send"></input>
+</script>
+
+
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script type="text/javascript" src="/js/jquery.cookie.js"></script>
+<script type="text/javascript" src="/js/handlebars.js"></script>
+<script type="text/javascript" src="/js/openpgp.js"></script>
+<script type="text/javascript" src="/js/app.js"></script>
+</body>
+</html>

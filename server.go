@@ -4,27 +4,19 @@ import (
     "log"
     "net/http"
 
-    //"io/ioutil"
     //"github.com/dcposch/go-smtpd"
     //"code.google.com/p/go.crypto/openpgp"
-    //"encoding/base64"
 )
 
-// WEB UI
 func main() {
-    http.HandleFunc("/", inboxHandler)
-    http.HandleFunc("/login", loginHandler)
-    http.HandleFunc("/compose", composeHandler)
-
+    // Rest API
     http.HandleFunc("/user/", userHandler)
     http.HandleFunc("/user/me", privateHandler)
     http.HandleFunc("/email/", emailHandler)
-    http.HandleFunc("/email", inboxFetchHandler)
+    http.HandleFunc("/inbox", inboxHandler)
 
-    http.HandleFunc("/style.css", staticHandler)
-    http.HandleFunc("/favicon.ico", staticHandler)
-    http.HandleFunc("/doc/", staticHandler)
-    http.HandleFunc("/js/", staticHandler)
+    // Resources
+    http.HandleFunc("/", staticHandler)
 
     http.ListenAndServe(":8888", Log(http.DefaultServeMux))
 }

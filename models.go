@@ -8,6 +8,8 @@ type User struct {
     CipherPrivateKey string
 }
 
+// A single user's identifying info
+// All hashes are hex encoded
 type UserID struct {
     Token string
     PasswordHash string
@@ -28,3 +30,10 @@ type Email struct {
     EmailHeader
     CipherBody string
 }
+
+type InboxSummary struct {
+    Token string
+    PublicHash string
+    EmailHeaders []EmailHeader
+}
+
