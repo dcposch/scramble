@@ -229,8 +229,6 @@ function createAccount(keys){
         cipherPrivateKey:bin2hex(cipherPrivateKey)
     }
     $.post("/user/", data, function(){
-        alert("Successfully created account")
-
         // set cookies, try loading the inbox
         $.cookie("token", token) //, {"secure":true})
         $.cookie("passHash", passHash) //, {"secure":true})
@@ -239,8 +237,8 @@ function createAccount(keys){
         }, 'json').fail(function(){
             alert("Try refreshing the page, then logging in.")
         })
-    }).fail(function(){
-        alert("Account creation failed")
+    }).fail(function(xhr){
+        alert(xhr.responseText)
     })
     
     return true
@@ -345,8 +343,8 @@ function decryptPrivateKey(fn){
         session.privateKeyArmored = privateKeyArmored
         var privateKey = openpgp.read_privateKey(privateKeyArmored)
         fn(privateKey)
-    }, "text").fail(function(){
-        alert("Failed to retrieve our own encrypted private key")
+    }, "text").fail(function(xhr){
+        alert("Failed to retrieve our own encrypted private key: "+xhr.responseText)
         return
     })
 }
@@ -416,7 +414,6 @@ function sendEmail(from,to,subject,body){
         var toPub = openpgp.read_publicKey(data)
         var cipherSubject = openpgp.write_encrypted_message(toPub, subject)
         var cipherBody = openpgp.write_encrypted_message(toPub, body)
-        alert("This message is going to be sent:\n" + cipherBody)
 
         var data = {
             from: from,
@@ -426,9 +423,8 @@ function sendEmail(from,to,subject,body){
         }
         $.post("/email/", data, function(){
             clearComposeForm()
-            alert("Sent successfully")
-        }).fail(function(){
-            alert("Sending failed")
+        }).fail(function(xhr){
+            alert("Sending failed: "+xhr.responseText)
         })
     }).fail(function(){
         alert("Could not find public key for "+toPubHash+"@...")

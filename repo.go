@@ -58,8 +58,8 @@ func init() {
     }
 }
 
-func SaveUser (user *User) {
-    _,err := db.Exec("insert into user" +
+func SaveUser (user *User) bool {
+    res,err := db.Exec("insert ignore into user" +
         " (token, password_hash, public_hash, public_key, cipher_private_key)" +
         " values (?, ?, ?, ?, ?)",
         user.Token, user.PasswordHash,
@@ -68,6 +68,11 @@ func SaveUser (user *User) {
     if err != nil {
         panic(err)
     }
+    nrows,err := res.RowsAffected()
+    if err != nil {
+        panic(err)
+    }
+    return nrows==1
 }
 
 func LoadUser (token string) *User {

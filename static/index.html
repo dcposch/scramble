@@ -71,16 +71,16 @@
 <!-- INBOX -->
 <script id="inbox-template" type="text/x-handlebars-template">
 {{#each emailHeaders}}
-    <li data-id="{{ID}}">{{Subject}}</li>
+    <li data-id="{{ID}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
 {{/each}}
 </script>
 
 
 <!-- SINGLE EMAIL -->
 <script id="email-template" type="text/x-handlebars-template">
-<h1 class="subject">{{subject}}</h1>
-<h2 class="from">{{from}}</h2>
-<h2 class="to">{{to}}</h2>
+<h2 class="subject">{{subject}}</h1>
+<h3 class="from">From {{emailFrom}}</h2>
+<h3 class="to">To {{emailTo}}</h2>
 <pre class="body">{{body}}</pre>
 </script>
 

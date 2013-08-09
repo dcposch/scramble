@@ -64,7 +64,9 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 
     log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
-    SaveUser(user)
+    if !SaveUser(user) {
+        http.Error(w, "That username is taken", http.StatusBadRequest)
+    }
 }
 
 // GET /user/me for the logged-in user's encrypted private key 
