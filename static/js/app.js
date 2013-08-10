@@ -21,10 +21,9 @@ var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 //
 // SESSION VARIABLES
 //
-// These are never seen by the server
-// They are for this session only, never stored in a cookie or localStorage
+// These are never seen by the server, and never go in cookies or localStorage
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
-// sessionStorage["privateKeyArmored"] is he plaintext private key, PGP ascii armored
+// sessionStorage["privateKeyArmored"] is the plaintext private key, PGP ascii armored
 //
 // For convenience, we also have
 // sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
@@ -95,23 +94,18 @@ function bindLoginEvents() {
 function bindSidebarEvents() {
     // Navigate to Inbox
     $("#tab-inbox").click(function(e){
-        console.log("inbox")
         loadDecryptAndDisplayInbox()
     })
     
     // Navigate to Compose
     $("#tab-compose").click(function(e){
-        console.log("compose")
         setSelectedTab($(e.target))
         $("#inbox").html("")
-        $("#content").attr("class", "compose").html(render("compose-template"))
-        bindComposeEvents()
-        clearComposeForm()
+        displayCompose()
     })
     
     // Log out: click a link, deletes cookies and refreshes the page
     $("#link-logout").click(function(){
-        console.log("logout")
         $.removeCookie("token")
         $.removeCookie("passHash")
     })
@@ -138,6 +132,22 @@ function bindKeyboardShortcuts() {
         } else if (code==107){ //k
             readEmail($(".current").prev())
         }
+    })
+}
+
+function bindEmailEvents(email) {
+    $("#replyButton").click(function(){
+        displayCompose(email.from, email.subject, "")
+    })
+    $("#replyAllButton").click(function(){
+        var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
+            // email starts with our pubHash -> don't reply to our self
+            return addr.indexOf(sessionStorage["pubHash"]) != 0
+        }).concat([email.from])
+        displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
+    })
+    $("#forwardButton").click(function(){
+        displayCompose("", email.subject, email.body)
     })
 }
 
@@ -389,13 +399,16 @@ function readEmail(target){
         decryptPrivateKey(function(privateKey){
             var plaintextBody = decodePgp(cipherBody, privateKey)
 
-            var data = {
-                emailFrom: target.data("from"),
-                emailTo: target.data("to"),
-                subject: target.text(),
-                body: plaintextBody
+            var email = {
+                from:        target.data("from"),
+                to:          target.data("to"),
+                toAddresses: target.data("to").split(",").map(trimToLower),
+                subject:     target.text(),
+                body:        plaintextBody
             }
-            $("#content").attr("class", "email").html(render("email-template", data))
+            var html = render("email-template", email)
+            $("#content").attr("class", "email").html(html)
+            bindEmailEvents(email)
         })
     }, "text")
 }
@@ -405,6 +418,15 @@ function readEmail(target){
 //
 // COMPOSE
 //
+function displayCompose(to, subject, body){
+    var html = render("compose-template", {
+        to:to,
+        subject:subject,
+        body:body
+    })
+    $("#content").attr("class", "compose").html(html)
+    bindComposeEvents()
+}
 
 function sendEmail(to,subject,body){
     // send encrypted if possible
@@ -442,13 +464,6 @@ function sendEmail(to,subject,body){
     return false
 }
 
-function clearComposeForm(){
-    $("#from").val("")
-    $("#to").val("")
-    $("#subject").val("")
-    $("#body").val("\n\n---\nSecured with https://scramble.io")
-}
-
 function sendEmailEncrypted(to,subject,body,box,pubHash){
     $.get("/user/"+pubHash, function(data){
         var publicKey = openpgp.read_publicKey(data)
@@ -463,7 +478,7 @@ function sendEmailEncrypted(to,subject,body,box,pubHash){
             cipherBody: cipherBody
         }
         $.post("/email/", data, function(){
-            clearComposeForm()
+            displayCompose()
         }).fail(function(xhr){
             alert("Sending failed: "+xhr.responseText)
         })

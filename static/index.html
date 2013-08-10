@@ -79,20 +79,28 @@
 <!-- SINGLE EMAIL -->
 <script id="email-template" type="text/x-handlebars-template">
 <h2 class="subject">{{subject}}</h1>
-<h3 class="from">From {{emailFrom}}</h2>
-<h3 class="to">To {{emailTo}}</h2>
+<div><label>From</label><span class="from">{{from}}</span></div>
+<div><label>To</label>  <span class="to">{{to}}</span></div>
+<div>
+    <button id="replyButton">Reply</button>
+    <button id="replyAllButton">Reply All</button>
+    <button id="forwardButton">Forward</button>
+</div>
 <pre class="body">{{body}}</pre>
 </script>
 
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-<div><label for="subject">Subject</label><input type="text" id="subject"></span></div>
-<div><label for="to">To</label><input type="text" id="to"></span></div>
+<div><label for="subject">Subject</label><input type="text" id="subject" value="{{subject}}"></span></div>
+<div><label for="to">To</label><input type="text" id="to" value="{{to}}"></span></div>
 <textarea id="body">
-
+{{#if body}}
+{{body}}
+{{else}}
 --
 Encrypted with https://scramble.io
+{{/if}}
 </textarea>
 <input type="submit" id="sendButton" value="Send"></input>
 </script>
