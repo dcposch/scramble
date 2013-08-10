@@ -189,7 +189,6 @@ function login(token, pass){
     $.cookie("token", token) //, {"secure":true})
     $.cookie("passHash", passHash) //, {"secure":true})
     $.get("/inbox", function(inbox){
-        sessionStorage["pubHash"] = inbox.PublicHash
         decryptAndDisplayInbox(inbox)
     }, 'json').fail(function(){
         alert("Incorrect user or passphrase")
@@ -308,6 +307,7 @@ function loadDecryptAndDisplayInbox(){
 }
 
 function decryptAndDisplayInbox(inboxSummary){
+    sessionStorage["pubHash"] = inboxSummary.PublicHash
     decryptPrivateKey(function(privateKey){
         decryptSubjects(inboxSummary.EmailHeaders, privateKey)
         var data = {
@@ -359,8 +359,6 @@ function decryptPrivateKey(fn){
     })
 }
 function decodePgp(armoredText, privateKey){
-    console.log([armoredText, privateKey])
-
     var msgs = openpgp.read_message(armoredText)
     if(msgs.length != 1){
         alert("Warning. Expected 1 PGP message, found "+msgs.length)
