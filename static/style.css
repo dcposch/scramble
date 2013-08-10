@@ -135,6 +135,7 @@ font-weight:bold;
 }
 #sidebar .email {
 font:9px monospace;
+margin:8px 0;
 }
 #sidebar .tab {
 color:#03a;

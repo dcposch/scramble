@@ -37,6 +37,7 @@ var session = {
 
 $(function(){
     if(!initPGP()) return
+    bindKeyboardShortcuts()
 
     // are we logged in?
     var token = $.cookie("token")
@@ -120,8 +121,10 @@ function bindInboxEvents() {
     $("#inbox li").click(function(e){
         readEmail($(e.target))
     })
+}
 
-    // Keyboard shortcuts: j for the email below, k for above
+function bindKeyboardShortcuts() {
+    // Inbox shortcuts: j for the email below, k for above
     $(document).keypress(function(e){
         var code = e.charCode || e.which
         if(code==106){ //j
@@ -436,7 +439,7 @@ function sendEmail(to,subject,body){
     })
 
     // encrypt a copy to ourselves, for our outbox
-    sendEmailEncrypted(to,subject,body,'sent',pubHash)
+    sendEmailEncrypted(to,subject,body,'sent',session.pubHash)
     return false
 }
 
