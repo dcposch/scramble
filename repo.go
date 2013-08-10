@@ -11,6 +11,7 @@ import "log"
 var db *sql.DB
 
 var migrations = [...]string{
+
     `create table if not exists user (
         token varchar(100) not null,
         password_hash char(40) not null,
@@ -21,10 +22,16 @@ var migrations = [...]string{
         primary key (token),
         unique index (public_hash)
     )`,
+
     `create table if not exists email (
         id bigint not null auto_increment,
+        unix_time bigint not null,
+        box enum ('inbox','outbox','sent','archive','trash') not null,
+
         from_email varchar(254) not null,
         to_email varchar(254) not null,
+
+        pub_hash char(40),
         cipher_subject varchar(1500) not null,
         cipher_body longtext not null,
 
@@ -126,11 +133,19 @@ func LoadPubKey (publicHash string) string {
 }
 
 func LoadInbox(publicHash string) []EmailHeader {
+    return LoadBox(publicHash, "inbox")
+}
+
+func LoadOutbox(publicHash string) []EmailHeader {
+    return LoadBox(publicHash, "outbox")
+}
+
+func LoadBox(publicHash string, box string) []EmailHeader {
     log.Printf("Fetching inbox %s\n", publicHash)
 
     // query
-    rows,err := db.Query("select id, from_email, to_email, cipher_subject"+
-        " from email where to_email like ?", publicHash+"@%")
+    rows,err := db.Query("select id, unix_time, from_email, to_email, cipher_subject"+
+        " from email where pub_hash=? and box=?", publicHash, box)
     if err != nil {
         panic(err)
     }
@@ -139,7 +154,9 @@ func LoadInbox(publicHash string) []EmailHeader {
     headers := make([]EmailHeader, 0)
     for rows.Next() {
         var header EmailHeader
-        rows.Scan(&header.ID, &header.From, &header.To, &header.CipherSubject)
+        rows.Scan(&header.ID, &header.UnixTime, &header.From, &header.To, &header.CipherSubject)
+        header.PubHash = publicHash
+        header.Box = box
         headers = append(headers, header)
     }
 
@@ -147,8 +164,16 @@ func LoadInbox(publicHash string) []EmailHeader {
 }
 
 func SaveMessage(e *Email) {
-    _,err := db.Exec("insert into email (from_email, to_email, cipher_subject, cipher_body) "+
-        "values (?,?,?,?)", e.From, e.To, e.CipherSubject, e.CipherBody)
+    _,err := db.Exec("insert into email " +
+        "(box, unix_time, from_email, to_email, pub_hash, cipher_subject, cipher_body) "+
+        "values (?,?,?,?,?,?,?)",
+        e.Box,
+        e.UnixTime,
+        e.From,
+        e.To,
+        e.PubHash,
+        e.CipherSubject,
+        e.CipherBody)
     if(err != nil){
         panic(err)
     }
@@ -156,11 +181,15 @@ func SaveMessage(e *Email) {
 
 func LoadMessage (id int) Email {
     var email Email
-    err := db.QueryRow("select id, from_email, to_email, cipher_subject, cipher_body" +
-        " from email where id=?",id).Scan(
+    err := db.QueryRow("select id, box, unix_time, from_email, to_email, "+
+        "pub_hash, cipher_subject, cipher_body " +
+        "from email where id=?",id).Scan(
         &email.ID,
+        &email.Box,
+        &email.UnixTime,
         &email.From,
         &email.To,
+        &email.PubHash,
         &email.CipherSubject,
         &email.CipherBody)
     if err != nil {

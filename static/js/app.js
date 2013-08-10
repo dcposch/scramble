@@ -18,6 +18,18 @@ var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
 
+//
+// SESSION VARIABLES
+//
+// These are never seen by the server
+// They are for this session only, never stored in a cookie or localStorage
+var session = {
+    pubHash:null,
+    passKey: null, // AES128 key derived from passphrase, used to encrypt to private key
+    privateKeyArmored: null, // The plaintext private key, PGP ascii armored
+}
+
+
 
 //
 // LOAD THE SITE
@@ -40,13 +52,6 @@ function render(templateId, data) {
     var source = document.getElementById(templateId).textContent
     var template = Handlebars.compile(source)
     return template(data)
-}
-
-// These variables are never seen by the server
-// They are for this session only, never stored in a cookie or localStorage
-var session = {
-    passKey: null, // AES128 key derived from passphrase, used to encrypt to private key
-    privateKeyArmored: null, // The plaintext private key
 }
 
 
@@ -99,6 +104,7 @@ function bindSidebarEvents() {
         $("#inbox").html("")
         $("#content").attr("class", "compose").html(render("compose-template"))
         bindComposeEvents()
+        clearComposeForm()
     })
     
     // Log out: click a link, deletes cookies and refreshes the page
@@ -134,11 +140,10 @@ function bindInboxEvents() {
 function bindComposeEvents() {
     $("#sendButton").click(function(){
         var subject = $("#subject").val()
-        var from = $("#from").val()
         var to = $("#to").val()
         var body = $("#body").val()
 
-        sendEmail(from, to, subject, body)
+        sendEmail(to, subject, body)
     })
 }
 
@@ -180,6 +185,7 @@ function login(token, pass){
     $.cookie("token", token) //, {"secure":true})
     $.cookie("passHash", passHash) //, {"secure":true})
     $.get("/inbox", function(inbox){
+        session.pubHash = inbox.PublicHash
         decryptAndDisplayInbox(inbox)
     }, 'json').fail(function(){
         alert("Incorrect user or passphrase")
@@ -398,25 +404,58 @@ function readEmail(target){
 // COMPOSE
 //
 
-function sendEmail(from,to,subject,body){
+function sendEmail(to,subject,body){
     // send encrypted if possible
-    if(!to.match(REGEX_EMAIL)){
-        alert("Invalid email address "+to)
-        return false
-    }
-    var toPubHash = extractPubHash(to)
-    if(toPubHash == null){
-        return confirm("Send email unencrypted?")
+    var toAddresses = to.split(",").map(trimToLower)
+    var invalidToAddresses = toAddresses.filter(function(addr){
+        return !addr.match(REGEX_EMAIL)
+    })
+    if(invalidToAddresses.length>0){
+        alert("Invalid email addresses "+invalidToAddresses.join(", "))
+        return
     }
 
-    // look up the recipient's public key
-    $.get("/user/"+toPubHash, function(data){
-        var toPub = openpgp.read_publicKey(data)
-        var cipherSubject = openpgp.write_encrypted_message(toPub, subject)
-        var cipherBody = openpgp.write_encrypted_message(toPub, body)
+    var pubHashesArr = toAddresses.map(extractPubHash)
+    var pubHashes = []
+    var unencryptedToAddresses = []
+    for(var i = 0; i < toAddresses.length; i++){
+        if(pubHashesArr[i]){
+            pubHashes.push(pubHashesArr[i])
+        } else {
+            unencryptedToAddresses.push(toAddresses[i])
+        }
+    }
+    if(unencryptedToAddresses.length > 0){
+        prompt("Sending to unencrypted addresses is not yet supported")
+        return
+    }
+
+    // look up each recipient's public key
+    pubHashes.forEach(function(pubHash){
+        sendEmailEncrypted(to,subject,body,'inbox',pubHash)
+    })
+
+    // encrypt a copy to ourselves, for our outbox
+    sendEmailEncrypted(to,subject,body,'sent',pubHash)
+    return false
+}
+
+function clearComposeForm(){
+    $("#from").val("")
+    $("#to").val("")
+    $("#subject").val("")
+    $("#body").val("\n\n---\nSecured with https://scramble.io")
+}
+
+function sendEmailEncrypted(to,subject,body,box,pubHash){
+    $.get("/user/"+pubHash, function(data){
+        var publicKey = openpgp.read_publicKey(data)
+        var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
+        var cipherBody = openpgp.write_encrypted_message(publicKey, body)
 
         var data = {
-            from: from,
+            box: box,
+            pubHash: pubHash,
             to: to,
             cipherSubject: cipherSubject,
             cipherBody: cipherBody
@@ -427,16 +466,8 @@ function sendEmail(from,to,subject,body){
             alert("Sending failed: "+xhr.responseText)
         })
     }).fail(function(){
-        alert("Could not find public key for "+toPubHash+"@...")
+        alert("Could not find public key for "+pubHash+"@...")
     })
-    return false
-}
-
-function clearComposeForm(){
-    $("#from").val("")
-    $("#to").val("")
-    $("#subject").val("")
-    $("#body").val("")
 }
 
 function sendEmailUnencrypted(from, to, subject, body){
@@ -474,4 +505,7 @@ function bin2hex(str){
 }
 function hex2bin(str){
     return util.hex2bin(str)
+}
+function trimToLower(str){
+    return str.replace(/^\s+|\s+$/g,'').toLowerCase()
 }

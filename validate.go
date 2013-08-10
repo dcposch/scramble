@@ -32,3 +32,9 @@ func validatePublicKey(str string) string {
     }
     return str
 }
+func validateBox(str string) string {
+    if str!="inbox" && str!="outbox" {
+        panic("Expected inbox or outbox, got "+str)
+    }
+    return str
+}

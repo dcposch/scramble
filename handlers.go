@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "strings"
     "strconv"
+    "time"
     "net/http"
 )
 
@@ -174,8 +175,12 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     email := new(Email)
-    email.From = userId.PublicHash + "@" + r.URL.Host
+    email.UnixTime = time.Now().Unix()
+    email.From = userId.PublicHash + "@" + r.Host
     email.To = r.FormValue("to")
+
+    email.PubHash = validateHash(r.FormValue("pubHash"))
+    email.Box = validateBox(r.FormValue("box"))
     email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
     email.CipherBody = validateHex(r.FormValue("cipherBody"))
 
