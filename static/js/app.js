@@ -83,7 +83,7 @@ function bindLoginEvents() {
             $("#createAccountModal h4").text("Welcome, "+email)
             $("#spinner").css("display", "none")
             $("#createForm").css("display", "block")
-        }, 0)
+        }, 100)
 
         $("#createButton").click(function(){
             createAccount(keys);
