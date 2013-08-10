@@ -23,11 +23,12 @@ var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 //
 // These are never seen by the server
 // They are for this session only, never stored in a cookie or localStorage
-var session = {
-    pubHash:null,
-    passKey: null, // AES128 key derived from passphrase, used to encrypt to private key
-    privateKeyArmored: null, // The plaintext private key, PGP ascii armored
-}
+// sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
+// sessionStorage["privateKeyArmored"] is he plaintext private key, PGP ascii armored
+//
+// For convenience, we also have
+// sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
+//
 
 
 
@@ -41,7 +42,7 @@ $(function(){
 
     // are we logged in?
     var token = $.cookie("token")
-    if(!token || !session.passKey) {
+    if(!token || !sessionStorage["passKey"]) {
         displayLogin()
     } else {
         loadDecryptAndDisplayInbox()
@@ -179,7 +180,7 @@ function login(token, pass){
     var aes128Key = keyHash.substring(0,16)
 
     // save for this session only, never in a cookie or localStorage
-    session.passKey = aes128Key
+    sessionStorage["passKey"] = aes128Key
 
     // ...the other one authenticates us
     var passHash = computePassHash(token, pass)
@@ -188,7 +189,7 @@ function login(token, pass){
     $.cookie("token", token) //, {"secure":true})
     $.cookie("passHash", passHash) //, {"secure":true})
     $.get("/inbox", function(inbox){
-        session.pubHash = inbox.PublicHash
+        sessionStorage["pubHash"] = inbox.PublicHash
         decryptAndDisplayInbox(inbox)
     }, 'json').fail(function(){
         alert("Incorrect user or passphrase")
@@ -220,8 +221,8 @@ function createAccount(keys){
     var keyHash  = computeKeyHash(token, pass)
 
     // save for this session only, never in a cookie or localStorage
-    session.passKey = aes128Key
-    session.privateKeyArmored = keys.privateKeyArmored
+    sessionStorage["passKey"] = aes128Key
+    sessionStorage["privateKeyArmored"] = keys.privateKeyArmored
 
     // encrypt the private key with the user's passphrase
     // first 16 bytes = 128 bits. the hash is binary, not actually "ASCII"
@@ -335,12 +336,12 @@ function decryptSubjects(headers, privateKey){
 }
 
 function decryptPrivateKey(fn){
-    if(session.privateKeyArmored){
-        var privateKey = openpgp.read_privateKey(session.privateKeyArmored)
+    if(sessionStorage["privateKeyArmored"]){
+        var privateKey = openpgp.read_privateKey(sessionStorage["privateKeyArmored"])
         fn(privateKey)
         return
     }
-    if(!session.passKey){
+    if(!sessionStorage["passKey"]){
         alert("Missing passphrase. Please log out and back in.")
         return
     }
@@ -348,8 +349,8 @@ function decryptPrivateKey(fn){
     $.get("/user/me", function(cipherPrivateKeyHex){
         var cipherPrivateKey = hex2bin(cipherPrivateKeyHex)
         var privateKeyArmored = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, session.passKey, cipherPrivateKey)
-        session.privateKeyArmored = privateKeyArmored
+            ALGO_AES128, sessionStorage["passKey"], cipherPrivateKey)
+        sessionStorage["privateKeyArmored"] = privateKeyArmored
         var privateKey = openpgp.read_privateKey(privateKeyArmored)
         fn(privateKey)
     }, "text").fail(function(xhr){
@@ -439,7 +440,7 @@ function sendEmail(to,subject,body){
     })
 
     // encrypt a copy to ourselves, for our outbox
-    sendEmailEncrypted(to,subject,body,'sent',session.pubHash)
+    sendEmailEncrypted(to,subject,body,'sent',sessionStorage["pubHash"])
     return false
 }
 
