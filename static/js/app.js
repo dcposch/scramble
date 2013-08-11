@@ -68,16 +68,15 @@ function bindLoginEvents() {
         login(token, pass)
     })
 
-    var keys = null;
+    var keys = null
     $("#generateButton").click(function(){
-        var modalHtml = render("create-account-template")
-        $("#login").append(modalHtml)
+        showModal("create-account-template")
 
         setTimeout(function(){
             // create a new mailbox
             keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
             var publicHash = computePublicHash(keys.publicKeyArmored)
-            var email = publicHash+"@"+window.location.hostname;
+            var email = publicHash+"@"+window.location.hostname
 
             // Change "Generating..." to "Done", explain what's going on to the user
             $("#createAccountModal h4").text("Welcome, "+email)
@@ -86,8 +85,8 @@ function bindLoginEvents() {
         }, 100)
 
         $("#createButton").click(function(){
-            createAccount(keys);
-        });
+            createAccount(keys)
+        })
     })
 }
 
@@ -99,8 +98,6 @@ function bindSidebarEvents() {
     
     // Navigate to Compose
     $("#tab-compose").click(function(e){
-        setSelectedTab($(e.target))
-        $("#inbox").html("")
         displayCompose()
     })
     
@@ -108,6 +105,11 @@ function bindSidebarEvents() {
     $("#link-logout").click(function(){
         $.removeCookie("token")
         $.removeCookie("passHash")
+    })
+
+    // Explain keyboard shortcuts
+    $("#link-kb-shortcuts").click(function(){
+        showModal("kb-shortcuts-template")
     })
 }
 
@@ -119,36 +121,51 @@ function bindInboxEvents() {
 }
 
 function bindKeyboardShortcuts() {
-    // Inbox shortcuts: j for the email below, k for above
-    $(document).keypress(function(e){
-        var code = e.charCode || e.which
-        if(code==106){ //j
-            if($(".current").size() == 0){
-                msg = $("li").first()
-            } else {
-                msg = $(".current").next()
-            }
-            readEmail(msg)
-        } else if (code==107){ //k
-            readEmail($(".current").prev())
+    var currentKeyMap = keyMap
+    $(document).keyup(function(e){
+        // no keyboard shortcuts while the user is typing
+        var tag = e.target.tagName.toLowerCase()
+        if(tag=="textarea" ||
+            (tag=="input" && e.target.type=="text") ||
+            (tag=="input" && e.target.type=="password")){
+            return;
+        }
+
+        var code = e.which || e.charCode
+        var mapping = currentKeyMap[code] || 
+                      currentKeyMap[String.fromCharCode(code).toLowerCase()]
+        if(!mapping){
+            // unrecognized keyboard shortcut
+            currentKeyMap = keyMap
+        } else if (typeof(mapping)=="function"){
+            // valid keyboard shortcut
+            mapping()
+            currentKeyMap = keyMap
+        } else {
+            // pressed one key in a combination, wait for the next key
+            currentKeyMap = mapping
         }
     })
 }
+var keyMap = {
+    "j":readNextEmail,
+    "k":readPrevEmail,
+    "g":{
+        "i":loadDecryptAndDisplayInbox,
+        "c":displayCompose,
+        "s":function(){alert("Go to Sent Messages is still unimplemented")},
+        "a":function(){alert("Go to Archive is stil unimplemented")}
+    },
+    "r":emailReply,
+    "a":emailReplyAll,
+    "f":emailForward,
+    27:closeModal // esc key
+}
 
 function bindEmailEvents(email) {
-    $("#replyButton").click(function(){
-        displayCompose(email.from, email.subject, "")
-    })
-    $("#replyAllButton").click(function(){
-        var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
-            // email starts with our pubHash -> don't reply to our self
-            return addr.indexOf(sessionStorage["pubHash"]) != 0
-        }).concat([email.from])
-        displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
-    })
-    $("#forwardButton").click(function(){
-        displayCompose("", email.subject, email.body)
-    })
+    $("#replyButton").click(emailReply)
+    $("#replyAllButton").click(emailReplyAll)
+    $("#forwardButton").click(emailForward)
 }
 
 function bindComposeEvents() {
@@ -170,6 +187,23 @@ function bindComposeEvents() {
 function setSelectedTab(tab) {
     $("#sidebar .tab").removeClass("selected")
     tab.addClass("selected")
+}
+
+
+
+//
+// MODAL DIALOGS
+//
+
+function showModal(templateName){
+    var modalHtml = render(templateName)
+    $("#wrapper").append(modalHtml)
+    $(".link-close-modal").click(closeModal)
+}
+
+function closeModal(){
+    $(".modal").remove()
+    $(".modal-bg").remove()
 }
 
 
@@ -389,6 +423,30 @@ function decodePgp(armoredText, privateKey){
     return text
 }
 
+function readNextEmail(){
+    var msg
+    if($(".current").length == 0){
+        msg = $("li").first()
+    } else {
+        msg = $(".current").next()
+    }
+    readEmail(msg)
+}
+
+function readPrevEmail(){
+    var msg = $(".current").prev()
+    if(msg.length > 0){
+        readEmail(msg)
+    }
+}
+
+
+
+//
+// SINGLE EMAIL
+//
+var email = null
+
 // Takes a subject-line <li>, selects it, shows the full email
 function readEmail(target){
     if(target.size()==0) return
@@ -399,7 +457,7 @@ function readEmail(target){
         decryptPrivateKey(function(privateKey){
             var plaintextBody = decodePgp(cipherBody, privateKey)
 
-            var email = {
+            email = {
                 from:        target.data("from"),
                 to:          target.data("to"),
                 toAddresses: target.data("to").split(",").map(trimToLower),
@@ -413,12 +471,38 @@ function readEmail(target){
     }, "text")
 }
 
+function emailReply(){
+    if(!email) return
+    displayCompose(email.from, email.subject, "")
+}
+
+function emailReplyAll(){
+    if(!email) return
+    var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
+        // email starts with our pubHash -> don't reply to our self
+        return addr.indexOf(sessionStorage["pubHash"]) != 0
+    }).concat([email.from])
+    displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
+}
+
+function emailForward(){
+    if(!email) return
+    displayCompose("", email.subject, email.body)
+}
+
+
 
 
 //
 // COMPOSE
 //
 function displayCompose(to, subject, body){
+    // clean up 
+    $("#inbox").html("")
+    email = null
+    setSelectedTab($("#tab-compose"))
+
+    // render compose form into #content
     var html = render("compose-template", {
         to:to,
         subject:subject,

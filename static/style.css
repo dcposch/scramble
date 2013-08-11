@@ -1,17 +1,19 @@
 /* EVERYWHERE */
 body {
-font: 16px "Trebuchet MS",sans-serif;
+font-family: "Trebuchet MS",sans-serif;
 }
 h1,h2,h3 {
 font-weight:bold;
+margin:10px 0;
 }
 h1 {
 font-size:48px;
-margin:10px 0;
 }
 h2 {
 font-size:24px;
-margin:10px 0;
+}
+h3 {
+font-size:16px;
 }
 a, 
 a:visited,
@@ -24,7 +26,16 @@ position:absolute;
 left:312px;
 top:0px;
 right:0px;
-padding:6px;
+padding:8px;
+}
+#wrapper {
+min-width:840px;
+min-height:400px;
+position:absolute;
+top:0px;
+left:0px;
+bottom:0px;
+right:0px;
 }
 
 
@@ -87,8 +98,8 @@ white-space:nowrap;
 }
 
 
-/* MODAL CREATE ACCOUNT */
-#modalBackground {
+/* MODAL */
+.modal-bg {
 position:fixed;
 top:0;
 right:0;
@@ -98,30 +109,48 @@ background:#000;
 opacity:0.5;
 transition: opacity 400ms ease-in;
 }
-#createAccountModal {
-position:absolute;
-top:100px;
+.modal {
 background:#fff;
-width:600px;
-height:450px;
-margin:0 auto;
+margin:100px auto;
 text-align:center;
 border-radius:3px;
 }
-#createAccountModal h4 {
-margin:40px 0;
+.modal h3 {
+margin:0;
+padding:40px 0 10px 0;
+}
+.modal section {
+text-align:left;
+}
+.modal .link-close-modal {
+display:block;
+margin:10px;
+}
+
+/* MODAL - CREATE ACCOUNT */
+#createAccountModal {
+width:600px;
+height:450px;
 }
 #createAccountModal #createForm {
-display:none;
+display:none; /* show later, in js... */
 margin:50px;
-text-align:left;
+}
+
+/* MODAL - KEYBOARD SHORTCUTS */
+#kbShortcutsModal {
+width:400px;
+height:360px;
+}
+#kbShortcutsModal label {
+font:bold 14px monospace;
 }
 
 
 
 /* SIDEBAR */
 #sidebar {
-position:fixed;
+position:absolute;
 top:0;
 left:0;
 bottom:0;
@@ -139,10 +168,12 @@ margin:8px 0;
 }
 #sidebar .tab {
 color:#03a;
-cursor:pointer;
 }
 #sidebar .tab.selected {
 color:#000;
+}
+#sidebar #link-kb-shortcuts {
+font-size:9px;
 }
 
 
@@ -166,18 +197,42 @@ background:#eee;
 }
 
 
+
+
+/* SINGLE EMAIL */
+#content.email pre {
+margin:10px 0;
+white-space:pre-wrap;
+}
+#content.email .replyForwardButtons {
+margin:10px 0;
+}
+
+
+
+
 /* COMPOSE */
 #content.compose {
 bottom:0px;
 }
-#content.compose input[type=submit]{
-margin-left:150px;
+#content.compose label {
+width:100px;
 }
-textarea {
+#content.compose .prompt input {
+width:400px;
+}
+#content.compose textarea {
 position:absolute;
-top:90px;
-left:16px;
+top:60px;
+bottom:40px;
+left:8px;
 right:8px;
-bottom:8px;
+margin:0;
 background:#f8f8f8;
 }
+#sendButton {
+position:absolute;
+left:8px;
+bottom:8px;
+}
+

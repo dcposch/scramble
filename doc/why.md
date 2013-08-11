@@ -20,7 +20,7 @@ Big brother is here. Mass surveillance with breadth, depth, and immediacy.
 
 [With a few keystrokes](http://www.theguardian.com/world/2013/jul/31/nsa-top-secret-program-online-data), bureaucrats can read the emails you got this morning.
 
-[You should care](http://www.thoughtcrime.org/blog/we-should-all-have-something-to-hide/), even if you think you have "nothing to hide".
+[You should care](http://www.thoughtcrime.org/blog/we-should-all-have-something-to-hide/), even if you have nothing to hide.
 
 
 Technology
@@ -31,7 +31,7 @@ This is a work in progress.
 - Do check it out! 
 - Don't use it for anything sensitive yet
 
-Ideas, bug reports, code reviews and beer deliveries are all appreciated!
+Ideas, bug reports, and code reviews are much appreciated.
 
 ### Encryption
 
@@ -174,13 +174,12 @@ show("td.fc.screx", "The browser extension does not download any code from the s
                     "(The service might stop working, but it won't reveal your plaintexts.)");
 </script>
 
-
 Revenue
 ------
 You'll notice that since the server never sees the contents of an email, it knows nothing about its users. So targeted advertising isn't possible... and even if were, we don't like it.
 
 Scramble is free and ad-free. Its our gift to you. We want you to exercise your Fourth Amendent freedoms, to communicate without fear of "unreasonable search and seizure".
 
-If you'd like to help, check out the [Github repo](http://github.com/dcposch/scramble), or maybe send us a few Bitcoin :)
+If you'd like to help, check out the [Github repo](http://github.com/dcposch/scramble)
 
 

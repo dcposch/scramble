@@ -13,8 +13,8 @@
 <div id="login">
     <h1>SCRAMBLE</h1>
 
-    <div><label>User</label><input type="text" id="token"></input></div>
-    <div><label>Passphrase</label><input type="password" id="pass"></input></div>
+    <div class="prompt"><label>User</label><input type="text" id="token"></input></div>
+    <div class="prompt"><label>Passphrase</label><input type="password" id="pass"></input></div>
     <div><input type="submit" id="enterButton" value="Log In"></input></div>
 
     <div class="strike"><hr /><span>or</span><hr /></div>
@@ -27,13 +27,12 @@
 
 <!-- CREATE ACCOUNT MODAL -->
 <script id="create-account-template" type="text/x-handlebars-template">
-<div id="modalBackground">
-</div>
-<div id="createAccountModal">
-    <h4>Generating public and private key...</h4>
+<div class="modal-bg">
+<div class="modal" id="createAccountModal">
+    <h3>Generating public and private key...</h3>
     <div id="spinner"><img src="spinner.gif" /></div>
 
-    <div id="createForm">
+    <section id="createForm">
     <p>You've just generated a public and private key in your browser!</p>
     <p>If you don't know what those are, don't worry. Scramble is easy to use.</p>
     <p>(If you're curious, learn about PGP <a href="http://www.pgpi.org/doc/pgpintro/">here</a> or about our design <a href="https://scramble.io/doc/">here</a>.)</p>
@@ -41,11 +40,15 @@
     <p><strong>Pick a strong passphrase, and don't forget it.</strong> <a href="http://xkcd.com/936/">Here's how.</a></p>
     <p>All encryption happens in the browser. The Scramble servers only see ciphertext, which is great for security. The flip side is that if you forget your passphrase, your email is lost.</p>
 
-    <div><label>User</label><input type="text" id="createToken"></input></div>
-    <div><label>Passphrase</label><input type="password" id="createPass"></input></div>
-    <div><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
+    <p><strong>If you want anonymity, don't use your typical username.</strong><p>
+    <p>
+
+    <div class="prompt"><label>User</label><input type="text" id="createToken"></input></div>
+    <div class="prompt"><label>Passphrase</label><input type="password" id="createPass"></input></div>
+    <div class="prompt"><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
     <div><input type="submit" id="createButton" value="Create Account"></input></div>
-    </div>
+    </section>
+</div>
 </div>
 </script>
 
@@ -53,17 +56,17 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
+<div id="content">
+</div>
+
 <div id="sidebar">
     <h1>SCRAMBLE</h1>
     <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout">Log Out</a></div>
     <div class="email">{{pubHash}}@{{domain}}</div>
-    <h2 id="tab-compose" class="tab">Compose</h2>
-    <h2 id="tab-inbox" class="tab">Inbox</h2>
+    <h2><a id="tab-compose" href="#" class="tab">Compose</a></h2>
+    <h2><a id="tab-inbox" href="#" class="tab">Inbox</a></h2>
     <ul id="inbox"></ul>
-    <div class="email">Keyboard shortcuts: j and k</div>
-</div>
-
-<div id="content">
+    <a href="#" id="link-kb-shortcuts">Keyboard shortcuts available</a>
 </div>
 </script>
 
@@ -81,7 +84,7 @@
 <h2 class="subject">{{subject}}</h1>
 <div><label>From</label><span class="from">{{from}}</span></div>
 <div><label>To</label>  <span class="to">{{to}}</span></div>
-<div>
+<div class="replyForwardButtons">
     <button id="replyButton">Reply</button>
     <button id="replyAllButton">Reply All</button>
     <button id="forwardButton">Forward</button>
@@ -92,8 +95,8 @@
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-<div><label for="subject">Subject</label><input type="text" id="subject" value="{{subject}}"></span></div>
-<div><label for="to">To</label><input type="text" id="to" value="{{to}}"></span></div>
+<div class="prompt"><label for="subject">Subject</label><input type="text" id="subject" value="{{subject}}"></span></div>
+<div class="prompt"><label for="to">To</label><input type="text" id="to" value="{{to}}"></span></div>
 <textarea id="body">
 {{#if body}}
 {{body}}
@@ -103,6 +106,32 @@ Encrypted with https://scramble.io
 {{/if}}
 </textarea>
 <input type="submit" id="sendButton" value="Send"></input>
+</script>
+
+
+
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<script id="kb-shortcuts-template" type="text/x-handlebars-template">
+<div class="modal-bg">
+<div class="modal" id="kbShortcutsModal">
+    <h3>Keyboard shortcuts</h3>
+    <section>
+        <div><label>j</label>next email</div>
+        <div><label>k</label>previous email</div>
+        <div><label>y</label>archive</div>
+        <div><label>r</label>reply</div>
+        <div><label>a</label>reply to all</div>
+        <div><label>f</label>forward</div>
+        <div><label>g c</label>go to compose</div>
+        <div><label>g i</label>go to inbox</div>
+        <div><label>g s</label>go to sent mail</div>
+        <div><label>g a</label>go to archive</div>
+        <div><label>tab+enter</label>send email</div>
+        <div><label>esc</label>close</div>
+    </section>
+    <a href="#" class="link-close-modal" >close</a>
+</div>
+</div>
 </script>
 
 
