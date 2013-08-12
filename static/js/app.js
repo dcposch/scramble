@@ -79,7 +79,7 @@ function bindLoginEvents() {
             var email = publicHash+"@"+window.location.hostname
 
             // Change "Generating..." to "Done", explain what's going on to the user
-            $("#createAccountModal h4").text("Welcome, "+email)
+            $("#createAccountModal h3").text("Welcome, "+email)
             $("#spinner").css("display", "none")
             $("#createForm").css("display", "block")
         }, 100)
@@ -128,7 +128,7 @@ function bindKeyboardShortcuts() {
         if(tag=="textarea" ||
             (tag=="input" && e.target.type=="text") ||
             (tag=="input" && e.target.type=="password")){
-            return;
+            return
         }
 
         var code = e.which || e.charCode
