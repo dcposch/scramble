@@ -297,8 +297,43 @@ function createAccount(keys){
     return true
 }
 
-function computePublicHash(publicKeyArmored){
-    return new jsSHA(publicKeyArmored, "ASCII").getHash("SHA-1", "HEX")
+// Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
+// Returns a 16-byte string, eg "tnysbtbxsf356hiy"
+// This is the same algorithm and format Onion URLS use
+function computePublicHash(str){
+    // SHA1 hash
+    var sha1Hex = new jsSHA(str, "ASCII").getHash("SHA-1", "HEX")
+
+    // extract the first 80 bits as a string of "1" and "0"
+    var sha1Bits = []; 
+    // 20 hex characters = 80 bits
+    for(var i = 0; i < 20; i++){
+        var hexDigit = parseInt(sha1Hex[i], 16)
+        for(var j = 0; j < 4; j++){
+            sha1Bits[i*4+3-j] = ((hexDigit%2) == 1)
+            hexDigit = Math.floor(hexDigit/2)
+        }
+    }
+    
+    // encode in base-32: letters a-z, digits 2-7
+    var hash = ""
+    // 16 5-bit chars = 80 bits
+    var ccA = "a".charCodeAt(0)
+    var cc2 = "2".charCodeAt(0)
+    for(var i = 0; i < 16; i++){
+        var digit =
+            sha1Bits[i*5]*16 + 
+            sha1Bits[i*5+1]*8 + 
+            sha1Bits[i*5+2]*4 + 
+            sha1Bits[i*5+3]*2 + 
+            sha1Bits[i*5+4]
+        if(digit < 26){
+            hash += String.fromCharCode(ccA+digit)
+        } else {
+            hash += String.fromCharCode(cc2+digit-26)
+        }
+    }
+    return hash
 }
 
 function computePassHash(token, pass){

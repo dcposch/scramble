@@ -60,7 +60,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     user.Token = validateToken(r.FormValue("token"))
     user.PasswordHash = validateHash(r.FormValue("passHash"))
     user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
-    user.PublicHash = sha1hex(user.PublicKey)
+    user.PublicHash = computePublicHash(user.PublicKey)
     user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 
     log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
