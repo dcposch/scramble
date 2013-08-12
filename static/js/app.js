@@ -15,7 +15,7 @@ var ALGO_AES128 = 7
 
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
-var REGEX_HASH_EMAIL = /^([A-F0-9]{40})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
+var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
 
 //

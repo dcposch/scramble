@@ -5,7 +5,7 @@ import (
 )
 
 var regexHex = regexp.MustCompile("[a-f0-9]+")
-var regexHash = regexp.MustCompile("[a-f0-9]{40}")
+var regexHash = regexp.MustCompile("[a-f0-9]{40}|[a-z2-7]{16}")
 var regexToken = regexp.MustCompile("[a-z0-9]{3}[a-z0-9]*")
 
 func validateHash(str string) string {
