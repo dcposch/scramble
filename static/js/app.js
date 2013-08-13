@@ -134,6 +134,7 @@ function bindSidebarEvents() {
     $("#link-logout").click(function(){
         $.removeCookie("token")
         $.removeCookie("passHash")
+        sessionStorage.clear()
     })
 
     // Explain keyboard shortcuts
@@ -623,7 +624,7 @@ function decryptPrivateKey(fn){
 }
 function tryDecodePgp(armoredText, privateKey){
     try {
-        return decodePgp(h.CipherSubject, privateKey)
+        return decodePgp(armoredText, privateKey)
     } catch (err){
         return "(Decryption failed)"
     }
