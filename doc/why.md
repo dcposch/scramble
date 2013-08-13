@@ -10,7 +10,7 @@ div#explanation { font-size:11px; width: 600px; height:60px; margin:20px 6px; }
 
 <a href="https://github.com/dcposch/scramble"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
 
-SCRAMBLE.IO
+SCRAMBLE.io
 ===========
 Secure email for everyone.
 

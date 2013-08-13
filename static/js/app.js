@@ -1,6 +1,10 @@
 //
 // SCRAMBLE.IO
+// Secure email for everyone
+// by DC - http://dcpos.ch/
 //
+
+
 
 //
 // CONSTANTS
@@ -18,6 +22,7 @@ var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
 
+
 //
 // SESSION VARIABLES
 //
@@ -28,6 +33,17 @@ var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/
 // For convenience, we also have
 // sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
 //
+
+
+
+//
+// VIEW VARIABLES
+// These are even more transient than session variables.
+// They go away if you hit Refresh.
+//
+
+var viewState = {}
+viewState.email = null // plaintext subject, body, etc of the currently opened email
 
 
 
@@ -48,76 +64,25 @@ $(function(){
     }
 })
 
-// Renders a Handlebars template, reading from a <script> tag. Returns HTML.
-function render(templateId, data) {
-    var source = document.getElementById(templateId).textContent
-    var template = Handlebars.compile(source)
-    return template(data)
-}
-
 
 
 //
-// CONTROLLER
+// KEYBOARD SHORTCUTS
 //
 
-function bindLoginEvents() {
-    $("#enterButton").click(function(){
-        var token = $("#token").val()
-        var pass = $("#pass").val()
-        login(token, pass)
-    })
-
-    var keys = null
-    $("#generateButton").click(function(){
-        showModal("create-account-template")
-
-        setTimeout(function(){
-            // create a new mailbox
-            keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
-            var publicHash = computePublicHash(keys.publicKeyArmored)
-            var email = publicHash+"@"+window.location.hostname
-
-            // Change "Generating..." to "Done", explain what's going on to the user
-            $("#createAccountModal h3").text("Welcome, "+email)
-            $("#spinner").css("display", "none")
-            $("#createForm").css("display", "block")
-        }, 100)
-
-        $("#createButton").click(function(){
-            createAccount(keys)
-        })
-    })
-}
-
-function bindSidebarEvents() {
-    // Navigate to Inbox
-    $("#tab-inbox").click(function(e){
-        loadDecryptAndDisplayInbox()
-    })
-    
-    // Navigate to Compose
-    $("#tab-compose").click(function(e){
-        displayCompose()
-    })
-    
-    // Log out: click a link, deletes cookies and refreshes the page
-    $("#link-logout").click(function(){
-        $.removeCookie("token")
-        $.removeCookie("passHash")
-    })
-
-    // Explain keyboard shortcuts
-    $("#link-kb-shortcuts").click(function(){
-        showModal("kb-shortcuts-template")
-    })
-}
-
-function bindInboxEvents() {
-    // Click on an email to open it
-    $("#inbox li").click(function(e){
-        readEmail($(e.target))
-    })
+var keyMap = {
+    "j":readNextEmail,
+    "k":readPrevEmail,
+    "g":{
+        "i":loadDecryptAndDisplayInbox,
+        "c":displayCompose,
+        "s":function(){alert("Go to Sent Messages is still unimplemented")},
+        "a":function(){alert("Go to Archive is stil unimplemented")}
+    },
+    "r":emailReply,
+    "a":emailReplyAll,
+    "f":emailForward,
+    27:closeModal // esc key
 }
 
 function bindKeyboardShortcuts() {
@@ -147,42 +112,35 @@ function bindKeyboardShortcuts() {
         }
     })
 }
-var keyMap = {
-    "j":readNextEmail,
-    "k":readPrevEmail,
-    "g":{
-        "i":loadDecryptAndDisplayInbox,
-        "c":displayCompose,
-        "s":function(){alert("Go to Sent Messages is still unimplemented")},
-        "a":function(){alert("Go to Archive is stil unimplemented")}
-    },
-    "r":emailReply,
-    "a":emailReplyAll,
-    "f":emailForward,
-    27:closeModal // esc key
-}
-
-function bindEmailEvents(email) {
-    $("#replyButton").click(emailReply)
-    $("#replyAllButton").click(emailReplyAll)
-    $("#forwardButton").click(emailForward)
-}
-
-function bindComposeEvents() {
-    $("#sendButton").click(function(){
-        var subject = $("#subject").val()
-        var to = $("#to").val()
-        var body = $("#body").val()
-
-        sendEmail(to, subject, body)
-    })
-}
 
 
 
 //
 // SIDEBAR
 //
+
+function bindSidebarEvents() {
+    // Navigate to Inbox
+    $("#tab-inbox").click(function(e){
+        loadDecryptAndDisplayInbox()
+    })
+    
+    // Navigate to Compose
+    $("#tab-compose").click(function(e){
+        displayCompose()
+    })
+    
+    // Log out: click a link, deletes cookies and refreshes the page
+    $("#link-logout").click(function(){
+        $.removeCookie("token")
+        $.removeCookie("passHash")
+    })
+
+    // Explain keyboard shortcuts
+    $("#link-kb-shortcuts").click(function(){
+        showModal("kb-shortcuts-template")
+    })
+}
 
 function setSelectedTab(tab) {
     $("#sidebar .tab").removeClass("selected")
@@ -209,12 +167,23 @@ function closeModal(){
 
 
 //
-// LOGIN
+// LOGIN 
 //
 
 function displayLogin(){
     $("#wrapper").html(render("login-template"))
     bindLoginEvents()
+}
+
+function bindLoginEvents() {
+    $("#enterButton").click(function(){
+        var token = $("#token").val()
+        var pass = $("#pass").val()
+        login(token, pass)
+    })
+
+    var keys = null
+    $("#generateButton").click(displayCreateAccountModal)
 }
 
 function login(token, pass){
@@ -239,12 +208,31 @@ function login(token, pass){
     })
 }
 
-// Generates a new PGP key pair. This takes a while.
-function createKeys() {
-    // create a new mailbox
-    var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
-    var publicHash = computePublicHash(keys.publicKeyArmored)
-    console.log("Creating "+publicHash+"@"+window.location.hostname)
+
+
+//
+// LOGIN - "CREATE ACCOUNT" MODAL
+//
+
+function displayCreateAccountModal(){
+    showModal("create-account-template")
+
+    // defer the slow part, so that the modal actually appears
+    setTimeout(function(){
+        // create a new mailbox. this takes a few seconds...
+        keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
+        var publicHash = computePublicHash(keys.publicKeyArmored)
+        var email = publicHash+"@"+window.location.hostname
+
+        // Change "Generating..." to "Done", explain what's going on to the user
+        $("#createAccountModal h3").text("Welcome, "+email)
+        $("#spinner").css("display", "none")
+        $("#createForm").css("display", "block")
+    }, 100)
+
+    $("#createButton").click(function(){
+        createAccount(keys)
+    })
 }
 
 // Attempts to creates a new account, given a freshly generated key pair.
@@ -297,6 +285,274 @@ function createAccount(keys){
     return true
 }
 
+function validateToken(){
+    var token = $("#createToken").val()
+    if(token.match(REGEX_TOKEN)) {
+        return token
+    } else {
+        alert("User must be at least three letters and numbers.\n"
+            + "No special characters.\n")
+        return null
+    }
+}
+
+function validateNewPassword(){
+    var pass1 = $("#createPass").val()
+    var pass2 = $("#confirmPass").val()
+    if(pass1 != pass2){
+        alert("Passphrases must match")
+        return null
+    }
+    if(pass1.length < 10){
+        alert("Your passphrase is too short.\n" + 
+              "An ordinary password is not strong enough here.\n" +
+              "For help, see http://xkcd.com/936/")
+        return null
+    }
+    return pass1
+}
+
+
+
+//
+// INBOX
+//
+
+function bindInboxEvents() {
+    // Click on an email to open it
+    $("#inbox li").click(function(e){
+        displayEmail($(e.target))
+    })
+}
+
+function loadDecryptAndDisplayInbox(){
+    $.get("/inbox", function(inbox){
+        decryptAndDisplayInbox(inbox)
+    }, 'json').fail(function(){
+        displayLogin()
+    })
+}
+
+function decryptAndDisplayInbox(inboxSummary){
+    sessionStorage["pubHash"] = inboxSummary.PublicHash
+    decryptPrivateKey(function(privateKey){
+        decryptSubjects(inboxSummary.EmailHeaders, privateKey)
+        var data = {
+            token:        $.cookie("token"),
+            pubHash:      inboxSummary.PublicHash,
+            domain:       document.location.hostname,
+            emailHeaders: inboxSummary.EmailHeaders
+        }
+        $("#wrapper").html(render("page-template", data))
+        bindSidebarEvents()
+        setSelectedTab($("#tab-inbox"))
+        $("#inbox").html(render("inbox-template", data))
+        bindInboxEvents()
+    })
+}
+
+function decryptSubjects(headers, privateKey){
+    for(var i = 0; i < headers.length; i++){
+        var h = headers[i]
+        try {
+            h.Subject = decodePgp(h.CipherSubject, privateKey)
+        } catch (fuu){
+            h.Subject = "Decryption Failed"
+        }
+        if(trim(h.Subject)==""){
+            h.Subject = "(no subject)"
+        }
+    }
+}
+
+function readNextEmail(){
+    var msg
+    if($(".current").length == 0){
+        msg = $("li").first()
+    } else {
+        msg = $(".current").next()
+    }
+    displayEmail(msg)
+}
+
+function readPrevEmail(){
+    var msg = $(".current").prev()
+    if(msg.length > 0){
+        displayEmail(msg)
+    }
+}
+
+
+
+//
+// SINGLE EMAIL
+//
+
+function bindEmailEvents() {
+    $("#replyButton").click(emailReply)
+    $("#replyAllButton").click(emailReplyAll)
+    $("#forwardButton").click(emailForward)
+}
+
+// Takes a subject-line <li>, selects it, shows the full email
+function displayEmail(target){
+    if(target.size()==0) return
+    $("li.current").removeClass("current")
+    target.addClass("current")
+
+    $.get("/email/"+target.data("id"), function(cipherBody){
+        decryptPrivateKey(function(privateKey){
+            var plaintextBody = decodePgp(cipherBody, privateKey)
+
+            viewState.email = {
+                from:        target.data("from"),
+                to:          target.data("to"),
+                time:        new Date(target.data("time")*1000),
+                toAddresses: target.data("to").split(",").map(trimToLower),
+                subject:     target.text(),
+                body:        plaintextBody
+            }
+            var html = render("email-template", viewState.email)
+            $("#content").attr("class", "email").html(html)
+            bindEmailEvents()
+        })
+    }, "text")
+}
+
+function emailReply(){
+    var email = viewState.email
+    if(!email) return
+    displayCompose(email.from, email.subject, "")
+}
+
+function emailReplyAll(){
+    var email = viewState.email
+    if(!email) return
+    var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
+        // email starts with our pubHash -> don't reply to our self
+        return addr.indexOf(sessionStorage["pubHash"]) != 0
+    }).concat([email.from])
+    displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
+}
+
+function emailForward(){
+    var email = viewState.email
+    if(!email) return
+    displayCompose("", email.subject, email.body)
+}
+
+
+
+
+//
+// COMPOSE
+//
+
+function bindComposeEvents() {
+    $("#sendButton").click(function(){
+        var subject = $("#subject").val()
+        var to = $("#to").val()
+        var body = $("#body").val()
+
+        sendEmail(to, subject, body)
+    })
+}
+
+function displayCompose(to, subject, body){
+    // clean up 
+    $("#inbox").html("")
+    viewState.email = null
+    setSelectedTab($("#tab-compose"))
+
+    // render compose form into #content
+    var html = render("compose-template", {
+        to:to,
+        subject:subject,
+        body:body
+    })
+    $("#content").attr("class", "compose").html(html)
+    bindComposeEvents()
+}
+
+function sendEmail(to,subject,body){
+    // send encrypted if possible
+    var toAddresses = to.split(",").map(trimToLower)
+    var invalidToAddresses = toAddresses.filter(function(addr){
+        return !addr.match(REGEX_EMAIL)
+    })
+    if(invalidToAddresses.length>0){
+        alert("Invalid email addresses "+invalidToAddresses.join(", "))
+        return
+    }
+
+    var pubHashesArr = toAddresses.map(extractPubHash)
+    var pubHashes = []
+    var unencryptedToAddresses = []
+    for(var i = 0; i < toAddresses.length; i++){
+        if(pubHashesArr[i]){
+            pubHashes.push(pubHashesArr[i])
+        } else {
+            unencryptedToAddresses.push(toAddresses[i])
+        }
+    }
+    if(unencryptedToAddresses.length > 0){
+        prompt("Sending to unencrypted addresses is not yet supported")
+        return
+    }
+
+    // look up each recipient's public key
+    pubHashes.forEach(function(pubHash){
+        sendEmailEncrypted(to,subject,body,'inbox',pubHash)
+    })
+
+    // encrypt a copy to ourselves, for our sent mail folder
+    sendEmailEncrypted(to,subject,body,'sent',sessionStorage["pubHash"])
+    return false
+}
+
+function sendEmailEncrypted(to,subject,body,box,pubHash){
+    $.get("/user/"+pubHash, function(data){
+        var publicKey = openpgp.read_publicKey(data)
+        var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
+        var cipherBody = openpgp.write_encrypted_message(publicKey, body)
+
+        var data = {
+            box: box,
+            pubHash: pubHash,
+            to: to,
+            cipherSubject: cipherSubject,
+            cipherBody: cipherBody
+        }
+        $.post("/email/", data, function(){
+            displayCompose()
+        }).fail(function(xhr){
+            alert("Sending failed: "+xhr.responseText)
+        })
+    }).fail(function(){
+        alert("Could not find public key for "+pubHash+"@...")
+    })
+}
+
+function sendEmailUnencrypted(from, to, subject, body){
+    alert("Unimplemented")
+}
+
+// Extracts the public-key hash from <public key hash>@<host>
+// Return null if the email is not in that form
+function extractPubHash(email){
+    var match = REGEX_HASH_EMAIL.exec(email)
+    if(match == null){
+        return null
+    }
+    return match[1].toLowerCase()
+}
+
+
+
+//
+// CRYPTO
+//
+
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
 // Returns a 16-byte string, eg "tnysbtbxsf356hiy"
 // This is the same algorithm and format Onion URLS use
@@ -344,76 +600,6 @@ function computeKeyHash(token, pass){
     return new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
 }
 
-function validateToken(){
-    var token = $("#createToken").val()
-    if(token.match(REGEX_TOKEN)) {
-        return token
-    } else {
-        alert("User must be at least three letters and numbers.\n"
-            + "No special characters.\n")
-        return null
-    }
-}
-
-function validateNewPassword(){
-    var pass1 = $("#createPass").val()
-    var pass2 = $("#confirmPass").val()
-    if(pass1 != pass2){
-        alert("Passphrases must match")
-        return null
-    }
-    if(pass1.length < 10){
-        alert("Your passphrase is too short.\n" + 
-              "An ordinary password is not strong enough here.\n" +
-              "For help, see http://xkcd.com/936/")
-        return null
-    }
-    return pass1
-}
-
-
-
-//
-// INBOX
-//
-
-function loadDecryptAndDisplayInbox(){
-    $.get("/inbox", function(inbox){
-        decryptAndDisplayInbox(inbox)
-    }, 'json').fail(function(){
-        displayLogin()
-    })
-}
-
-function decryptAndDisplayInbox(inboxSummary){
-    sessionStorage["pubHash"] = inboxSummary.PublicHash
-    decryptPrivateKey(function(privateKey){
-        decryptSubjects(inboxSummary.EmailHeaders, privateKey)
-        var data = {
-            token:        $.cookie("token"),
-            pubHash:      inboxSummary.PublicHash,
-            domain:       document.location.hostname,
-            emailHeaders: inboxSummary.EmailHeaders
-        }
-        $("#wrapper").html(render("page-template", data))
-        bindSidebarEvents()
-        setSelectedTab($("#tab-inbox"))
-        $("#inbox").html(render("inbox-template", data))
-        bindInboxEvents()
-    })
-}
-
-function decryptSubjects(headers, privateKey){
-    for(var i = 0; i < headers.length; i++){
-        var h = headers[i]
-        try {
-            h.Subject = decodePgp(h.CipherSubject, privateKey)
-        } catch (fuu){
-            h.Subject = "Decryption Failed"
-        }
-    }
-}
-
 function decryptPrivateKey(fn){
     if(sessionStorage["privateKeyArmored"]){
         var privateKey = openpgp.read_privateKey(sessionStorage["privateKeyArmored"])
@@ -428,7 +614,9 @@ function decryptPrivateKey(fn){
     $.get("/user/me", function(cipherPrivateKeyHex){
         var cipherPrivateKey = hex2bin(cipherPrivateKeyHex)
         var privateKeyArmored = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, sessionStorage["passKey"], cipherPrivateKey)
+            ALGO_AES128, 
+            sessionStorage["passKey"], 
+            cipherPrivateKey)
         sessionStorage["privateKeyArmored"] = privateKeyArmored
         var privateKey = openpgp.read_privateKey(privateKeyArmored)
         fn(privateKey)
@@ -458,168 +646,6 @@ function decodePgp(armoredText, privateKey){
     return text
 }
 
-function readNextEmail(){
-    var msg
-    if($(".current").length == 0){
-        msg = $("li").first()
-    } else {
-        msg = $(".current").next()
-    }
-    readEmail(msg)
-}
-
-function readPrevEmail(){
-    var msg = $(".current").prev()
-    if(msg.length > 0){
-        readEmail(msg)
-    }
-}
-
-
-
-//
-// SINGLE EMAIL
-//
-var email = null
-
-// Takes a subject-line <li>, selects it, shows the full email
-function readEmail(target){
-    if(target.size()==0) return
-    $("li.current").removeClass("current")
-    target.addClass("current")
-
-    $.get("/email/"+target.data("id"), function(cipherBody){
-        decryptPrivateKey(function(privateKey){
-            var plaintextBody = decodePgp(cipherBody, privateKey)
-
-            email = {
-                from:        target.data("from"),
-                to:          target.data("to"),
-                toAddresses: target.data("to").split(",").map(trimToLower),
-                subject:     target.text(),
-                body:        plaintextBody
-            }
-            var html = render("email-template", email)
-            $("#content").attr("class", "email").html(html)
-            bindEmailEvents(email)
-        })
-    }, "text")
-}
-
-function emailReply(){
-    if(!email) return
-    displayCompose(email.from, email.subject, "")
-}
-
-function emailReplyAll(){
-    if(!email) return
-    var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
-        // email starts with our pubHash -> don't reply to our self
-        return addr.indexOf(sessionStorage["pubHash"]) != 0
-    }).concat([email.from])
-    displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
-}
-
-function emailForward(){
-    if(!email) return
-    displayCompose("", email.subject, email.body)
-}
-
-
-
-
-//
-// COMPOSE
-//
-function displayCompose(to, subject, body){
-    // clean up 
-    $("#inbox").html("")
-    email = null
-    setSelectedTab($("#tab-compose"))
-
-    // render compose form into #content
-    var html = render("compose-template", {
-        to:to,
-        subject:subject,
-        body:body
-    })
-    $("#content").attr("class", "compose").html(html)
-    bindComposeEvents()
-}
-
-function sendEmail(to,subject,body){
-    // send encrypted if possible
-    var toAddresses = to.split(",").map(trimToLower)
-    var invalidToAddresses = toAddresses.filter(function(addr){
-        return !addr.match(REGEX_EMAIL)
-    })
-    if(invalidToAddresses.length>0){
-        alert("Invalid email addresses "+invalidToAddresses.join(", "))
-        return
-    }
-
-    var pubHashesArr = toAddresses.map(extractPubHash)
-    var pubHashes = []
-    var unencryptedToAddresses = []
-    for(var i = 0; i < toAddresses.length; i++){
-        if(pubHashesArr[i]){
-            pubHashes.push(pubHashesArr[i])
-        } else {
-            unencryptedToAddresses.push(toAddresses[i])
-        }
-    }
-    if(unencryptedToAddresses.length > 0){
-        prompt("Sending to unencrypted addresses is not yet supported")
-        return
-    }
-
-    // look up each recipient's public key
-    pubHashes.forEach(function(pubHash){
-        sendEmailEncrypted(to,subject,body,'inbox',pubHash)
-    })
-
-    // encrypt a copy to ourselves, for our outbox
-    sendEmailEncrypted(to,subject,body,'sent',sessionStorage["pubHash"])
-    return false
-}
-
-function sendEmailEncrypted(to,subject,body,box,pubHash){
-    $.get("/user/"+pubHash, function(data){
-        var publicKey = openpgp.read_publicKey(data)
-        var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
-        var cipherBody = openpgp.write_encrypted_message(publicKey, body)
-
-        var data = {
-            box: box,
-            pubHash: pubHash,
-            to: to,
-            cipherSubject: cipherSubject,
-            cipherBody: cipherBody
-        }
-        $.post("/email/", data, function(){
-            displayCompose()
-        }).fail(function(xhr){
-            alert("Sending failed: "+xhr.responseText)
-        })
-    }).fail(function(){
-        alert("Could not find public key for "+pubHash+"@...")
-    })
-}
-
-function sendEmailUnencrypted(from, to, subject, body){
-    alert("Unimplemented")
-}
-
-// Extracts the public-key hash from <public key hash>@<host>
-// Return null if the email is not in that form
-function extractPubHash(email){
-    var match = REGEX_HASH_EMAIL.exec(email)
-    if(match == null){
-        return null
-    }
-    return match[1].toLowerCase()
-}
-
 
 
 //
@@ -631,9 +657,17 @@ function initPGP(){
     openpgp.init()
     return true
   } else {
-    window.alert("Sorry, you'll need a modern browser for this.\nUse Chrome >= 11, Safari >= 3.1 or Firefox >= 21")
+    alert("Sorry, you'll need a modern browser to use Scramble.\n"+
+          "Use Chrome >= 11, Safari >= 3.1 or Firefox >= 21")
     return false
   }   
+}
+
+// Renders a Handlebars template, reading from a <script> tag. Returns HTML.
+function render(templateId, data) {
+    var source = document.getElementById(templateId).textContent
+    var template = Handlebars.compile(source)
+    return template(data)
 }
 
 function bin2hex(str){
@@ -642,6 +676,9 @@ function bin2hex(str){
 function hex2bin(str){
     return util.hex2bin(str)
 }
+function trim(str){
+    return str.replace(/^\s+|\s+$/g,'')
+}
 function trimToLower(str){
-    return str.replace(/^\s+|\s+$/g,'').toLowerCase()
+    return trim(str).toLowerCase()
 }
