@@ -507,8 +507,12 @@ function sendEmail(to,subject,body){
         sendEmailEncrypted(msgId,to,subject,body,'inbox',pubHash)
     })
 
-    // encrypt a copy to ourselves, for our sent mail folder
-    sendEmailEncrypted(msgId,to,subject,body,'sent',sessionStorage["pubHash"])
+    // encrypt a special copy to ourselves, for our sent mail folder
+    // ... unless we're already emailing to ourselves
+    var myPubHash = sessionStorage["pubHash"];
+    if(pubHashes.indexOf(myPubHash)<-1){
+        sendEmailEncrypted(msgId,to,subject,body,'sent',myPubHash)
+    }
     return false
 }
 
@@ -521,7 +525,7 @@ function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
         var data = {
             msgId:msgId,
             box: box,
-            pubHash: pubHash,
+            pubHashTo: pubHash,
             to: to,
             cipherSubject: cipherSubject,
             cipherBody: cipherBody

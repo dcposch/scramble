@@ -24,7 +24,8 @@ type EmailHeader struct {
     From string
     To string
 
-    PubHash string
+    PubHashFrom string
+    PubHashTo string
     CipherSubject string
 }
 

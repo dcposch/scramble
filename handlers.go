@@ -155,10 +155,16 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
 
 // GET /email/id fetches the body
 func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
+    userId := authenticate(r)
+    if userId==nil {
+        http.Error(w, "Not logged in", http.StatusUnauthorized)
+        return
+    }
+
     idStr := r.URL.Path[len("/email/"):]
     id := validateMessageID(idStr)
 
-    message := LoadMessage(id)
+    message := LoadMessage(id, userId.PublicHash)
     w.Write([]byte(message.CipherBody))
 }
 
@@ -175,7 +181,8 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
     email.From = userId.PublicHash + "@" + r.Host
     email.To = r.FormValue("to")
 
-    email.PubHash = validateHash(r.FormValue("pubHash"))
+    email.PubHashFrom = userId.PublicHash
+    email.PubHashTo = validateHash(r.FormValue("pubHashTo"))
     email.Box = validateBox(r.FormValue("box"))
     email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
     email.CipherBody = validateHex(r.FormValue("cipherBody"))
