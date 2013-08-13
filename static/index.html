@@ -57,8 +57,8 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
-<div id="content">
-</div>
+<div id="statusBar"></div>
+<div id="content"></div>
 
 <div id="sidebar">
     <h1>SCRAMBLE</h1>
@@ -79,7 +79,7 @@
 <!-- INBOX -->
 <script id="inbox-template" type="text/x-handlebars-template">
 {{#each emailHeaders}}
-    <li data-id="{{MessageID}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
+    <li data-id="{{MessageID}}" data-box="{{Box}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
 {{/each}}
 </script>
 
@@ -94,9 +94,16 @@
     <button id="replyButton">Reply</button>
     <button id="replyAllButton">Reply All</button>
     <button id="forwardButton">Forward</button>
+    {{#if isInbox}}
+    <button id="archiveButton">Archive</button>
+    {{/if}}
+    {{#if isArchive}}
+    <button id="moveToInboxButton">Move to Inbox</button>
+    {{/if}}
 </div>
 <pre class="body">{{body}}</pre>
 </script>
+
 
 
 <!-- COMPOSE -->

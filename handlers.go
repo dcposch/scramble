@@ -161,6 +161,8 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 func emailHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "GET" {
         emailFetchHandler(w, r)
+    } else if r.Method == "PUT" {
+        emailBoxHandler(w, r)
     } else if r.Method == "POST" {
         emailSendHandler(w, r)
     }
@@ -174,11 +176,26 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    idStr := r.URL.Path[len("/email/"):]
-    id := validateMessageID(idStr)
+    id := r.URL.Path[len("/email/"):]
+    validateMessageID(id)
 
     message := LoadMessage(id, userId.PublicHash)
     w.Write([]byte(message.CipherBody))
+}
+
+// PUT /email/id can change things about an email, eg what box it's in
+func emailBoxHandler(w http.ResponseWriter, r *http.Request) {
+    userId := authenticate(r)
+    if userId==nil {
+        http.Error(w, "Not logged in", http.StatusUnauthorized)
+        return
+    }
+
+    id := r.URL.Path[len("/email/"):]
+    validateMessageID(id)
+    newBox := validateBox(r.FormValue("box"))
+
+    UpdateEmail(id,userId.PublicHash,newBox)
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {

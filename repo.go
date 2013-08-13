@@ -234,7 +234,8 @@ func LoadMessage (id string, pubHashTo string) Email {
     err := db.QueryRow("select "+
         "box, unix_time, from_email, to_email, "+
         "pub_hash_from, cipher_subject, cipher_body " +
-        "from email where message_id=?",id).Scan(
+        "from email where message_id=? and pub_hash_to=?",
+        id, pubHashTo).Scan(
         &email.Box,
         &email.UnixTime,
         &email.From,
@@ -248,5 +249,15 @@ func LoadMessage (id string, pubHashTo string) Email {
         panic(err)
     }
     return email
+}
+
+func UpdateEmail (id string, pubHashTo string, newBox string) {
+    _,err := db.Exec("update email "+
+        "set box=? "+
+        "where message_id=? and pub_hash_to=?",
+        newBox,id,pubHashTo)
+    if err != nil {
+        panic(err)
+    }
 }
 

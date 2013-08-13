@@ -82,6 +82,7 @@ var keyMap = {
     "r":emailReply,
     "a":emailReplyAll,
     "f":emailForward,
+    "y":function(){moveEmail("archive")},
     27:closeModal // esc key
 }
 
@@ -152,6 +153,14 @@ function bindSidebarEvents() {
 function setSelectedTab(tab) {
     $("#sidebar .tab").removeClass("selected")
     tab.addClass("selected")
+}
+
+function displayStatus(msg){
+    $("#statusBar")
+        .text(msg)
+        .show()
+        .delay(1000)
+        .fadeOut("slow")
 }
 
 
@@ -335,13 +344,14 @@ function bindInboxEvents(box) {
 function loadDecryptAndDisplayInbox(box){
     box = box || "inbox"
     $.get("/box/"+box, function(summary){
-        decryptAndDisplayInbox(box, summary)
+        decryptAndDisplayInbox(summary, box)
     }, 'json').fail(function(){
         displayLogin()
     })
 }
 
-function decryptAndDisplayInbox(box, inboxSummary){
+function decryptAndDisplayInbox(inboxSummary, box){
+    box = box || "inbox"
     sessionStorage["pubHash"] = inboxSummary.PublicHash
 
     decryptPrivateKey(function(privateKey){
@@ -387,6 +397,29 @@ function readPrevEmail(){
     }
 }
 
+function moveEmail(box){
+    if(!viewState.email) return
+    var msgId = viewState.email.id
+    $.ajax({
+        url: '/email/'+msgId,
+        type: 'PUT',
+        data: {
+            'box':box
+        },
+    }).done(function(){
+        var newSelection = $(".box .current").next()
+        if(newSelection.length == 0){
+            newSelection = $(".box .current").prev()
+        }
+        $(".box .current").remove()
+        displayEmail(newSelection)
+
+        displayStatus("Moved to "+box)
+    }).fail(function(xhr){
+        alert("Move to "+box+" failed: "+xhr.responseText)
+    })
+}
+
 
 
 //
@@ -397,6 +430,9 @@ function bindEmailEvents() {
     $("#replyButton").click(emailReply)
     $("#replyAllButton").click(emailReplyAll)
     $("#forwardButton").click(emailForward)
+
+    $("#archiveButton").click(function(){moveEmail("archive")})
+    $("#moveToInboxButton").click(function(){moveEmail("inbox")})
 }
 
 // Takes a subject-line <li>, selects it, shows the full email
@@ -410,10 +446,15 @@ function displayEmail(target){
             var plaintextBody = tryDecodePgp(cipherBody, privateKey)
 
             viewState.email = {
+                id:          target.data("id"),
+                time:        new Date(target.data("time")*1000),
                 from:        target.data("from"),
                 to:          target.data("to"),
-                time:        new Date(target.data("time")*1000),
                 toAddresses: target.data("to").split(",").map(trimToLower),
+
+                isInbox:      target.data("box")=="inbox",
+                isArchive:    target.data("box")=="archive",
+
                 subject:     target.text(),
                 body:        plaintextBody
             }
@@ -465,7 +506,7 @@ function bindComposeEvents() {
 
 function displayCompose(to, subject, body){
     // clean up 
-    $("#inbox").html("")
+    $(".box").html("")
     viewState.email = null
     setSelectedTab($("#tab-compose"))
 
@@ -539,6 +580,7 @@ function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
             cipherBody: cipherBody
         }
         $.post("/email/", data, function(){
+            displayStatus("Sent")
             displayCompose()
         }).fail(function(xhr){
             alert("Sending failed: "+xhr.responseText)

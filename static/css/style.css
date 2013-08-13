@@ -21,10 +21,16 @@ a:hover {
 color:#03a;
 text-decoration:none;
 }
+#statusBar {
+position:absolute;
+top:12px;
+left:320px;
+color:#03a;
+}
 #content {
 position:absolute;
 left:312px;
-top:0px;
+top:20px;
 right:0px;
 padding:8px;
 }
@@ -221,7 +227,9 @@ white-space:pre-wrap;
 #content.email .replyForwardButtons {
 margin:10px 0;
 }
-
+#archiveButton,#moveToInboxButton {
+margin:0 10px;
+}
 
 
 

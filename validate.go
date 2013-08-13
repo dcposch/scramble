@@ -40,7 +40,7 @@ func validatePublicKey(str string) string {
     return str
 }
 func validateBox(str string) string {
-    if str!="inbox" && str!="sent" {
+    if str!="inbox" && str!="sent" && str!="archive" {
         log.Panicf("Expected 'inbox' or 'sent', got %s",str)
     }
     return str
