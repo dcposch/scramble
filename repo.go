@@ -152,10 +152,6 @@ func LoadPubKey (publicHash string) string {
     return publicKey
 }
 
-func LoadInbox(publicHash string) []EmailHeader {
-    return LoadBox(publicHash, "inbox")
-}
-
 // Loads all email headers in a certain box
 // For example, inbox or sent box
 // That are encrypted for a given user

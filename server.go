@@ -13,7 +13,7 @@ func main() {
     http.HandleFunc("/user/", userHandler)
     http.HandleFunc("/user/me", privateHandler)
     http.HandleFunc("/email/", emailHandler)
-    http.HandleFunc("/inbox", inboxHandler)
+    http.HandleFunc("/box/", inboxHandler)
 
     // Resources
     http.HandleFunc("/", staticHandler)

@@ -74,10 +74,10 @@ var keyMap = {
     "j":readNextEmail,
     "k":readPrevEmail,
     "g":{
-        "i":loadDecryptAndDisplayInbox,
         "c":displayCompose,
-        "s":function(){alert("Go to Sent Messages is still unimplemented")},
-        "a":function(){alert("Go to Archive is stil unimplemented")}
+        "i":function(){loadDecryptAndDisplayInbox("inbox")},
+        "s":function(){loadDecryptAndDisplayInbox("sent")},
+        "a":function(){loadDecryptAndDisplayInbox("archive")}
     },
     "r":emailReply,
     "a":emailReplyAll,
@@ -122,7 +122,13 @@ function bindKeyboardShortcuts() {
 function bindSidebarEvents() {
     // Navigate to Inbox
     $("#tab-inbox").click(function(e){
-        loadDecryptAndDisplayInbox()
+        loadDecryptAndDisplayInbox("inbox")
+    })
+    $("#tab-sent").click(function(e){
+        loadDecryptAndDisplayInbox("sent")
+    })
+    $("#tab-archive").click(function(e){
+        loadDecryptAndDisplayInbox("archive")
     })
     
     // Navigate to Compose
@@ -202,7 +208,7 @@ function login(token, pass){
     // set cookies, try loading the inbox
     $.cookie("token", token) //, {"secure":true})
     $.cookie("passHash", passHash) //, {"secure":true})
-    $.get("/inbox", function(inbox){
+    $.get("/box/inbox", function(inbox){
         decryptAndDisplayInbox(inbox)
     }, 'json').fail(function(){
         alert("Incorrect user or passphrase")
@@ -274,7 +280,7 @@ function createAccount(keys){
         // set cookies, try loading the inbox
         $.cookie("token", token) //, {"secure":true})
         $.cookie("passHash", passHash) //, {"secure":true})
-        $.get("/inbox", function(inbox){
+        $.get("/box/inbox", function(inbox){
             decryptAndDisplayInbox(inbox)
         }, 'json').fail(function(){
             alert("Try refreshing the page, then logging in.")
@@ -319,23 +325,25 @@ function validateNewPassword(){
 // INBOX
 //
 
-function bindInboxEvents() {
+function bindInboxEvents(box) {
     // Click on an email to open it
-    $("#inbox li").click(function(e){
+    $("#"+box+" li").click(function(e){
         displayEmail($(e.target))
     })
 }
 
-function loadDecryptAndDisplayInbox(){
-    $.get("/inbox", function(inbox){
-        decryptAndDisplayInbox(inbox)
+function loadDecryptAndDisplayInbox(box){
+    box = box || "inbox"
+    $.get("/box/"+box, function(summary){
+        decryptAndDisplayInbox(box, summary)
     }, 'json').fail(function(){
         displayLogin()
     })
 }
 
-function decryptAndDisplayInbox(inboxSummary){
+function decryptAndDisplayInbox(box, inboxSummary){
     sessionStorage["pubHash"] = inboxSummary.PublicHash
+
     decryptPrivateKey(function(privateKey){
         decryptSubjects(inboxSummary.EmailHeaders, privateKey)
         var data = {
@@ -346,9 +354,9 @@ function decryptAndDisplayInbox(inboxSummary){
         }
         $("#wrapper").html(render("page-template", data))
         bindSidebarEvents()
-        setSelectedTab($("#tab-inbox"))
-        $("#inbox").html(render("inbox-template", data))
-        bindInboxEvents()
+        setSelectedTab($("#tab-"+box))
+        $("#"+box).html(render("inbox-template", data))
+        bindInboxEvents(box)
     })
 }
 

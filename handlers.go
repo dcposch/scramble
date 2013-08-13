@@ -126,16 +126,29 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Not logged in", http.StatusUnauthorized)
         return
     }
+    box := r.URL.Path[len("/box/"):]
+
+    var emailHeaders []EmailHeader
+    if box=="inbox" || box=="archive" {
+        emailHeaders = LoadBox(userId.PublicHash, box)
+    } else if box=="sent" {
+        emailHeaders = LoadSent(userId.PublicHash)
+    } else {
+        http.Error(w, "Unknown box. "+
+            "Expected 'inbox','sent', etc, got "+box,
+            http.StatusBadRequest)
+        return
+    }
 
     var inbox InboxSummary
     inbox.Token = userId.Token
     inbox.PublicHash = userId.PublicHash
-    inbox.EmailHeaders = LoadInbox(userId.PublicHash)
+    inbox.EmailHeaders = emailHeaders
+
     inboxJson, err := json.Marshal(inbox)
     if err!=nil {
         panic(err)
     }
-
     w.Write(inboxJson)
 }
 

@@ -177,6 +177,10 @@ font:9px monospace;
 margin:8px 0;
 }
 #sidebar .tab {
+display:block;
+font-size:24px;
+font-weight:bold;
+margin:3px 0;
 color:#03a;
 }
 #sidebar .tab.selected {
@@ -189,12 +193,12 @@ font-size:9px;
 
 
 /* INBOX */
-#inbox {
+.box {
 list-style-type:none;
 padding:0px;
 margin:0px;
 }
-#inbox li {
+.box li {
 border-top:1px solid #ddd;
 padding:6px 0;
 white-space:nowrap;
@@ -202,7 +206,7 @@ overflow:hidden;
 text-overflow:ellipsis;
 cursor:pointer;
 }
-#inbox li:hover, ul li.current {
+.box li:hover, ul li.current {
 background:#eee;
 }
 
