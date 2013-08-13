@@ -354,13 +354,9 @@ function decryptAndDisplayInbox(inboxSummary){
 function decryptSubjects(headers, privateKey){
     for(var i = 0; i < headers.length; i++){
         var h = headers[i]
-        try {
-            h.Subject = decodePgp(h.CipherSubject, privateKey)
-        } catch (fuu){
-            h.Subject = "Decryption Failed"
-        }
+        h.Subject = tryDecodePgp(h.CipherSubject, privateKey)
         if(trim(h.Subject)==""){
-            h.Subject = "(no subject)"
+            h.Subject = "(No subject)"
         }
     }
 }
@@ -402,7 +398,7 @@ function displayEmail(target){
 
     $.get("/email/"+target.data("id"), function(cipherBody){
         decryptPrivateKey(function(privateKey){
-            var plaintextBody = decodePgp(cipherBody, privateKey)
+            var plaintextBody = tryDecodePgp(cipherBody, privateKey)
 
             viewState.email = {
                 from:        target.data("from"),
@@ -624,6 +620,13 @@ function decryptPrivateKey(fn){
         alert("Failed to retrieve our own encrypted private key: "+xhr.responseText)
         return
     })
+}
+function tryDecodePgp(armoredText, privateKey){
+    try {
+        return decodePgp(h.CipherSubject, privateKey)
+    } catch (err){
+        return "(Decryption failed)"
+    }
 }
 function decodePgp(armoredText, privateKey){
     var msgs = openpgp.read_message(armoredText)
