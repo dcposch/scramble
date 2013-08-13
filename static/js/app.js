@@ -670,6 +670,12 @@ function render(templateId, data) {
     return template(data)
 }
 
+// Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"
+Handlebars.registerHelper('formatDate', function(context, block) {
+    var str = block.hash.format || "YYYY-MM-DD";
+    return moment(context).format(str);
+});
+
 function bin2hex(str){
     return util.hexstrdump(str)
 }
