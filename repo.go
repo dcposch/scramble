@@ -3,10 +3,13 @@ package main
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 
-import "os"
-import "io/ioutil"
-import "strings"
-import "log"
+import (
+    "time"
+    "os"
+    "io/ioutil"
+    "strings"
+    "log"
+)
 
 var db *sql.DB
 
@@ -56,11 +59,25 @@ func init() {
     if err!=nil {
         panic(err)
     }
+    go ping()
 
     for _,sql := range migrations {
         _,err = db.Exec(sql)
         if err!=nil {
             panic(err)
+        }
+    }
+}
+
+func ping(){
+    ticker := time.Tick(time.Minute)
+    for {
+        <-ticker
+        err := db.Ping()
+        if err!=nil {
+            log.Printf("DB not ok: %v\n", err)
+        } else {
+            log.Printf("DB ok\n")
         }
     }
 }
