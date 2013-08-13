@@ -472,6 +472,10 @@ function displayCompose(to, subject, body){
 }
 
 function sendEmail(to,subject,body){
+    // generate 160-bit (20 byte) message id
+    // secure random generator, so it will be unique
+    var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
+
     // send encrypted if possible
     var toAddresses = to.split(",").map(trimToLower)
     var invalidToAddresses = toAddresses.filter(function(addr){
@@ -482,14 +486,15 @@ function sendEmail(to,subject,body){
         return
     }
 
+    // extract the recipient public key hashes
     var pubHashesArr = toAddresses.map(extractPubHash)
     var pubHashes = []
     var unencryptedToAddresses = []
     for(var i = 0; i < toAddresses.length; i++){
         if(pubHashesArr[i]){
-            pubHashes.push(pubHashesArr[i])
+            addIfNotContains(pubHashes, pubHashesArr[i])
         } else {
-            unencryptedToAddresses.push(toAddresses[i])
+            addIfNotContains(unencryptedToAddresses, toAddresses[i])
         }
     }
     if(unencryptedToAddresses.length > 0){
@@ -499,21 +504,22 @@ function sendEmail(to,subject,body){
 
     // look up each recipient's public key
     pubHashes.forEach(function(pubHash){
-        sendEmailEncrypted(to,subject,body,'inbox',pubHash)
+        sendEmailEncrypted(msgId,to,subject,body,'inbox',pubHash)
     })
 
     // encrypt a copy to ourselves, for our sent mail folder
-    sendEmailEncrypted(to,subject,body,'sent',sessionStorage["pubHash"])
+    sendEmailEncrypted(msgId,to,subject,body,'sent',sessionStorage["pubHash"])
     return false
 }
 
-function sendEmailEncrypted(to,subject,body,box,pubHash){
+function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
     $.get("/user/"+pubHash, function(data){
         var publicKey = openpgp.read_publicKey(data)
         var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
         var cipherBody = openpgp.write_encrypted_message(publicKey, body)
 
         var data = {
+            msgId:msgId,
             box: box,
             pubHash: pubHash,
             to: to,
@@ -679,6 +685,13 @@ Handlebars.registerHelper('formatDate', function(context, block) {
     var str = block.hash.format || "YYYY-MM-DD";
     return moment(context).format(str);
 });
+
+// Appends an element to an array, if it's not already in the array
+function addIfNotContains(elems, newElem){
+    if(elems.indexOf(newElem) < 0){
+        elems.push(newElem)
+    }
+}
 
 function bin2hex(str){
     return util.hexstrdump(str)

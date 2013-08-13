@@ -4,7 +4,6 @@ import (
     "log"
     "encoding/json"
     "strings"
-    "strconv"
     "time"
     "net/http"
 )
@@ -157,11 +156,7 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
 // GET /email/id fetches the body
 func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
     idStr := r.URL.Path[len("/email/"):]
-    id,err := strconv.Atoi(idStr)
-    if err!=nil {
-        http.Error(w, "Invalid email ID "+idStr, http.StatusBadRequest)
-        return
-    }
+    id := validateMessageID(idStr)
 
     message := LoadMessage(id)
     w.Write([]byte(message.CipherBody))
@@ -175,6 +170,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     email := new(Email)
+    email.MessageID = validateMessageID(r.FormValue("msgId"))
     email.UnixTime = time.Now().Unix()
     email.From = userId.PublicHash + "@" + r.Host
     email.To = r.FormValue("to")

@@ -27,7 +27,7 @@ var migrations = [...]string{
     )`,
 
     `create table if not exists email (
-        id bigint not null auto_increment,
+        message_id char(40) not null,
         unix_time bigint not null,
         box enum ('inbox','outbox','sent','archive','trash') not null,
 
@@ -38,9 +38,8 @@ var migrations = [...]string{
         cipher_subject varchar(1500) not null,
         cipher_body longtext not null,
 
-        primary key (id),
-        index (from_email, to_email),
-        index (to_email)
+        primary key (message_id, pub_hash, box),
+        index (pub_hash, box)
     )`}
 
 
@@ -161,7 +160,7 @@ func LoadBox(publicHash string, box string) []EmailHeader {
     log.Printf("Fetching inbox %s\n", publicHash)
 
     // query
-    rows,err := db.Query("select id, unix_time, from_email, to_email, cipher_subject"+
+    rows,err := db.Query("select message_id, unix_time, from_email, to_email, cipher_subject"+
         " from email where pub_hash=? and box=?", publicHash, box)
     if err != nil {
         panic(err)
@@ -171,7 +170,12 @@ func LoadBox(publicHash string, box string) []EmailHeader {
     headers := make([]EmailHeader, 0)
     for rows.Next() {
         var header EmailHeader
-        rows.Scan(&header.ID, &header.UnixTime, &header.From, &header.To, &header.CipherSubject)
+        rows.Scan(
+            &header.MessageID,
+            &header.UnixTime,
+            &header.From,
+            &header.To,
+            &header.CipherSubject)
         header.PubHash = publicHash
         header.Box = box
         headers = append(headers, header)
@@ -182,8 +186,10 @@ func LoadBox(publicHash string, box string) []EmailHeader {
 
 func SaveMessage(e *Email) {
     _,err := db.Exec("insert into email " +
-        "(box, unix_time, from_email, to_email, pub_hash, cipher_subject, cipher_body) "+
-        "values (?,?,?,?,?,?,?)",
+        "(message_id, box, unix_time, from_email, to_email, "+
+        " pub_hash, cipher_subject, cipher_body) "+
+        "values (?,?,?,?,?,?,?,?)",
+        e.MessageID,
         e.Box,
         e.UnixTime,
         e.From,
@@ -196,12 +202,13 @@ func SaveMessage(e *Email) {
     }
 }
 
-func LoadMessage (id int) Email {
+func LoadMessage (id string) Email {
     var email Email
-    err := db.QueryRow("select id, box, unix_time, from_email, to_email, "+
+    err := db.QueryRow("select "+
+        "message_id, box, unix_time, from_email, to_email, "+
         "pub_hash, cipher_subject, cipher_body " +
-        "from email where id=?",id).Scan(
-        &email.ID,
+        "from email where message_id=?",id).Scan(
+        &email.MessageID,
         &email.Box,
         &email.UnixTime,
         &email.From,
