@@ -36,7 +36,7 @@ padding:8px;
 }
 #wrapper {
 min-width:840px;
-min-height:400px;
+min-height:600px;
 position:absolute;
 top:0px;
 left:0px;
@@ -107,7 +107,7 @@ width:160px;
 
 /* MODAL */
 .modal-bg {
-position:fixed;
+position:absolute;
 top:0;
 right:0;
 bottom:0;
@@ -136,7 +136,7 @@ margin:10px;
 /* MODAL - CREATE ACCOUNT */
 #createAccountModal {
 width:600px;
-height:460px;
+height:480px;
 }
 #createAccountModal #createForm {
 display:none; /* show later, in js... */
