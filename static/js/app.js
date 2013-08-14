@@ -559,7 +559,7 @@ function sendEmail(to,subject,body){
     // encrypt a special copy to ourselves, for our sent mail folder
     // ... unless we're already emailing to ourselves
     var myPubHash = sessionStorage["pubHash"];
-    if(pubHashes.indexOf(myPubHash)<-1){
+    if(pubHashes.indexOf(myPubHash)<0){
         sendEmailEncrypted(msgId,to,subject,body,'sent',myPubHash)
     }
     return false

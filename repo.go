@@ -160,7 +160,8 @@ func LoadBox(pubHashTo string, box string) []EmailHeader {
 
     rows,err := db.Query("select message_id, box, unix_time, "+
         " from_email, to_email, pub_hash_from, pub_hash_to, cipher_subject "+
-        " from email where pub_hash_to=? and box=?", pubHashTo, box)
+        " from email where pub_hash_to=? and box=? "+
+        " order by unix_time desc", pubHashTo, box)
     if err != nil {
         panic(err)
     }
@@ -170,7 +171,8 @@ func LoadBox(pubHashTo string, box string) []EmailHeader {
 func LoadSent(pubHash string) []EmailHeader{
     rows,err := db.Query("select message_id, box, unix_time, "+
         " from_email, to_email, pub_hash_from, pub_hash_to, cipher_subject "+
-        " from email where pub_hash_from=? and pub_hash_to=?", pubHash, pubHash)
+        " from email where pub_hash_from=? and pub_hash_to=? "+
+        " order by unix_time desc", pubHash, pubHash)
     if err != nil {
         panic(err)
     }
