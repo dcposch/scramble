@@ -18,7 +18,9 @@ func main() {
     // Resources
     http.HandleFunc("/", staticHandler)
 
-    http.ListenAndServe(":8888", Log(http.DefaultServeMux))
+    address := "127.0.0.1:8888"
+    log.Printf("Listening on %s\n", address)
+    http.ListenAndServe(address, Log(http.DefaultServeMux))
 }
 
 func Log(handler http.Handler) http.Handler {

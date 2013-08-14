@@ -13,39 +13,8 @@ import (
 
 var db *sql.DB
 
-var migrations = [...]string{
-
-    `create table if not exists user (
-        token varchar(100) not null,
-        password_hash char(40) not null,
-        public_hash char(40) not null,
-        public_key varchar(4000) not null,
-        cipher_private_key varchar(4000) not null,
-
-        primary key (token),
-        unique index (public_hash)
-    )`,
-
-    `create table if not exists email (
-        message_id char(40) not null,
-        unix_time bigint not null,
-        box enum ('inbox','outbox','sent','archive','trash') not null,
-
-        from_email varchar(254) not null,
-        to_email varchar(254) not null,
-
-        pub_hash_from char(40),
-        pub_hash_to char(40),
-        cipher_subject varchar(1500) not null,
-        cipher_body longtext not null,
-
-        primary key (message_id, pub_hash_to),
-        index (pub_hash_to, box),
-        index (pub_hash_from)
-    )`}
-
-
 func init() {
+    // read configuration
     configFile := os.Getenv("HOME")+"/.scramble/db.config"
     mysqlHostBytes,err := ioutil.ReadFile(configFile)
     if err != nil {
@@ -54,6 +23,7 @@ func init() {
             configFile)
     }
 
+    // connect to the database, ping periodically to maintain the connection
     mysqlHost := strings.TrimSpace(string(mysqlHostBytes))+"?charset=utf8"
     log.Printf("Connecting to %s\n", mysqlHost)
     db,err = sql.Open("mysql", mysqlHost)
@@ -62,12 +32,8 @@ func init() {
     }
     go ping()
 
-    for _,sql := range migrations {
-        _,err = db.Exec(sql)
-        if err!=nil {
-            panic(err)
-        }
-    }
+    // migrate the database
+    migrateDb()
 }
 
 func ping(){
