@@ -71,7 +71,8 @@
     <ul id="sent" class="box"></ul>
     <a id="tab-archive" href="#" class="tab">Archive</a>
     <ul id="archive" class="box"></ul>
-    <a href="#" id="link-kb-shortcuts">Keyboard shortcuts available</a>
+    <a id="tab-contacts" href="#" class="tab">Contacts</a>
+    <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a>
 </div>
 </script>
 
@@ -87,9 +88,15 @@
 <!-- SINGLE EMAIL -->
 <script id="email-template" type="text/x-handlebars-template">
 <h2 class="subject">{{subject}}</h1>
-<div><label>From</label><span class="from">{{from}}</span></div>
-<div><label>To</label><span class="to">{{to}}</span></div>
-<div><label>Received</label><span class="to">{{formatDate time format="MMM D YYYY, hh:mm"}}</span></div>
+<div><label>From</label><span class="from">
+    {{#if fromName}}{{fromName}}
+    {{else}}{{from}} - <a href="#" id="enterFromNameButton">add contact</a>
+    {{/if}}
+    </span></div>
+<div><label>To</label> <span class="to">
+    {{#each toAddresses}}<div>{{address}}{{#if name}}- {{name}}{{/if}}</div>{{/each}}
+    </span></div>
+<div><label>Received</label> <span class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</span></div>
 <div class="replyForwardButtons">
     <button id="replyButton">Reply</button>
     <button id="replyAllButton">Reply All</button>
@@ -110,6 +117,7 @@
 <script id="compose-template" type="text/x-handlebars-template">
 <div class="prompt"><label for="subject">Subject</label><input type="text" id="subject" value="{{subject}}"></span></div>
 <div class="prompt"><label for="to">To</label><input type="text" id="to" value="{{to}}"></span></div>
+<div><label>&nbsp;</label><span class="hint">Email addresses and contact names are both OK, eg "bob, joe, mgnvdy6mrhwmdfys@scramble.io"</span></div>
 <textarea id="body">
 {{#if body}}
 {{body}}
@@ -119,6 +127,32 @@ Encrypted with https://scramble.io
 {{/if}}
 </textarea>
 <input type="submit" id="sendButton" value="Send"></input>
+</script>
+
+
+
+<!-- CONTACTS -->
+<script id="contacts-template" type="text/x-handlebars-template">
+<h2>Contacts</h2>
+<ul>
+    {{#each this}}
+    <li>
+    <input type="text" class="name" placeholder="(name)" value="{{name}}" />
+    <input type="text" class="address" placeholder="(address)" value="{{address}}" />
+    <a href="#" class="deleteButton">Delete</a>
+    </li>
+    {{/each}}
+</ul>
+<button id="addContactButton">Add Contact</button>
+<button id="saveContactsButton">Save</button>
+</script>
+
+<script id="new-contact-template" type="text/x-handlebars-template">
+<li class="new">
+<input type="text" class="name" placeholder="(name)"/>
+<input type="text" class="address" placeholder="(email address)"/>
+<a href="#" class="deleteButton">Delete</a>
+</li>
 </script>
 
 

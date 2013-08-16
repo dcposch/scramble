@@ -69,6 +69,9 @@ height:24px;
 font-size: 14px;
 color:#03a;
 }
+.hint {
+font-size:9px;
+}
 
 
 
@@ -192,9 +195,6 @@ color:#03a;
 #sidebar .tab.selected {
 color:#000;
 }
-#sidebar #link-kb-shortcuts {
-font-size:9px;
-}
 
 
 
@@ -212,14 +212,17 @@ overflow:hidden;
 text-overflow:ellipsis;
 cursor:pointer;
 }
-.box li:hover, ul li.current {
+.box li:hover, .box li.current {
 background:#eee;
 }
 
 
 
-
 /* SINGLE EMAIL */
+#content.email .to {
+vertical-align:text-top;
+display:inline-block;
+}
 #content.email pre {
 margin:10px 0;
 white-space:pre-wrap;
@@ -244,17 +247,34 @@ width:100px;
 width:400px;
 }
 #content.compose textarea {
-position:absolute;
-top:63px;
-bottom:40px;
-left:8px;
-right:8px;
-margin:0;
+width:600px;
+height:400px;
+margin:8px;
 background:#f8f8f8;
 }
 #sendButton {
-position:absolute;
-left:8px;
-bottom:8px;
+display:block;
+margin:8px;
+}
+
+
+
+/* CONTACTS */
+#content.contacts ul {
+list-style-type:none;
+padding:0px;
+margin:6px 0;
+width:600px;
+}
+#content.contacts li {
+cursor:pointer;
+height:30px;
+}
+#content.contacts li input {
+display:inline-block;
+font-family:monospace;
+width:250px;
+margin:3px 3px 3px 0;
+padding:3px;
 }
 

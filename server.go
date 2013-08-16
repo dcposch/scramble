@@ -11,7 +11,8 @@ import (
 func main() {
     // Rest API
     http.HandleFunc("/user/", userHandler)
-    http.HandleFunc("/user/me", privateHandler)
+    http.HandleFunc("/user/me/contacts", contactsHandler)
+    http.HandleFunc("/user/me/key", privateKeyHandler)
     http.HandleFunc("/email/", emailHandler)
     http.HandleFunc("/box/", inboxHandler)
 

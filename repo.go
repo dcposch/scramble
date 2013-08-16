@@ -49,6 +49,12 @@ func ping(){
     }
 }
 
+
+
+//
+// USERS
+//
+
 func SaveUser (user *User) bool {
     res,err := db.Exec("insert ignore into user" +
         " (token, password_hash, public_hash, public_key, cipher_private_key)" +
@@ -118,6 +124,37 @@ func LoadPubKey (publicHash string) string {
     return publicKey
 }
 
+// Loads a user's contacts, or nil if the user doesn't exist
+// Returns an encrypted blob for which only they have the key
+func LoadContacts (token string) *string {
+    var cipherContacts *string
+    err := db.QueryRow("select cipher_contacts" +
+        " from user where token=?", token).Scan(
+        &cipherContacts)
+    if err == sql.ErrNoRows {
+        return nil
+    }
+    if err != nil {
+        panic(err)
+    }
+    return cipherContacts
+}
+
+func SaveContacts(token string, cipherContacts string) {
+    _,err := db.Exec("update user "+
+        " set cipher_contacts=? where token=?",
+        cipherContacts, token)
+    if err != nil {
+        panic(err)
+    }
+}
+
+
+
+//
+// EMAIL HEADERS
+//
+
 // Loads all email headers in a certain box
 // For example, inbox or sent box
 // That are encrypted for a given user
@@ -167,6 +204,11 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 
     return headers
 }
+
+
+//
+// EMAIL
+//
 
 // Saves a single email, encrypted for a single recipient.
 // When sending one email, this function will be called multiple times.

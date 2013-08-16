@@ -2,9 +2,10 @@ package main
 
 import (
     "log"
-    "encoding/json"
-    "strings"
     "time"
+    "strings"
+    "encoding/json"
+    "io/ioutil"
     "net/http"
 )
 
@@ -32,8 +33,8 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
     if(r.Method == "GET") {
-        getPublicKeyHandler(w, r)
-    } else {
+        publicKeyHandler(w, r)
+    } else if (r.Method == "POST"){
         createHandler(w, r)
     }
 }
@@ -41,7 +42,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 // GET /user/<public key hash> for public key lookup
 // The server is untrusted, so the client will verify in Javascript
 // that the public key we send here matches the hash they requested
-func getPublicKeyHandler(w http.ResponseWriter, r *http.Request) {
+func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
     userPubHash := validateHash(r.URL.Path[len("/user/"):])
     userPub := LoadPubKey(userPubHash)
     if userPub == "" {
@@ -69,8 +70,33 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-// GET /user/me for the logged-in user's encrypted private key 
-func privateHandler(w http.ResponseWriter, r *http.Request) {
+// GET /user/me/contacts for the logged-in user's encrypted address book
+// POST /user/me/contacts to update logged-in user's encrypted address book
+// The entire address book is a single blob.
+// Because the server never knows the plaintext, it is also
+// unable to update individual keys in address book -- whenever
+// the user makes changes, the client encrypts and posts all contacts
+func contactsHandler(w http.ResponseWriter, r *http.Request) {
+    userId := authenticate(r)
+
+    if(r.Method == "GET") {
+        cipherContactsHex := LoadContacts(userId.Token)
+        if cipherContactsHex == nil {
+            http.Error(w, "Not found", http.StatusNotFound)
+        } else {
+            w.Write([]byte(*cipherContactsHex))
+        }
+    } else if (r.Method == "POST"){
+        cipherContactsHex, err := ioutil.ReadAll(r.Body)
+        if err != nil {
+            panic(err)
+        }
+        SaveContacts(userId.Token, string(cipherContactsHex))
+    }
+}
+
+// GET /user/me/key for the logged-in user's encrypted private key 
+func privateKeyHandler(w http.ResponseWriter, r *http.Request) {
     userId := authenticate(r)
 
     user := LoadUser(userId.Token)

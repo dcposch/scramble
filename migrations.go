@@ -8,7 +8,7 @@ import (
 var migrations = []func() error {
     migrateCreateUser,
     migrateCreateEmail,
-    migrateAddAddressBook,
+    migrateAddContacts,
 }
 
 func migrateDb(){
@@ -79,7 +79,7 @@ func migrateCreateEmail() error {
     return err
 }
 
-func migrateAddAddressBook() error {
-    _,err := db.Exec(`alter table user add column cipher_address_book longtext`)
+func migrateAddContacts() error {
+    _,err := db.Exec(`alter table user add column cipher_contacts longtext`)
     return err
 }

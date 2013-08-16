@@ -44,6 +44,7 @@ var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/
 
 var viewState = {}
 viewState.email = null // plaintext subject, body, etc of the currently opened email
+viewState.contacts = null // plaintext address book
 
 
 
@@ -135,6 +136,11 @@ function bindSidebarEvents() {
     // Navigate to Compose
     $("#tab-compose").click(function(e){
         displayCompose()
+    })
+
+    // Navigate to Contacts
+    $("#tab-contacts").click(function(e){
+        displayContacts()
     })
     
     // Log out: click a link, deletes cookies and refreshes the page
@@ -237,8 +243,8 @@ function displayCreateAccountModal(){
     setTimeout(function(){
         // create a new mailbox. this takes a few seconds...
         keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
-        var publicHash = computePublicHash(keys.publicKeyArmored)
-        var email = publicHash+"@"+window.location.hostname
+        sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored)
+        var email = getUserEmail()
 
         // Change "Generating..." to "Done", explain what's going on to the user
         $("#createAccountModal h3").text("Welcome, "+email)
@@ -266,17 +272,14 @@ function createAccount(keys){
     // the server knows only the login hash, and must not know the private key
     var passHash = computePassHash(token, pass)
     var keyHash  = computeKeyHash(token, pass)
+    var aes128Key = keyHash.substring(0,16);  // 16 bytes = 128 bits
 
     // save for this session only, never in a cookie or localStorage
     sessionStorage["passKey"] = aes128Key
     sessionStorage["privateKeyArmored"] = keys.privateKeyArmored
 
     // encrypt the private key with the user's passphrase
-    // first 16 bytes = 128 bits. the hash is binary, not actually "ASCII"
-    var aes128Key = keyHash.substring(0,16); 
-    var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128)
-    var cipherPrivateKey = openpgp_crypto_symmetricEncrypt(
-        prefixRandom, ALGO_AES128, aes128Key, keys.privateKeyArmored)
+    var cipherPrivateKey = passphraseEncrypt(keys.privateKeyArmored)
 
     // send it
     var data = {
@@ -306,8 +309,8 @@ function validateToken(){
     if(token.match(REGEX_TOKEN)) {
         return token
     } else {
-        alert("User must be at least three letters and numbers.\n"
-            + "No special characters.\n")
+        alert("User must be at least three characters long.\n"
+            + "Lowercase letters and numbers only, please.")
         return null
     }
 }
@@ -354,19 +357,21 @@ function decryptAndDisplayInbox(inboxSummary, box){
     box = box || "inbox"
     sessionStorage["pubHash"] = inboxSummary.PublicHash
 
-    decryptPrivateKey(function(privateKey){
-        decryptSubjects(inboxSummary.EmailHeaders, privateKey)
-        var data = {
-            token:        $.cookie("token"),
-            pubHash:      inboxSummary.PublicHash,
-            domain:       document.location.hostname,
-            emailHeaders: inboxSummary.EmailHeaders
-        }
-        $("#wrapper").html(render("page-template", data))
-        bindSidebarEvents()
-        setSelectedTab($("#tab-"+box))
-        $("#"+box).html(render("inbox-template", data))
-        bindInboxEvents(box)
+    getPrivateKey(function(privateKey){
+        getContacts(function(){
+            decryptSubjects(inboxSummary.EmailHeaders, privateKey)
+            var data = {
+                token:        $.cookie("token"),
+                pubHash:      inboxSummary.PublicHash,
+                domain:       document.location.hostname,
+                emailHeaders: inboxSummary.EmailHeaders
+            }
+            $("#wrapper").html(render("page-template", data))
+            bindSidebarEvents()
+            setSelectedTab($("#tab-"+box))
+            $("#"+box).html(render("inbox-template", data))
+            bindInboxEvents(box)
+        })
     })
 }
 
@@ -433,6 +438,14 @@ function bindEmailEvents() {
 
     $("#archiveButton").click(function(){moveEmail("archive")})
     $("#moveToInboxButton").click(function(){moveEmail("inbox")})
+
+    $("#enterFromNameButton").click(function(){
+        var name = prompt("Contact name for "+viewState.email.from)
+        if(name){
+            trySaveContact(name, viewState.email.from)
+            displayEmail($(".box li.current"))
+        }
+    })
 }
 
 // Takes a subject-line <li>, selects it, shows the full email
@@ -442,18 +455,28 @@ function displayEmail(target){
     target.addClass("current")
 
     $.get("/email/"+target.data("id"), function(cipherBody){
-        decryptPrivateKey(function(privateKey){
+        getPrivateKey(function(privateKey){
             var plaintextBody = tryDecodePgp(cipherBody, privateKey)
 
+            var fromName = contactNameFromAddress(target.data("from"))
+            var toAddresses = target.data("to").split(",").map(function(addr){
+                addr = trimToLower(addr)
+                return {
+                    address: addr,
+                    name: contactNameFromAddress(addr)
+                }
+            })
             viewState.email = {
                 id:          target.data("id"),
                 time:        new Date(target.data("time")*1000),
-                from:        target.data("from"),
-                to:          target.data("to"),
-                toAddresses: target.data("to").split(",").map(trimToLower),
 
-                isInbox:      target.data("box")=="inbox",
-                isArchive:    target.data("box")=="archive",
+                from:        trimToLower(target.data("from")),
+                fromName:    fromName,
+                to:          target.data("to"),
+                toAddresses: toAddresses,
+
+                isInbox:     target.data("box")=="inbox",
+                isArchive:   target.data("box")=="archive",
 
                 subject:     target.text(),
                 body:        plaintextBody
@@ -474,10 +497,16 @@ function emailReply(){
 function emailReplyAll(){
     var email = viewState.email
     if(!email) return
-    var allRecipientsExceptMe = email.toAddresses.filter(function(addr){
-        // email starts with our pubHash -> don't reply to our self
-        return addr.indexOf(sessionStorage["pubHash"]) != 0
-    }).concat([email.from])
+    var allRecipientsExceptMe = email.toAddresses
+        .filter(function(addr){
+            // email starts with our pubHash -> don't reply to our self
+            return addr.address.indexOf(sessionStorage["pubHash"]) != 0
+        })
+        .map(function(addr){
+            // use nickname for addresses in the contacts book
+            return addr.name ? addr.name : addr.address
+        })
+        .concat([email.from])
     displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
 }
 
@@ -607,8 +636,171 @@ function extractPubHash(email){
 
 
 //
+// CONTACTS
+//
+
+function displayContacts(){
+    loadAndDecryptContacts(function(contacts){
+        // clean up 
+        $(".box").html("")
+        viewState.email = null
+        setSelectedTab($("#tab-contacts"))
+
+        // render compose form into #content
+        var html = render("contacts-template", contacts)
+        $("#content").attr("class", "contacts").html(html)
+        bindContactsEvents()
+    })
+}
+
+function bindContactsEvents(){
+    $(".contacts li .deleteButton").click(deleteRow)
+    $("#addContactButton").click(newRow)
+    $("#saveContactsButton").click(function(){
+        var rows = $(".contacts li")
+        var contacts = []
+        for(var i = 0; i < rows.length; i++){
+            var name = trim($(rows[i]).find(".name").val())
+            var address = trim($(rows[i]).find(".address").val())
+            if(name=="" && address=="") {
+                continue;
+            } else {
+                contacts.push({name:name, address:address})
+            }
+        }
+
+        // if there are mistakes, tell the user and bail
+        if(errors.length > 0){
+            alert(errors.join("\n"));
+        } else {
+            trySaveContacts(contacts, function(){
+                displayStatus("Contacts saved")
+                displayContacts()
+            })
+        }
+    });
+}
+function newRow(){
+    var row = $(render("new-contact-template"))
+    row.find(".deleteButton").click(deleteRow)
+    $(".contacts ul").append(row)
+}
+function deleteRow(e){
+    $(e.target).parent().remove()
+}
+
+function trySaveContacts(contacts, done){
+    // index the contacts
+    var tokens = [], errors = []
+    var tokenToAddress = {}, tokenToName = {}, addressToToken = {}
+    for(var i = 0; i < contacts.length; i++){
+        var name = trim(contacts[i].name)
+        var address = trimToLower(contacts[i].address)
+
+        if (name == ""){
+            errors.push("No name entered for "+address)
+        } else if (address == ""){
+            errors.push("No address entered for "+name)
+        } else if(!address.match(REGEX_EMAIL)){
+            errors.push("The following doesn't look like a valid email address: "+address)
+        } 
+
+        var token = name.toLowerCase()
+        if(tokenToAddress[token]){
+            errors.push("You entered the same name more than once: "+token)
+        } else {
+            tokenToAddress[token] = address
+        }
+        if(addressToToken[address]){
+            errors.push("You entered the same email address more than once: "+address)
+        } else {
+            addressToToken[address] = token
+        }
+
+        tokens.push(token)
+        tokenToName[token] = name
+    }
+
+    // if there are mistakes, tell the user and bail
+    if(errors.length > 0){
+        alert(errors.join("\n"));
+        return
+    } 
+
+    // sort the contacts book
+    tokens.sort()
+    var contacts = tokens.map(function(token){
+        return {
+            name: tokenToName[token],
+            address: tokenToAddress[token],
+        }
+    })
+    viewState.contacts = contacts
+
+    // encrypt it
+    var jsonContacts = JSON.stringify(contacts)
+    var cipherContacts = passphraseEncrypt(jsonContacts)
+    if(!cipherContacts) return
+
+    // send it to the server
+    $.post("/user/me/contacts", bin2hex(cipherContacts), "text")
+        .done(done)
+        .fail(function(xhr){
+            alert("Saving contacts failed: "+xhr.responseText)
+        })
+}
+
+function trySaveContact(name, address){
+    var newContact = {
+        name: trim(name),
+        address: trimToLower(address)
+    }
+    var newContacts = viewState.contacts.concat([newContact])
+    trySaveContacts(newContacts, function(){
+            displayStatus("Contact saved")
+    })
+}
+
+function contactNameFromAddress(address){
+    address = trimToLower(address)
+    for(var i = 0; i < viewState.contacts.length; i++){
+        var contact = viewState.contacts[i]
+        if(contact.address==address){
+            return contact.name
+        }
+    }
+    return null
+}
+
+
+
+//
 // CRYPTO
 //
+
+function passphraseEncrypt(plainText){
+    if(!sessionStorage["passKey"]){
+        alert("Missing passphrase. Please log out and back in.")
+        return null
+    }
+    var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128)
+    return openpgp_crypto_symmetricEncrypt(
+        prefixRandom, 
+        ALGO_AES128, 
+        sessionStorage["passKey"], 
+        plainText)
+}
+
+function passphraseDecrypt(cipherText){
+    if(!sessionStorage["passKey"]){
+        alert("Missing passphrase. Please log out and back in.")
+        return null
+    }
+    return openpgp_crypto_symmetricDecrypt(
+        ALGO_AES128, 
+        sessionStorage["passKey"], 
+        cipherText)
+}
 
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
 // Returns a 16-byte string, eg "tnysbtbxsf356hiy"
@@ -657,23 +849,17 @@ function computeKeyHash(token, pass){
     return new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
 }
 
-function decryptPrivateKey(fn){
+function getPrivateKey(fn){
     if(sessionStorage["privateKeyArmored"]){
         var privateKey = openpgp.read_privateKey(sessionStorage["privateKeyArmored"])
         fn(privateKey)
         return
     }
-    if(!sessionStorage["passKey"]){
-        alert("Missing passphrase. Please log out and back in.")
-        return
-    }
 
-    $.get("/user/me", function(cipherPrivateKeyHex){
+    $.get("/user/me/key", function(cipherPrivateKeyHex){
         var cipherPrivateKey = hex2bin(cipherPrivateKeyHex)
-        var privateKeyArmored = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, 
-            sessionStorage["passKey"], 
-            cipherPrivateKey)
+        var privateKeyArmored = passphraseDecrypt(cipherPrivateKey)
+        if(!privateKeyArmored) return
         sessionStorage["privateKeyArmored"] = privateKeyArmored
         var privateKey = openpgp.read_privateKey(privateKeyArmored)
         fn(privateKey)
@@ -710,6 +896,41 @@ function decodePgp(armoredText, privateKey){
     return text
 }
 
+function getContacts(fn){
+    if(viewState.contacts){
+        fn(viewState.contacts)
+    } else {
+        loadAndDecryptContacts(fn)
+    }
+}
+
+function loadAndDecryptContacts(fn){
+    if(!sessionStorage["passKey"]){
+        alert("Missing passphrase. Please log out and back in.")
+        return
+    }
+
+    $.get("/user/me/contacts", function(cipherContactsHex){
+        var cipherContacts = hex2bin(cipherContactsHex)
+        var jsonContacts = passphraseDecrypt(cipherContacts)
+        if(!jsonContacts) {
+            return
+        }
+        viewState.contacts = JSON.parse(jsonContacts)
+        fn(viewState.contacts)
+    }, "text").fail(function(xhr){
+        if(xhr.status == 404){
+            viewState.contacts = [{
+                name: "me",
+                address: getUserEmail()
+            }]
+            fn(viewState.contacts)
+        } else {
+            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
+        }
+    })
+}
+
 
 
 //
@@ -739,6 +960,13 @@ Handlebars.registerHelper('formatDate', function(context, block) {
     var str = block.hash.format || "YYYY-MM-DD";
     return moment(context).format(str);
 });
+
+// The Scramble email address of the currently logged-in user
+function getUserEmail(){
+    var pubHash = sessionStorage["pubHash"]
+    if(!pubHash) throw "Missing public hash"
+    return pubHash+"@"+window.location.hostname
+}
 
 // Appends an element to an array, if it's not already in the array
 function addIfNotContains(elems, newElem){
