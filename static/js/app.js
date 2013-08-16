@@ -669,15 +669,10 @@ function bindContactsEvents(){
             }
         }
 
-        // if there are mistakes, tell the user and bail
-        if(errors.length > 0){
-            alert(errors.join("\n"));
-        } else {
-            trySaveContacts(contacts, function(){
-                displayStatus("Contacts saved")
-                displayContacts()
-            })
-        }
+        trySaveContacts(contacts, function(){
+            displayStatus("Contacts saved")
+            displayContacts()
+        })
     });
 }
 function newRow(){
@@ -779,7 +774,7 @@ function contactNameFromAddress(address){
 //
 
 function passphraseEncrypt(plainText){
-    if(!sessionStorage["passKey"]){
+    if(!sessionStorage["passKey"] || sessionStorage["passKey"] == "undefined"){
         alert("Missing passphrase. Please log out and back in.")
         return null
     }
