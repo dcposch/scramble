@@ -39,7 +39,9 @@ Scramble is end-to-end encrypted webmail. For conversations between Scramble add
 
 It uses public-key encryption. That leads to the tricky problem of key exchange. Our solution is make your email the hash of your public key. For example,
 
-    a9f8173fa98237fa92bce89e1642a01a8a10ca0a@scramble.io
+    nqkgpx6bqscslher@scramble.io
+
+(That's me. Feel free to send me a note!)
 
 The bad news is that you can't memorize it. The good news is that you can look up someone's public key from an untrusted server, and easily verify its correctness.
 This is the same tradeoff that Tor Hidden Services make.
@@ -182,4 +184,4 @@ Scramble is free and ad-free. Its our gift to you. We want you to exercise your 
 
 If you'd like to help, check out the [Github repo](http://github.com/dcposch/scramble)
 
-
+Special thanks to <a href="http://moxie.org">Moxie</a> for inspiration, <a href="http://feross.org">Feross</a> for a lot of good ideas, and many other friends.
