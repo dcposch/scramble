@@ -122,7 +122,7 @@ function bindKeyboardShortcuts() {
 //
 
 function bindSidebarEvents() {
-    // Navigate to Inbox
+    // Navigate to Inbox, Sent, or Archive
     $("#tab-inbox").click(function(e){
         loadDecryptAndDisplayInbox("inbox")
     })
@@ -212,10 +212,11 @@ function login(token, pass){
     // two hashes of (token, pass)
     // ...one encrypts the private key. the server must never see it
     var keyHash = computeKeyHash(token, pass)
-    var aes128Key = keyHash.substring(0,16)
+    var salt = fetchSalt(token)
+    var aesKey = computeAesKey(token, pass, salt)
 
     // save for this session only, never in a cookie or localStorage
-    sessionStorage["passKey"] = aes128Key
+    sessionStorage["passKey"] = aesKey
 
     // ...the other one authenticates us
     var passHash = computePassHash(token, pass)
@@ -271,11 +272,11 @@ function createAccount(keys){
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
     var passHash = computePassHash(token, pass)
-    var keyHash  = computeKeyHash(token, pass)
-    var aes128Key = keyHash.substring(0,16);  // 16 bytes = 128 bits
+    var salt = generateSalt()
+    var aesKey = computeAesKey(token, pass, salt)
 
     // save for this session only, never in a cookie or localStorage
-    sessionStorage["passKey"] = aes128Key
+    sessionStorage["passKey"] = aesKey
     sessionStorage["privateKeyArmored"] = keys.privateKeyArmored
 
     // encrypt the private key with the user's passphrase
@@ -772,6 +773,16 @@ function contactNameFromAddress(address){
 //
 // CRYPTO
 //
+
+// Uses a key derivation function to create an AES-128 key
+function computeAesKey(token, pass, salt){
+    return CryptoJS.PBKDF2(pass, salt, { keySize: 128/32, iterations: 1000 });
+}
+
+// Generats an 128-bit random salt
+function generateSalt(){
+    return CryptoJS.lib.WordArray.random(128/8);
+}
 
 function passphraseEncrypt(plainText){
     if(!sessionStorage["passKey"] || sessionStorage["passKey"] == "undefined"){
