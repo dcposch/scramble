@@ -122,7 +122,7 @@ function bindKeyboardShortcuts() {
 //
 
 function bindSidebarEvents() {
-    // Navigate to Inbox
+    // Navigate to Inbox, Sent, or Archive
     $("#tab-inbox").click(function(e){
         loadDecryptAndDisplayInbox("inbox")
     })
@@ -210,24 +210,35 @@ function bindLoginEvents() {
 
 function login(token, pass){
     // two hashes of (token, pass)
-    // ...one encrypts the private key. the server must never see it
-    var keyHash = computeKeyHash(token, pass)
-    var aes128Key = keyHash.substring(0,16)
-
+    // ...one encrypts the private key. the server must never see it.
     // save for this session only, never in a cookie or localStorage
-    sessionStorage["passKey"] = aes128Key
+    sessionStorage["passKey"] = computeAesKey(token, pass)
+    sessionStorage["passKeyOld"] = computeAesKeyOld(token, pass)
 
-    // ...the other one authenticates us
-    var passHash = computePassHash(token, pass)
+    // ...the other one authenticates us. the server sees it.
+    setCookie("token", token)
+    setCookie("passHash", computeAuth(token, pass))
+    setCookie("passHashOld", computeAuthOld(token, pass))
 
-    // set cookies, try loading the inbox
-    $.cookie("token", token) //, {"secure":true})
-    $.cookie("passHash", passHash) //, {"secure":true})
+    // try fetching the inbox
     $.get("/box/inbox", function(inbox){
+        // logged in successfully!
         decryptAndDisplayInbox(inbox)
-    }, 'json').fail(function(){
-        alert("Incorrect user or passphrase")
+    }, 'json').fail(function(xhr){
+        if(xhr.statusCode == 401) { // unauthorized 
+            alert("Incorrect user or passphrase")
+        } else {
+            alert(xhr.responseText || "Could not reach the server, try again")
+        }
     })
+}
+
+function setCookie(name, value){
+    if(document.location.protocol.toLowerCase().substring(0,5)=="https"){
+        $.cookie(name, value, {"secure":true})
+    } else {
+        $.cookie(name, value)
+    }
 }
 
 
@@ -270,12 +281,11 @@ function createAccount(keys){
 
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
-    var passHash = computePassHash(token, pass)
-    var keyHash  = computeKeyHash(token, pass)
-    var aes128Key = keyHash.substring(0,16);  // 16 bytes = 128 bits
+    var aesKey = computeAesKey(token, pass)
+    var passHash = computeAuth(token, pass)
 
     // save for this session only, never in a cookie or localStorage
-    sessionStorage["passKey"] = aes128Key
+    sessionStorage["passKey"] = aesKey
     sessionStorage["privateKeyArmored"] = keys.privateKeyArmored
 
     // encrypt the private key with the user's passphrase
@@ -290,8 +300,8 @@ function createAccount(keys){
     }
     $.post("/user/", data, function(){
         // set cookies, try loading the inbox
-        $.cookie("token", token) //, {"secure":true})
-        $.cookie("passHash", passHash) //, {"secure":true})
+        setCookie("token", token)
+        setCookie("passHash", passHash)
         $.get("/box/inbox", function(inbox){
             decryptAndDisplayInbox(inbox)
         }, 'json').fail(function(){
@@ -773,6 +783,38 @@ function contactNameFromAddress(address){
 // CRYPTO
 //
 
+// Uses a key derivation function to create an AES-128 key
+// Returns 128-bit binary
+function computeAesKey(token, pass){
+    var param = { keySize: 128/32, iterations: 1000 }
+    var salt = "2"+token
+    var hex = CryptoJS.PBKDF2(pass, salt, param).toString()
+    return hex2bin(hex)
+}
+
+// Backcompat only: uses SHA1 to create a AES-128 key (binary)
+// Returns 128-bit binary
+function computeAesKeyOld(token, pass){
+    var sha1 = new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
+    return sha1.substring(0, 16) // 16 bytes = 128 bits
+}
+
+// Uses a key derivation function to compute the user's auth token
+// Returns 160-bit hex
+function computeAuth(token, pass){
+    var param = { keySize: 160/32, iterations: 1000 }
+    var salt = "1"+token
+    return CryptoJS.PBKDF2(pass, salt, param).toString()
+}
+
+// Backcompat only: old SHA1 auth token
+// Returns 160-bit hex
+function computeAuthOld(token, pass){
+    return new jsSHA("1"+token+pass, "ASCII").getHash("SHA-1", "HEX")
+}
+
+// Symmetric encryption using a key derived from the user's passphrase
+// The user must be logged in: the key must be in sessionStorage
 function passphraseEncrypt(plainText){
     if(!sessionStorage["passKey"] || sessionStorage["passKey"] == "undefined"){
         alert("Missing passphrase. Please log out and back in.")
@@ -786,15 +828,28 @@ function passphraseEncrypt(plainText){
         plainText)
 }
 
+// Symmetric decryption using a key derived from the user's passphrase
+// The user must be logged in: the key must be in sessionStorage
 function passphraseDecrypt(cipherText){
-    if(!sessionStorage["passKey"]){
+    if(!sessionStorage["passKey"] || sessionStorage["passKey"] == "undefined"){
         alert("Missing passphrase. Please log out and back in.")
         return null
     }
-    return openpgp_crypto_symmetricDecrypt(
-        ALGO_AES128, 
-        sessionStorage["passKey"], 
-        cipherText)
+    var plain;
+    try {
+        plain = openpgp_crypto_symmetricDecrypt(
+            ALGO_AES128, 
+            sessionStorage["passKey"], 
+            cipherText)
+    } catch(e) {
+        // Backcompat: people with old accounts had weaker key derivation
+        plain = openpgp_crypto_symmetricDecrypt(
+            ALGO_AES128, 
+            sessionStorage["passKeyOld"], 
+            cipherText)
+        console.log("Warning: old account, used backcompat AES key")
+    }
+    return plain;
 }
 
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
@@ -836,14 +891,6 @@ function computePublicHash(str){
     return hash
 }
 
-function computePassHash(token, pass){
-    return new jsSHA("1"+token+pass, "ASCII").getHash("SHA-1", "HEX")
-}
-
-function computeKeyHash(token, pass){
-    return new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII")
-}
-
 function getPrivateKey(fn){
     if(sessionStorage["privateKeyArmored"]){
         var privateKey = openpgp.read_privateKey(sessionStorage["privateKeyArmored"])
@@ -863,6 +910,7 @@ function getPrivateKey(fn){
         return
     })
 }
+
 function tryDecodePgp(armoredText, privateKey){
     try {
         return decodePgp(armoredText, privateKey)
@@ -870,6 +918,7 @@ function tryDecodePgp(armoredText, privateKey){
         return "(Decryption failed)"
     }
 }
+
 function decodePgp(armoredText, privateKey){
     var msgs = openpgp.read_message(armoredText)
     if(msgs.length != 1){

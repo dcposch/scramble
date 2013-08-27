@@ -13,6 +13,7 @@ type User struct {
 type UserID struct {
     Token string
     PasswordHash string
+    PasswordHashOld string
     PublicHash string
 }
 

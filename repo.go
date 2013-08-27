@@ -76,9 +76,10 @@ func LoadUser (token string) *User {
     var user User
     user.Token = token
     err := db.QueryRow("select" +
-        " password_hash, public_hash, public_key, cipher_private_key" +
+        " password_hash, password_hash_old, public_hash, public_key, cipher_private_key" +
         " from user where token=?", token).Scan(
         &user.PasswordHash,
+        &user.PasswordHashOld,
         &user.PublicHash,
         &user.PublicKey,
         &user.CipherPrivateKey)
@@ -95,9 +96,10 @@ func LoadUserID (token string) *UserID {
     var user UserID
     user.Token = token
     err := db.QueryRow("select" +
-        " password_hash, public_hash" +
+        " password_hash, password_hash_old, public_hash" +
         " from user where token=?", token).Scan(
         &user.PasswordHash,
+        &user.PasswordHashOld,
         &user.PublicHash)
     if err == sql.ErrNoRows {
         return nil

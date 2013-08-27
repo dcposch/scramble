@@ -9,6 +9,7 @@ var migrations = []func() error {
     migrateCreateUser,
     migrateCreateEmail,
     migrateAddContacts,
+    migratePasswordHash,
 }
 
 func migrateDb(){
@@ -81,5 +82,16 @@ func migrateCreateEmail() error {
 
 func migrateAddContacts() error {
     _,err := db.Exec(`alter table user add column cipher_contacts longtext`)
+    return err
+}
+
+func migratePasswordHash() error {
+    _,err := db.Exec(`alter table user 
+        add column password_hash_old char(160) not null default "" 
+        after password_hash`)
+    if err != nil {
+        return err
+    }
+    _,err = db.Exec(`update user set password_hash_old=password_hash, password_hash=""`)
     return err
 }

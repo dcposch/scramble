@@ -58,7 +58,7 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 func createHandler(w http.ResponseWriter, r *http.Request) {
     user := new(User)
     user.Token = validateToken(r.FormValue("token"))
-    user.PasswordHash = validateHash(r.FormValue("passHash"))
+    user.PasswordHash = validatePassHash(r.FormValue("passHash"))
     user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
     user.PublicHash = computePublicHash(user.PublicKey)
     user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
@@ -123,18 +123,28 @@ func authenticate(r *http.Request) *UserID {
     if err != nil {
         return nil
     }
-    return authenticateUserPass(token.Value, passHash.Value)
+    passHashOld, _ := r.Cookie("passHashOld")
+    var passHashOldVal string
+    if err != nil {
+        passHashOldVal = ""
+    } else {
+        passHashOldVal = passHashOld.Value
+    }
+    return authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
 }
 
-func authenticateUserPass(token string, passHash string) *UserID {
+func authenticateUserPass(token string, passHash string, passHashOld string) *UserID {
     userId := LoadUserID(token)
     if userId == nil {
         return nil
     }
-    if passHash != userId.PasswordHash || passHash == "" {
-        return nil
+    if passHash == userId.PasswordHash && passHash != "" {
+        return userId
     }
-    return userId
+    if passHashOld == userId.PasswordHashOld && passHashOld != "" {
+        return userId
+    }
+    return nil
 }
 
 

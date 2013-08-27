@@ -182,6 +182,9 @@ width:300px;
 border-right:1px solid #ddd;
 padding:6px;
 }
+#sidebar .warning {
+color:red;
+}
 #sidebar .welcome {
 margin:8px 0;
 font-weight:bold;

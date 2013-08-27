@@ -73,6 +73,7 @@
 
 <div id="sidebar">
     <h1>SCRAMBLE</h1>
+    <div class="warning" id="warningBar"></div>
     <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout">Log Out</a></div>
     <div class="email">{{pubHash}}@{{domain}}</div>
     <a id="tab-compose" href="#" class="tab">Compose</a>
@@ -198,6 +199,7 @@ Encrypted with https://scramble.io
 <script type="text/javascript" src="/js/moment.min.js"></script>
 <script type="text/javascript" src="/js/handlebars.js"></script>
 <script type="text/javascript" src="/js/openpgp.js"></script>
+<script type="text/javascript" src="/js/pbkdf2.js"></script>
 <script type="text/javascript" src="/js/app.js"></script>
 </body>
 </html>
