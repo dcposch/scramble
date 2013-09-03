@@ -597,7 +597,7 @@ function sendEmail(to,subject,body){
 
     // encrypt a special copy to ourselves, for our sent mail folder
     // ... unless we're already emailing to ourselves
-    var myPubHash = sessionStorage["pubHash"];
+    var myPubHash = sessionStorage["pubHash"]
     if(pubHashes.indexOf(myPubHash)<0){
         sendEmailEncrypted(msgId,to,subject,body,'sent',myPubHash)
     }
@@ -605,11 +605,23 @@ function sendEmail(to,subject,body){
 }
 
 function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
-    $.get("/user/"+pubHash, function(data){
-        var publicKey = openpgp.read_publicKey(data)
+    // fetch the recipient public key
+    $.get("/user/"+pubHash, function(pubKeyArmor){
+
+        // verify the recipient public key
+        var publicKeyHash = computePublicHash(pubKeyArmor)
+        if(publicKeyHash != pubHash){
+            alert("WARNING: the server gave us an incorrect public key for "+pubHash+"@...\n"
+                + "Your message was not sent to that user.")
+            return
+        }
+
+        // encrypt our message
+        var publicKey = openpgp.read_publicKey(pubKeyArmor)
         var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
         var cipherBody = openpgp.write_encrypted_message(publicKey, body)
 
+        // send our message
         var data = {
             msgId:msgId,
             box: box,
@@ -673,7 +685,7 @@ function bindContactsEvents(){
             var name = trim($(rows[i]).find(".name").val())
             var address = trim($(rows[i]).find(".address").val())
             if(name=="" && address=="") {
-                continue;
+                continue
             } else {
                 contacts.push({name:name, address:address})
             }
@@ -683,7 +695,7 @@ function bindContactsEvents(){
             displayStatus("Contacts saved")
             displayContacts()
         })
-    });
+    })
 }
 function newRow(){
     var row = $(render("new-contact-template"))
@@ -728,7 +740,7 @@ function trySaveContacts(contacts, done){
 
     // if there are mistakes, tell the user and bail
     if(errors.length > 0){
-        alert(errors.join("\n"));
+        alert(errors.join("\n"))
         return
     } 
 
@@ -835,7 +847,7 @@ function passphraseDecrypt(cipherText){
         alert("Missing passphrase. Please log out and back in.")
         return null
     }
-    var plain;
+    var plain
     try {
         plain = openpgp_crypto_symmetricDecrypt(
             ALGO_AES128, 
@@ -849,7 +861,7 @@ function passphraseDecrypt(cipherText){
             cipherText)
         console.log("Warning: old account, used backcompat AES key")
     }
-    return plain;
+    return plain
 }
 
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
@@ -860,7 +872,7 @@ function computePublicHash(str){
     var sha1Hex = new jsSHA(str, "ASCII").getHash("SHA-1", "HEX")
 
     // extract the first 80 bits as a string of "1" and "0"
-    var sha1Bits = []; 
+    var sha1Bits = []
     // 20 hex characters = 80 bits
     for(var i = 0; i < 20; i++){
         var hexDigit = parseInt(sha1Hex[i], 16)
@@ -1001,9 +1013,9 @@ function render(templateId, data) {
 
 // Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"
 Handlebars.registerHelper('formatDate', function(context, block) {
-    var str = block.hash.format || "YYYY-MM-DD";
-    return moment(context).format(str);
-});
+    var str = block.hash.format || "YYYY-MM-DD"
+    return moment(context).format(str)
+})
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail(){
