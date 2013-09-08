@@ -4,7 +4,9 @@ run: build
 build: doc
 	go install scramble
 
-doc: static/doc/index.html static/doc/how.html
+MARKDOWN := $(shell ls doc/*.md)
+HTML := $(MARKDOWN:%.md=static/%.html)
+doc: $(HTML)
 
 static/doc/%.html: doc/%.md
 	mkdir -p static/doc
