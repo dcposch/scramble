@@ -21,6 +21,11 @@ var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 
+var SCRYPT_PARAMS = {
+    N:16384, // difficulty=2^14, recommended range 2^14 to 2^20
+    r:8,     // recommended values
+    p:1
+}
 
 
 //
@@ -797,11 +802,10 @@ function contactNameFromAddress(address){
 
 // Uses a key derivation function to create an AES-128 key
 // Returns 128-bit binary
+var scrypt = scrypt_module_factory();
 function computeAesKey(token, pass){
-    var param = { keySize: 128/32, iterations: 1000 }
     var salt = "2"+token
-    var hex = CryptoJS.PBKDF2(pass, salt, param).toString()
-    return hex2bin(hex)
+    return hex2bin(computeScrypt(token, pass, salt, 16)) // 16 bytes = 128 bits
 }
 
 // Backcompat only: uses SHA1 to create a AES-128 key (binary)
@@ -814,9 +818,19 @@ function computeAesKeyOld(token, pass){
 // Uses a key derivation function to compute the user's auth token
 // Returns 160-bit hex
 function computeAuth(token, pass){
-    var param = { keySize: 160/32, iterations: 1000 }
     var salt = "1"+token
-    return CryptoJS.PBKDF2(pass, salt, param).toString()
+    return computeScrypt(token, pass, salt, 20) // 20 bytes = 160 bits
+}
+
+function computeScrypt(token, pass, salt, nbytes){
+    var param = SCRYPT_PARAMS
+    var hash = scrypt.crypto_scrypt(
+            scrypt.encode_utf8(pass), 
+            scrypt.encode_utf8(salt), 
+            param.N, param.r, param.p, // difficulty
+            nbytes
+        )
+    return scrypt.to_hex(hash)
 }
 
 // Backcompat only: old SHA1 auth token
