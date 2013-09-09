@@ -1,8 +1,13 @@
 #!/bin/bash
 
+# Exit on failure
+set -e
+
 # Install dependencies
 echo "Installing MySQL and Nginx..."
-sudo apt-get install mysql-server nginx
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install mysql-server nginx 
 
 # Set up MySQL locally
 # (By default, MySQL only accepts connections from localhost. 
