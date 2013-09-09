@@ -1,8 +1,9 @@
 run: build
-	~/go/bin/scramble
+	$(GOPATH)/bin/scramble
 
 build: doc
 	go install scramble
+	cp $(GOPATH)/bin/scramble static/bin/scramble
 
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)
