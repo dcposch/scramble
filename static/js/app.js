@@ -565,11 +565,7 @@ function displayCompose(to, subject, body){
 }
 
 function sendEmail(to,subject,body){
-    // generate 160-bit (20 byte) message id
-    // secure random generator, so it will be unique
-    var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
-
-    // send encrypted if possible
+    // validate email addresses
     var toAddresses = to.split(",").map(trimToLower)
     var invalidToAddresses = toAddresses.filter(function(addr){
         return !addr.match(REGEX_EMAIL)
@@ -599,49 +595,88 @@ function sendEmail(to,subject,body){
         sendEmailUnencrypted(msgId,to,subject,body)
     }
 
-    // look up each recipient's public key
-    pubHashes.forEach(function(pubHash){
-        sendEmailEncrypted(msgId,to,subject,body,'inbox',pubHash)
+    lookupPublicKeys(toAddresses, function(keyMap) {
+        // keyMap: {toAddress: {pubKey: <pubKeyArmor>} or {error: <error string>}}
+        var pubkeys = {}; // {toAddress: <pubKeyArmor>}
+        var errors = {};  // {toAddress: <error string>}
+
+        // Verify all recipient public keys from keyMap
+        for (var i = 0; i < toAddresses.length; i++) {
+            var toAddr = toAddresses[i];
+            var pubHash = extractPubHash(toAddr);
+            var result = keyMap[toAddr];
+            if (result.error) {
+                errors[toAddr] = result.error;
+                continue;
+            }
+            var computedHash = computePublicHash(result.pubKeyArmor);
+            if (computedHash != publicKeyHash) {
+                // this is a serious error. security breach?
+                var error = "WARNING: the server gave us an incorrect public key for "+toAddr+"\n"+
+                    "Your message was not sent to that user.";
+                alert(error);
+                errors[toAddr] = error;
+                continue;
+            }
+            pubkeys[toAddr] = result.pubKeyArmor;
+        }
+
+        // TODO: report errors
+        // TODO: quit if noone to send to
+
+        sendEmailEncrypted(pubkeys, subject, body);
+
     })
 
-    // encrypt a special copy to ourselves, for our sent mail folder
-    // ... unless we're already emailing to ourselves
-    var myPubHash = sessionStorage["pubHash"]
-    if(pubHashes.indexOf(myPubHash)<0){
-        sendEmailEncrypted(msgId,to,subject,body,'sent',myPubHash)
-    }
     return false
 }
 
-function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
-    // fetch the recipient public key
-    $.get("/user/"+pubHash, function(pubKeyArmor){
+function lookupPublicKeys(toAddresses, cb) {
+    var data = {
+        token: $.cookie("token"),
+        passHash: $.cookie("passHash"),
+        publicKey:keys.publicKeyArmored,
+        cipherPrivateKey:bin2hex(cipherPrivateKey)
+    }
+    $.post("/user/", data, function(){
+}
 
-        // verify the recipient public key
-        var publicKeyHash = computePublicHash(pubKeyArmor)
-        if(publicKeyHash != pubHash){
-            alert("WARNING: the server gave us an incorrect public key for "+pubHash+"@...\n"
-                + "Your message was not sent to that user.")
-            return
+// pubkeys: {toAddress: <pubKeyArmored>}
+function sendEmailEncrypted(pubkeys,subject,body){
+    // generate 160-bit (20 byte) message id
+    // secure random generator, so it will be unique
+    // TODO: Maybe we should hash the encrypted message bytes so that it is deterministic.
+    var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
+
+    // Encrypt message for all recipients in `pubkeys`
+    var publicKeys = [];
+    for (var toAddr in pubKeys) {
+        var pubKeyArmor = pubKeys[toAddr];
+        var pka = openpgp.read_publicKey(pubKeyArmor);
+        if (pka.length == 1) {
+            publicKeys.append(pka[0]);
+        } else {
+            alert("Incorrect number of publicKeys in armor for address "+toAddr);
+            return;
         }
+    }
+    var cipherSubject = openpgp.write_encrypted_message(publicKeys, subject)
+    var cipherBody = openpgp.write_encrypted_message(publicKeys, body)
 
-        // encrypt our message
-        var publicKey = openpgp.read_publicKey(pubKeyArmor)
-        var cipherSubject = openpgp.write_encrypted_message(publicKey, subject)
-        var cipherBody = openpgp.write_encrypted_message(publicKey, body)
-
-        // send our message
-        var data = {
-            msgId:msgId,
-            box: box,
-            pubHashTo: pubHash,
-            to: to,
-            cipherSubject: cipherSubject,
-            cipherBody: cipherBody
-        }
-        sendEmailPost(data)
-    }).fail(function(){
-        alert("Could not find public key for "+pubHash+"@...")
+    // send our message
+    var data = {
+        msgId:msgId,
+        // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
+        // pubHashTo: pubHash,
+        to: Object.keys(pubkeys), // TODO: NOTE: This is now an array.
+        cipherSubject: cipherSubject,
+        cipherBody: cipherBody
+    }
+    $.post("/email/", data, function(){
+        displayStatus("Sent")
+        displayCompose()
+    }).fail(function(xhr){
+        alert("Sending failed: "+xhr.responseText)
     })
 }
 

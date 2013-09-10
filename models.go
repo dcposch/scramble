@@ -42,3 +42,12 @@ type InboxSummary struct {
 	PublicHash   string
 	EmailHeaders []EmailHeader
 }
+
+type HashAddress struct {
+	Hash    string
+	Hosh    string
+}
+
+func (this *HashAddress) String() string {
+	return this.Hash+"@"+this.Host
+}

@@ -2,7 +2,7 @@ run: build
 	$(GOPATH)/bin/scramble
 
 build: doc
-	go install scramble
+	go install .
 	cp $(GOPATH)/bin/scramble static/bin/scramble
 
 MARKDOWN := $(shell ls doc/*.md)

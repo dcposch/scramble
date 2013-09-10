@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"net/url"
 )
 
 //
@@ -45,6 +46,126 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not found", http.StatusNotFound)
 	} else {
 		w.Write([]byte(userPub))
+	}
+}
+
+// POST /publickeys to look up many public keys from
+//  many <public key hash>@<host> addresses.
+// The server is untrusted, so the client must verify by hashing.
+// Unknown public key hashes cause the server to dispatch requests
+//  to the address host.
+func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
+	userId := authenticate(r)
+
+	// parse addresses & group by host
+	addrs := r.FormValue("addresses")
+	hostAddrs := map[string][]*HashAddress{}
+	for _, addr := range strings.Split(addrs, ",") {
+		addr = validateHashAddress(addr)
+		match := regexHashAddress.FindStringSubmatch(addr)
+		pubHash := match[1]
+		host := match[2]
+		hostAddrs[host] = append(hostAddrs[host], &HashAddress{pubHash, host})
+	}
+
+	// res will get returned as json: {address: {pubkey, err}}
+	type PubKeyErr struct {
+		PubKey string
+		Err	string
+	}
+	res := map[string]*PubKeyErr{}
+
+	if userId == nil {
+		// server-to-server requests need no userId,
+		// but all requested addresses should belong to this server.
+		// all lookups will be done locally rather than dispatching further.
+		for _, addrs := range hostAddrs {
+			for _, addr := range addrs {
+				res[addr.String()] = &PubKeyErr{LoadPubKey(addr.Hash), ""}
+			}
+		}
+		resJson, err := json.Marshal(res)
+		if err != nil { panic(err) }
+		w.Write(resJson)
+	} else {
+		// dispatch requests to each server.
+		// TODO could be smarter about which host(s) is local.
+		type HostRespErr struct {
+			Host string
+			Resp *http.Response
+			Err  error
+		}
+		ch := make(chan *HostRespErr)
+		timeout := time.After(5 * time.Second)
+		for host, addrs := range hostAddrs {
+			go func() {
+				u := url.URL{}
+				u.Scheme = "https"
+				u.Host = host
+				u.Path = "publickeys/"
+				body := url.Values{}
+				addrStrs := []string{}
+				for _, addr := range addrs {
+					addrStrs = append(addrStrs, addr.String())
+				}
+				body.Set("addresses", strings.Join(addrStrs, ","))
+				resp, err := http.PostForm(u.String(), body)
+				ch <- &HostRespErr{host, resp, err}
+			}()
+		}
+		// update `res` with responses
+		counter := len(hostAddrs)
+		chDone := make(chan bool)
+		for {
+			select {
+				case hostRespErr := <-ch:
+					counter -= 1
+					if counter == 0 {
+						chDone <- true
+					}
+					if hostRespErr.Err != nil { continue } // TODO better error messages
+					respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
+					defer hostRespErr.Resp.Body.Close()
+					if err != nil { continue } // TODO better error messages
+					parsed := map[string]*PubKeyErr{}
+					err = json.Unmarshal(respBody, parsed)
+					if err != nil { continue } // TODO better error messages
+					for addr, pubKeyErr := range parsed {
+						res[addr] = pubKeyErr
+					}
+				case <-timeout:
+					break
+				case <-chDone:
+					break
+			}
+		}
+		// fill remaining addresses with appropriate error messages
+		// client must still verify that addresses aren't missing
+		for _, addrs := range hostAddrs {
+			for _, addr := range addrs {
+				if res[addr.String()] == nil {
+					res[addr.String()] = &PubKeyErr{"", "Failed to retrieve public key"}
+				}
+			}
+		}
+		// respond back
+		resJson, err := json.Marshal(res)
+		if err != nil { panic(err) }
+		w.Write(resJson)
+		// flush ch
+		for {
+			select {
+				case hostRespErr := <-ch:
+					counter -= 1
+					if counter == 0 {
+						chDone <- true
+					}
+					if hostRespErr.Err != nil { continue }
+					hostRespErr.Resp.Body.Close()
+				case <-chDone:
+					break
+			}
+		}
 	}
 }
 

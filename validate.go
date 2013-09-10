@@ -5,10 +5,11 @@ import (
 	"regexp"
 )
 
-var regexHex = regexp.MustCompile("[a-f0-9]+")
-var regexPassHash = regexp.MustCompile("[a-f0-9]{40}")
-var regexHash = regexp.MustCompile("[a-f0-9]{40}|[a-z2-7]{16}")
-var regexToken = regexp.MustCompile("[a-z0-9]{3}[a-z0-9]*")
+var regexHex = regexp.MustCompile("(?i)[a-f0-9]+")
+var regexPassHash = regexp.MustCompile("(?i)[a-f0-9]{40}")
+var regexHash = regexp.MustCompile("(?i)[a-f0-9]{40}|[a-z2-7]{16}")
+var regexToken = regexp.MustCompile("(?i)[a-z0-9]{3}[a-z0-9]*")
+var regexHashAddress = regexp.MustCompile(`(?i)(A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})`)
 
 func validatePassHash(str string) string {
 	if !regexPassHash.MatchString(str) {
@@ -51,4 +52,10 @@ func validateBox(str string) string {
 		log.Panicf("Expected 'inbox' or 'sent', got %s", str)
 	}
 	return str
+}
+func validateHashAddress(str string) string {
+    if !regexHashAddress.MatchString(str) {
+        log.Panicf("Invalid hash address %s", str)
+    }
+    return str
 }
