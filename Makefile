@@ -7,7 +7,11 @@ build: doc
 
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)
-doc: $(HTML)
+doc: $(HTML) static/doc/index.html
+
+static/doc/never-forget.html: doc/never-forget.md
+	mkdir -p static/doc
+	markdown doc/never-forget.md > $@
 
 static/doc/%.html: doc/%.md
 	mkdir -p static/doc
