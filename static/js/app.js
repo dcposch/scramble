@@ -590,9 +590,13 @@ function sendEmail(to,subject,body){
             addIfNotContains(unencryptedToAddresses, toAddresses[i])
         }
     }
-    if(unencryptedToAddresses.length > 0){
-        prompt("Sending to unencrypted addresses is not yet supported")
+    if(unencryptedToAddresses.length > 0
+        && !confirm("Are you sure you want to send unencrypted email to: "+unencryptedToAddresses.join())){
         return
+    }
+    for(var i = 0; i < unencryptedToAddresses.length; i++){
+        var addr = unencryptedToAddresses[i];
+        sendEmailUnencrypted(msgId,to,subject,body)
     }
 
     // look up each recipient's public key
@@ -635,19 +639,30 @@ function sendEmailEncrypted(msgId,to,subject,body,box,pubHash){
             cipherSubject: cipherSubject,
             cipherBody: cipherBody
         }
-        $.post("/email/", data, function(){
-            displayStatus("Sent")
-            displayCompose()
-        }).fail(function(xhr){
-            alert("Sending failed: "+xhr.responseText)
-        })
+        sendEmailPost(data)
     }).fail(function(){
         alert("Could not find public key for "+pubHash+"@...")
     })
 }
 
-function sendEmailUnencrypted(from, to, subject, body){
-    alert("Unimplemented")
+function sendEmailUnencrypted(msgId, to, subject, body){
+    // send our message
+    var data = {
+        msgId:msgId,
+        to: to,
+        subject: subject,
+        body: body
+    }
+    sendEmailPost(data)
+}
+
+function sendEmailPost(data) {
+    $.post("/email/", data, function(){
+        displayStatus("Sent")
+        displayCompose()
+    }).fail(function(xhr){
+        alert("Sending failed: "+xhr.responseText)
+    })
 }
 
 // Extracts the public-key hash from <public key hash>@<host>

@@ -15,6 +15,7 @@ type UserID struct {
 	PasswordHash    string
 	PasswordHashOld string
 	PublicHash      string
+	EmailAddress    string
 }
 
 // Represents an email header with encrypted subject. No body.

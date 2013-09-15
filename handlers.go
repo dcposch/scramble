@@ -124,14 +124,25 @@ func authenticate(r *http.Request) *UserID {
 	} else {
 		passHashOldVal = passHashOld.Value
 	}
-	return authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
+	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
+
+	// TODO: user email address should be stored, not computed
+	if r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") {
+		userId.EmailAddress = userId.PublicHash + "@scramble.io"
+	} else {
+		userId.EmailAddress = userId.PublicHash + "@" + r.Host
+	}
+	return userId
 }
 
 func authenticateUserPass(token string, passHash string, passHashOld string) *UserID {
+	// look up the user
 	userId := LoadUserID(token)
 	if userId == nil {
 		return nil
 	}
+
+	// verify password
 	if passHash == userId.PasswordHash && passHash != "" {
 		return userId
 	}
@@ -234,14 +245,22 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	email := new(Email)
 	email.MessageID = validateMessageID(r.FormValue("msgId"))
 	email.UnixTime = time.Now().Unix()
-	email.From = userId.PublicHash + "@" + r.Host
+	email.From = userId.EmailAddress
 	email.To = r.FormValue("to")
 
-	email.PubHashFrom = userId.PublicHash
-	email.PubHashTo = validateHash(r.FormValue("pubHashTo"))
-	email.Box = validateBox(r.FormValue("box"))
-	email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
-	email.CipherBody = validateHex(r.FormValue("cipherBody"))
+	if r.FormValue("cipherBody") == "" { // unencrypted
+		email.PubHashFrom = ""
+		email.PubHashTo = ""
+		email.Box = "outbox"
+		email.CipherSubject = r.FormValue("subject")
+		email.CipherBody = r.FormValue("body")
+	} else { // encrypted
+		email.PubHashFrom = userId.PublicHash
+		email.PubHashTo = validateHash(r.FormValue("pubHashTo"))
+		email.Box = validateBox(r.FormValue("box"))
+		email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
+		email.CipherBody = validateHex(r.FormValue("cipherBody"))
+	}
 
 	SaveMessage(email)
 }

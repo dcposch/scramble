@@ -180,6 +180,33 @@ func LoadSent(pubHash string) []EmailHeader {
 	return rowsToHeaders(rows)
 }
 
+func LoadAndFlagOutbox() []Email {
+	rows, err := db.Query("select message_id, unix_time, " +
+		" from_email, to_email, cipher_subject, cipher_body" +
+		" from email where box='outbox'")
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec("update email set box='sent' where box='outbox'")
+	if err != nil {
+		panic(err)
+	}
+
+	emails := make([]Email, 0)
+	for rows.Next() {
+		var email Email
+		rows.Scan(
+			&email.MessageID,
+			&email.UnixTime,
+			&email.From,
+			&email.To,
+			&email.CipherSubject,
+			&email.CipherBody)
+		emails = append(emails, email)
+	}
+	return emails
+}
+
 func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 	// collect a short description of each email
 	headers := make([]EmailHeader, 0)
