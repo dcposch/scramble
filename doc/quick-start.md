@@ -118,11 +118,20 @@ I propose the following process:
 Develop Scramble
 ----
 
-Prerequisites: Git, Go, and Screen
+Prerequisites: Git, Go, Markdown, and Make
+Recommended: Screen
 
 To install this on Ubuntu:
 
-    sudo apt-get install git golang screen
+    sudo apt-get install git markdown make screen
+
+Install Go separately, from here: (http://golang.org/doc/install)[http://golang.org/doc/install]
+
+Don't use `apt-get install golang`, it's still on an old version. Instead:
+
+    wget <Go download url for your platform>
+    tar -xzvf go*.tar.gz
+    sudo mv go /usr/local/
 
 Then, set up Go. For example:
 
@@ -132,14 +141,17 @@ Then, set up Go. For example:
     echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc
     source ~/.bashrc
 
-Then, run Scramble:
+Then, clone the repo. If you don't have it already, you'll have to set up your Github SSH key first. 
 
     cd ~/go/src
     git clone git@github.com:dcposch/scramble
+
+Finally, compile and run.
+
     cd scramble
     make
 
-Navigate to `http://localhost:8888`.
+Navigate to `http://localhost:8888` to make sure things work.
 
 ### Coding style
 
@@ -170,3 +182,7 @@ You can make your first pull request in an hour or so!
 * Write a unit test
 * Pull requests that only add comments or documentation are still cool
 
+
+## Welcome aboard!
+
+![ship](ship.png)
