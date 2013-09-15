@@ -638,7 +638,9 @@ function lookupPublicKeys(toAddresses, cb) {
         publicKey:keys.publicKeyArmored,
         cipherPrivateKey:bin2hex(cipherPrivateKey)
     }
-    $.post("/user/", data, function(){
+    $.post("/publickeys/", data, function(){
+        // XXX i'm working on this now.
+    });
 }
 
 // pubkeys: {toAddress: <pubKeyArmored>}

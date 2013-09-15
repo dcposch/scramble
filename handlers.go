@@ -96,13 +96,12 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 			Err  error
 		}
 		ch := make(chan *HostRespErr)
-		timeout := time.After(5 * time.Second)
 		for host, addrs := range hostAddrs {
 			go func() {
 				u := url.URL{}
 				u.Scheme = "https"
 				u.Host = host
-				u.Path = "publickeys/"
+				u.Path = "/publickeys/"
 				body := url.Values{}
 				addrStrs := []string{}
 				for _, addr := range addrs {
@@ -115,14 +114,12 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		}
 		// update `res` with responses
 		counter := len(hostAddrs)
-		chDone := make(chan bool)
-		for {
+		timeout := time.After(5 * time.Second)
+                timedOut := false
+		for counter > 0 && !timedOut {
 			select {
 				case hostRespErr := <-ch:
 					counter -= 1
-					if counter == 0 {
-						chDone <- true
-					}
 					if hostRespErr.Err != nil { continue } // TODO better error messages
 					respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
 					defer hostRespErr.Resp.Body.Close()
@@ -134,9 +131,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 						res[addr] = pubKeyErr
 					}
 				case <-timeout:
-					break
-				case <-chDone:
-					break
+					timedOut = true
 			}
 		}
 		// fill remaining addresses with appropriate error messages
@@ -152,18 +147,13 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		resJson, err := json.Marshal(res)
 		if err != nil { panic(err) }
 		w.Write(resJson)
-		// flush ch
-		for {
+		// drain ch
+		for counter > 0 {
 			select {
 				case hostRespErr := <-ch:
 					counter -= 1
-					if counter == 0 {
-						chDone <- true
-					}
 					if hostRespErr.Err != nil { continue }
 					hostRespErr.Resp.Body.Close()
-				case <-chDone:
-					break
 			}
 		}
 	}
@@ -238,7 +228,7 @@ func authenticate(r *http.Request) *UserID {
 	if err != nil {
 		return nil
 	}
-	passHashOld, _ := r.Cookie("passHashOld")
+	passHashOld, err := r.Cookie("passHashOld")
 	var passHashOldVal string
 	if err != nil {
 		passHashOldVal = ""

@@ -54,8 +54,8 @@ func validateBox(str string) string {
 	return str
 }
 func validateHashAddress(str string) string {
-    if !regexHashAddress.MatchString(str) {
-        log.Panicf("Invalid hash address %s", str)
-    }
-    return str
+	if !regexHashAddress.MatchString(str) {
+		log.Panicf("Invalid hash address %s", str)
+	}
+	return str
 }
