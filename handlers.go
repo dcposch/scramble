@@ -11,6 +11,22 @@ import (
 )
 
 //
+// UTILITY FUNCTIONS
+//
+
+func groupAddrsByHost(addrs []string) map[string][]HashAddress{} {
+	hostAddrs := map[string][]HashAddress{}
+	for _, addr := range addrs {
+		addr = validateHashAddress(addr)
+		match := regexHashAddress.FindStringSubmatch(addr)
+		pubHash := match[1]
+		host := match[2]
+		hostAddrs[host] = append(hostAddrs[host], HashAddress{pubHash, host})
+	}
+    return hostAddrs
+}
+
+//
 // SERVE HTML, CSS, JS
 //
 
@@ -59,14 +75,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// parse addresses & group by host
 	addrs := r.FormValue("addresses")
-	hostAddrs := map[string][]*HashAddress{}
-	for _, addr := range strings.Split(addrs, ",") {
-		addr = validateHashAddress(addr)
-		match := regexHashAddress.FindStringSubmatch(addr)
-		pubHash := match[1]
-		host := match[2]
-		hostAddrs[host] = append(hostAddrs[host], &HashAddress{pubHash, host})
-	}
+    hostAddrs := groupAddrsByHost(strings.Split(addrs, ","))
 
 	// res will get returned as json: {address: {pubkey, err}}
 	type PubKeyErr struct {
@@ -81,7 +90,12 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		// all lookups will be done locally rather than dispatching further.
 		for _, addrs := range hostAddrs {
 			for _, addr := range addrs {
-				res[addr.String()] = &PubKeyErr{LoadPubKey(addr.Hash), ""}
+				pubKey := LoadPubKey(addr.Hash)
+				if pubKey == "" {
+					res[addr.String()] = &PubKeyErr{"", "Unknown address"}
+				} else {
+					res[addr.String()] = &PubKeyErr{pubKey, ""}
+				}
 			}
 		}
 		resJson, err := json.Marshal(res)
@@ -125,7 +139,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 					defer hostRespErr.Resp.Body.Close()
 					if err != nil { continue } // TODO better error messages
 					parsed := map[string]*PubKeyErr{}
-					err = json.Unmarshal(respBody, parsed)
+					err = json.Unmarshal(respBody, &parsed)
 					if err != nil { continue } // TODO better error messages
 					for addr, pubKeyErr := range parsed {
 						res[addr] = pubKeyErr
@@ -359,19 +373,17 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	email.From = userId.EmailAddress
 	email.To = r.FormValue("to")
 
+    // XXX remove this case
 	if r.FormValue("cipherBody") == "" { // unencrypted
-		email.PubHashFrom = ""
-		email.PubHashTo = ""
-		email.Box = "outbox"
 		email.CipherSubject = r.FormValue("subject")
 		email.CipherBody = r.FormValue("body")
 	} else { // encrypted
-		email.PubHashFrom = userId.PublicHash
-		email.PubHashTo = validateHash(r.FormValue("pubHashTo"))
-		email.Box = validateBox(r.FormValue("box"))
 		email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
 		email.CipherBody = validateHex(r.FormValue("cipherBody"))
 	}
 
+    // TODO: saveMessage may fail if messageId is not unique.
 	SaveMessage(email)
+
+    // XXX ...
 }

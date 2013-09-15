@@ -490,9 +490,6 @@ function displayEmail(target){
                 to:          target.data("to"),
                 toAddresses: toAddresses,
 
-                isInbox:     target.data("box")=="inbox",
-                isArchive:   target.data("box")=="archive",
-
                 subject:     target.text(),
                 body:        plaintextBody
             }
@@ -609,8 +606,8 @@ function sendEmail(to,subject,body){
                 errors[toAddr] = result.error;
                 continue;
             }
-            var computedHash = computePublicHash(result.pubKeyArmor);
-            if (computedHash != publicKeyHash) {
+            var computedHash = computePublicHash(result.pubKey);
+            if (computedHash != pubHash) {
                 // this is a serious error. security breach?
                 var error = "WARNING: the server gave us an incorrect public key for "+toAddr+"\n"+
                     "Your message was not sent to that user.";
@@ -618,7 +615,7 @@ function sendEmail(to,subject,body){
                 errors[toAddr] = error;
                 continue;
             }
-            pubKeys[toAddr] = result.pubKeyArmor;
+            pubKeys[toAddr] = result.pubKey;
         }
 
         // Report errors if there were any.
@@ -663,7 +660,7 @@ function sendEmailEncrypted(pubKeys,subject,body){
         var pubKeyArmor = pubKeys[toAddr];
         var pka = openpgp.read_publicKey(pubKeyArmor);
         if (pka.length == 1) {
-            publicKeys.append(pka[0]);
+            publicKeys.push(pka[0]);
         } else {
             alert("Incorrect number of publicKeys in armor for address "+toAddr);
             return;

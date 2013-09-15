@@ -10,6 +10,7 @@ var migrations = []func() error{
 	migrateCreateEmail,
 	migrateAddContacts,
 	migratePasswordHash,
+    migrateEmailRefactor,
 }
 
 func migrateDb() {
@@ -94,4 +95,30 @@ func migratePasswordHash() error {
 	}
 	_, err = db.Exec(`update user set password_hash_old=password_hash, password_hash=""`)
 	return err
+}
+
+func migrateEmailRefactor() error {
+
+    // TODO: migration of existing data
+
+    _, err := db.Exec(`alter table email
+        drop index pub_hash_to,
+        drop index pub_hash_from,
+        drop pub_hash_from,
+        drop pub_hash_to,
+        drop primary key,
+        add primary key(message_id)`)
+
+    if err != nil { return err }
+
+    _, err := db.Exec(`create table if not exists box (
+        message_id        char(40) not null,
+        owner_public_hash char(40) not null,
+        box               char(10) not null
+        unix_time         bigint not null,
+        
+        primary key (owner_public_hash, box, unix_time)
+    )`)
+
+    return err
 }

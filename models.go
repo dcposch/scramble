@@ -20,14 +20,10 @@ type UserID struct {
 
 // Represents an email header with encrypted subject. No body.
 type EmailHeader struct {
-	MessageID string
-	Box       string
-	UnixTime  int64
-	From      string
-	To        string
-
-	PubHashFrom   string
-	PubHashTo     string
+	MessageID     string
+	UnixTime      int64
+	From          string
+	To            string
 	CipherSubject string
 }
 

@@ -59,7 +59,7 @@ func TestPublicKeysHandler(t *testing.T) {
 		URL:    &url.URL{Path: "publickeys/"},
 		Header: map[string][]string{},
 		Form:   url.Values{
-			  "addresses": {"44ljb4mt7rbo3fue@scramble.io"},
+			  "addresses": {"x6urvahzhylq5swe@hashed.im,y7a4hsiyklzptjqf@hashed.im"},
 			},
 		}
 	expires := time.Now().AddDate(0,0,1)

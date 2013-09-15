@@ -159,6 +159,7 @@ func SaveContacts(token string, cipherContacts string) {
 func LoadBox(pubHashTo string, box string) []EmailHeader {
 	log.Printf("Fetching %s for %s\n", box, pubHashTo)
 
+    XXX remove mentions of box
 	rows, err := db.Query("select message_id, box, unix_time, "+
 		" from_email, to_email, pub_hash_from, pub_hash_to, cipher_subject "+
 		" from email where pub_hash_to=? and box=? "+
@@ -169,9 +170,10 @@ func LoadBox(pubHashTo string, box string) []EmailHeader {
 	return rowsToHeaders(rows)
 }
 
+XXX delete this function
 func LoadSent(pubHash string) []EmailHeader {
 	rows, err := db.Query("select message_id, box, unix_time, "+
-		" from_email, to_email, pub_hash_from, pub_hash_to, cipher_subject "+
+		" from_email, to_email, cipher_subject "+
 		" from email where pub_hash_from=? and pub_hash_to=? "+
 		" order by unix_time desc", pubHash, pubHash)
 	if err != nil {
@@ -218,8 +220,6 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 			&header.UnixTime,
 			&header.From,
 			&header.To,
-			&header.PubHashFrom,
-			&header.PubHashTo,
 			&header.CipherSubject)
 		if err != nil {
 			panic(err)
@@ -234,25 +234,19 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 // EMAIL
 //
 
-// Saves a single email, encrypted for a single recipient.
-// When sending one email, this function will be called multiple times.
-//
-// Incoming email is saved to the inbox
-// Outgoing mail to an external server is saved to the outbox, waiting for SMTP
-// Outgoing mail to the same domain is saved directly to that user's inbox
-// All outgoing mail is also saved to the sender's sent box
+// Saves a single email, encrypted for (potentially) multiple recipients.
+// A single mail server only needs one email for all recipients & sender.
+// Associating emails to boxes are done in a join table.
+// Outgoing emails for external servers also require an entry in the 'email' table.
 func SaveMessage(e *Email) {
 	_, err := db.Exec("insert into email "+
-		"(message_id, box, unix_time, from_email, to_email, "+
-		" pub_hash_from, pub_hash_to, cipher_subject, cipher_body) "+
-		"values (?,?,?,?,?,?,?,?,?)",
+		"(message_id, unix_time, from_email, to_email, "+
+		" cipher_subject, cipher_body) "+
+		"values (?,?,?,?,?,?,?)",
 		e.MessageID,
-		e.Box,
 		e.UnixTime,
 		e.From,
 		e.To,
-		e.PubHashFrom,
-		e.PubHashTo,
 		e.CipherSubject,
 		e.CipherBody)
 	if err != nil {
@@ -261,30 +255,26 @@ func SaveMessage(e *Email) {
 }
 
 // Retrieves a single message, by id
-// Because a message will be stored multiple times, encrypted separately
-// for each recipient, we must also specify the recipient hash
-func LoadMessage(id string, pubHashTo string) Email {
+func LoadMessage(id string) Email {
 	var email Email
 	err := db.QueryRow("select "+
-		"box, unix_time, from_email, to_email, "+
-		"pub_hash_from, cipher_subject, cipher_body "+
-		"from email where message_id=? and pub_hash_to=?",
-		id, pubHashTo).Scan(
-		&email.Box,
+		"unix_time, from_email, to_email, "+
+		"cipher_subject, cipher_body "+
+		"from email where message_id=?",
+		id).Scan(
 		&email.UnixTime,
 		&email.From,
 		&email.To,
-		&email.PubHashFrom,
 		&email.CipherSubject,
 		&email.CipherBody)
 	email.MessageID = id
-	email.PubHashTo = pubHashTo
 	if err != nil {
 		panic(err)
 	}
 	return email
 }
 
+XXX this needs to change.
 func UpdateEmail(id string, pubHashTo string, newBox string) {
 	_, err := db.Exec("update email "+
 		"set box=? "+
