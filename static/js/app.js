@@ -597,7 +597,7 @@ function sendEmail(to,subject,body){
 
     lookupPublicKeys(toAddresses, function(keyMap) {
         // keyMap: {toAddress: {pubKey: <pubKeyArmor>} or {error: <error string>}}
-        var pubkeys = {}; // {toAddress: <pubKeyArmor>}
+        var pubKeys = {}; // {toAddress: <pubKeyArmor>}
         var errors = {};  // {toAddress: <error string>}
 
         // Verify all recipient public keys from keyMap
@@ -618,13 +618,23 @@ function sendEmail(to,subject,body){
                 errors[toAddr] = error;
                 continue;
             }
-            pubkeys[toAddr] = result.pubKeyArmor;
+            pubKeys[toAddr] = result.pubKeyArmor;
         }
 
-        // TODO: report errors
-        // TODO: quit if noone to send to
+        // Report errors if there were any.
+        // TODO: more graceful degradation
+        // TODO: better error messages if necessary
+        if (Object.keys(errors).length > 0) {
+            alert("FAILURE: Failed to retrieve public keys for the following addresses:\n"+Object.keys(errors).join("\n"));
+            return;
+        }
 
-        sendEmailEncrypted(pubkeys, subject, body);
+        if (Object.keys(pubKeys).length == 0) {
+            alert("ERROR: Nothing to send");
+            return;
+        }
+
+        sendEmailEncrypted(pubKeys, subject, body);
 
     })
 
@@ -632,25 +642,22 @@ function sendEmail(to,subject,body){
 }
 
 function lookupPublicKeys(toAddresses, cb) {
-    var data = {
-        token: $.cookie("token"),
-        passHash: $.cookie("passHash"),
-        publicKey:keys.publicKeyArmored,
-        cipherPrivateKey:bin2hex(cipherPrivateKey)
+    var params = {
+        addresses: toAddresses.join(',')
     }
-    $.post("/publickeys/", data, function(){
-        // XXX i'm working on this now.
-    });
+    $.post("/publickeys/", params, function(data) {
+        cb(data);
+    }, "json");
 }
 
-// pubkeys: {toAddress: <pubKeyArmored>}
-function sendEmailEncrypted(pubkeys,subject,body){
+// pubKeys: {toAddress: <pubKeyArmored>}
+function sendEmailEncrypted(pubKeys,subject,body){
     // generate 160-bit (20 byte) message id
     // secure random generator, so it will be unique
     // TODO: Maybe we should hash the encrypted message bytes so that it is deterministic.
     var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
 
-    // Encrypt message for all recipients in `pubkeys`
+    // Encrypt message for all recipients in `pubKeys`
     var publicKeys = [];
     for (var toAddr in pubKeys) {
         var pubKeyArmor = pubKeys[toAddr];
@@ -670,7 +677,7 @@ function sendEmailEncrypted(pubkeys,subject,body){
         msgId:msgId,
         // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
         // pubHashTo: pubHash,
-        to: Object.keys(pubkeys), // TODO: NOTE: This is now an array.
+        to: Object.keys(pubKeys), // TODO: NOTE: This is now an array.
         cipherSubject: cipherSubject,
         cipherBody: cipherBody
     }

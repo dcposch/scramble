@@ -70,8 +70,8 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// res will get returned as json: {address: {pubkey, err}}
 	type PubKeyErr struct {
-		PubKey string
-		Err	string
+		PubKey string `json:"pubKey,omitempty"`
+		Error  string `json:"error,omitempty"`
 	}
 	res := map[string]*PubKeyErr{}
 
