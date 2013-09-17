@@ -674,7 +674,7 @@ function sendEmailEncrypted(pubKeys,subject,body){
         msgId:msgId,
         // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
         // pubHashTo: pubHash,
-        to: Object.keys(pubKeys), // TODO: NOTE: This is now an array.
+        to: Object.keys(pubKeys).join(","),
         cipherSubject: cipherSubject,
         cipherBody: cipherBody
     }

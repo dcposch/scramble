@@ -6,6 +6,7 @@ import _ "github.com/go-sql-driver/mysql"
 import (
 	"log"
 	"time"
+	//"github.com/jaekwon/go-prelude/colors"
 )
 
 var db *sql.DB
@@ -220,7 +221,7 @@ func SaveMessage(e *Email) {
 	_, err := db.Exec("insert into email "+
 		"(message_id, unix_time, from_email, to_email, "+
 		" cipher_subject, cipher_body) "+
-		"values (?,?,?,?,?,?,?)",
+		"values (?,?,?,?,?,?)",
 		e.MessageID,
 		e.UnixTime,
 		e.From,

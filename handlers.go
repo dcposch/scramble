@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 	"net/url"
+	//"github.com/jaekwon/go-prelude/colors"
 )
 
 //
@@ -255,6 +257,9 @@ func authenticate(r *http.Request) *UserID {
 	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
 
 	// TODO: user email address should be stored, not computed
+	if userId == nil {
+		return nil
+	}
 	if r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") {
 		userId.EmailAddress = userId.PublicHash + "@scramble.io"
 	} else {
@@ -398,7 +403,10 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	for host, addrs := range hostAddrs {
 		server, err := smtpLookUp(host)
 		if err != nil {
-			panic(err) // TODO: what to do?
+			// TODO: better error handling
+			w.WriteHeader(500)
+			w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", host)))
+			return
 		}
 		if server == GetConfig().ThisMxHost {
 			// add to inbox locally
