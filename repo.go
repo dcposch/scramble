@@ -4,28 +4,17 @@ import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 
 import (
-	"io/ioutil"
 	"log"
-	"os"
-	"strings"
 	"time"
 )
 
 var db *sql.DB
 
 func init() {
-	// read configuration
-	configFile := os.Getenv("HOME") + "/.scramble/db.config"
-	mysqlHostBytes, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		log.Panicf("Please create config file %s.\n"+
-			"One line, <db user>:<db pass>@<db host, empty if local>/scramble",
-			configFile)
-	}
-
 	// connect to the database, ping periodically to maintain the connection
-	mysqlHost := strings.TrimSpace(string(mysqlHostBytes)) + "?charset=utf8"
+	mysqlHost := GetConfig().MySQLHost + "?charset=utf8"
 	log.Printf("Connecting to %s\n", mysqlHost)
+	var err error
 	db, err = sql.Open("mysql", mysqlHost)
 	if err != nil {
 		panic(err)
@@ -156,32 +145,22 @@ func SaveContacts(token string, cipherContacts string) {
 // Loads all email headers in a certain box
 // For example, inbox or sent box
 // That are encrypted for a given user
-func LoadBox(pubHashTo string, box string) []EmailHeader {
-	log.Printf("Fetching %s for %s\n", box, pubHashTo)
+func LoadBox(address string, box string) []EmailHeader {
+	log.Printf("Fetching %s for %s\n", box, address)
 
-    XXX remove mentions of box
-	rows, err := db.Query("select message_id, box, unix_time, "+
-		" from_email, to_email, pub_hash_from, pub_hash_to, cipher_subject "+
-		" from email where pub_hash_to=? and box=? "+
-		" order by unix_time desc", pubHashTo, box)
+	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
+		" m.from_email, m.to_email, m.cipher_subject "+
+		" FROM email AS m INNER JOIN box AS b "+
+		" ON b.message_id = m.message_id "+
+		" WHERE b.address = ? and b.box=? "+
+		" ORDER BY b.unix_time DESC", address, box)
 	if err != nil {
 		panic(err)
 	}
 	return rowsToHeaders(rows)
 }
 
-XXX delete this function
-func LoadSent(pubHash string) []EmailHeader {
-	rows, err := db.Query("select message_id, box, unix_time, "+
-		" from_email, to_email, cipher_subject "+
-		" from email where pub_hash_from=? and pub_hash_to=? "+
-		" order by unix_time desc", pubHash, pubHash)
-	if err != nil {
-		panic(err)
-	}
-	return rowsToHeaders(rows)
-}
-
+// XXX what is this?
 func LoadAndFlagOutbox() []Email {
 	rows, err := db.Query("select message_id, unix_time, " +
 		" from_email, to_email, cipher_subject, cipher_body" +
@@ -216,7 +195,6 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 		var header EmailHeader
 		err := rows.Scan(
 			&header.MessageID,
-			&header.Box,
 			&header.UnixTime,
 			&header.From,
 			&header.To,
@@ -254,6 +232,22 @@ func SaveMessage(e *Email) {
 	}
 }
 
+// Associates a message to a box (e.g. inbox, archive)
+// Also used to queue outbox messages, in which case
+//  the address is just the host portion.
+func AddMessageToBox(e *Email, address string, box string) {
+	_, err := db.Exec("insert into box "+
+		"(message_id, unix_time, address, box) "+
+		"values (?,?,?,?)",
+		e.MessageID,
+		e.UnixTime,
+		address,
+		box)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Retrieves a single message, by id
 func LoadMessage(id string) Email {
 	var email Email
@@ -274,13 +268,21 @@ func LoadMessage(id string) Email {
 	return email
 }
 
-XXX this needs to change.
-func UpdateEmail(id string, pubHashTo string, newBox string) {
-	_, err := db.Exec("update email "+
+// Move the email to another box.
+// Cannot move an email from 'sent' box.
+func UpdateEmail(address string, messageID string, newBox string) {
+	res, err := db.Exec("update box "+
 		"set box=? "+
-		"where message_id=? and pub_hash_to=?",
-		newBox, id, pubHashTo)
+		"where address=? and message_id=? and box!='sent'",
+		newBox, address, messageID)
 	if err != nil {
 		panic(err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	if rows != 1 {
+		log.Panicf("Expected to move one message (%v/%v), found %v", address, messageID, rows)
 	}
 }

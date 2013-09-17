@@ -39,11 +39,15 @@ type InboxSummary struct {
 	EmailHeaders []EmailHeader
 }
 
-type HashAddress struct {
-	Hash    string
+type Address struct {
+	Name    string
 	Host    string
 }
 
-func (this *HashAddress) String() string {
-	return this.Hash+"@"+this.Host
+func (this *Address) IsHashAddress() bool {
+	return regexHash.MatchString(this.Name)
+}
+
+func (this *Address) String() string {
+	return this.Name+"@"+this.Host
 }

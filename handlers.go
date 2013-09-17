@@ -14,16 +14,16 @@ import (
 // UTILITY FUNCTIONS
 //
 
-func groupAddrsByHost(addrs []string) map[string][]HashAddress{} {
-	hostAddrs := map[string][]HashAddress{}
+func groupAddrsByHost(addrs []string) map[string][]Address {
+	hostAddrs := map[string][]Address{}
 	for _, addr := range addrs {
-		addr = validateHashAddress(addr)
-		match := regexHashAddress.FindStringSubmatch(addr)
-		pubHash := match[1]
+		addr = validateAddress(addr)
+		match := regexAddress.FindStringSubmatch(addr)
+		name := match[1]
 		host := match[2]
-		hostAddrs[host] = append(hostAddrs[host], HashAddress{pubHash, host})
+		hostAddrs[host] = append(hostAddrs[host], Address{name, host})
 	}
-    return hostAddrs
+	return hostAddrs
 }
 
 //
@@ -75,7 +75,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// parse addresses & group by host
 	addrs := r.FormValue("addresses")
-    hostAddrs := groupAddrsByHost(strings.Split(addrs, ","))
+	hostAddrs := groupAddrsByHost(strings.Split(addrs, ","))
 
 	// res will get returned as json: {address: {pubkey, err}}
 	type PubKeyErr struct {
@@ -90,7 +90,10 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		// all lookups will be done locally rather than dispatching further.
 		for _, addrs := range hostAddrs {
 			for _, addr := range addrs {
-				pubKey := LoadPubKey(addr.Hash)
+				if !addr.IsHashAddress() {
+					panic("publicKeysHandler can't handle non-hash-addresses")
+				}
+				pubKey := LoadPubKey(addr.Name)
 				if pubKey == "" {
 					res[addr.String()] = &PubKeyErr{"", "Unknown address"}
 				} else {
@@ -129,7 +132,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		// update `res` with responses
 		counter := len(hostAddrs)
 		timeout := time.After(5 * time.Second)
-                timedOut := false
+		timedOut := false
 		for counter > 0 && !timedOut {
 			select {
 				case hostRespErr := <-ch:
@@ -293,10 +296,8 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 	box := r.URL.Path[len("/box/"):]
 
 	var emailHeaders []EmailHeader
-	if box == "inbox" || box == "archive" {
-		emailHeaders = LoadBox(userId.PublicHash, box)
-	} else if box == "sent" {
-		emailHeaders = LoadSent(userId.PublicHash)
+	if box == "inbox" || box == "archive" || box == "sent" {
+		emailHeaders = LoadBox(userId.EmailAddress, box)
 	} else {
 		http.Error(w, "Unknown box. "+
 			"Expected 'inbox','sent', etc, got "+box,
@@ -341,7 +342,8 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/email/"):]
 	validateMessageID(id)
 
-	message := LoadMessage(id, userId.PublicHash)
+	message := LoadMessage(id)
+	// XXX ensure that message belongs to user
 	w.Write([]byte(message.CipherBody))
 }
 
@@ -357,7 +359,7 @@ func emailBoxHandler(w http.ResponseWriter, r *http.Request) {
 	validateMessageID(id)
 	newBox := validateBox(r.FormValue("box"))
 
-	UpdateEmail(id, userId.PublicHash, newBox)
+	UpdateEmail(userId.EmailAddress, id, newBox)
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
@@ -373,7 +375,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	email.From = userId.EmailAddress
 	email.To = r.FormValue("to")
 
-    // XXX remove this case
+	// XXX remove this case
 	if r.FormValue("cipherBody") == "" { // unencrypted
 		email.CipherSubject = r.FormValue("subject")
 		email.CipherBody = r.FormValue("body")
@@ -382,8 +384,32 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 		email.CipherBody = validateHex(r.FormValue("cipherBody"))
 	}
 
-    // TODO: saveMessage may fail if messageId is not unique.
+	// TODO: consider if transactions are required.
+	// TODO: saveMessage may fail if messageId is not unique.
 	SaveMessage(email)
 
-    // XXX ...
+	// add message to sender's sent box
+	AddMessageToBox(email, userId.EmailAddress, "sent")
+
+	// TODO: separate goroutine?
+	// TODO: parallize mx lookup?
+	// for each address, lookup MX record & determine what to do.
+	hostAddrs := groupAddrsByHost(strings.Split(email.To, ","))
+	for host, addrs := range hostAddrs {
+		server, err := smtpLookUp(host)
+		if err != nil {
+			panic(err) // TODO: what to do?
+		}
+		if server == GetConfig().ThisMxHost {
+			// add to inbox locally
+			for _, addr := range addrs {
+				AddMessageToBox(email, addr.String(), "inbox")
+			}
+		} else {
+			// add to outbox for delivery
+			// note that we only store the host for the 'address' column,
+			// and only once for multiple recipients on the same host.
+			AddMessageToBox(email, host, "outbox")
+		}
+	}
 }

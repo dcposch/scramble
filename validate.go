@@ -9,6 +9,7 @@ var regexHex = regexp.MustCompile("(?i)[a-f0-9]+")
 var regexPassHash = regexp.MustCompile("(?i)[a-f0-9]{40}")
 var regexHash = regexp.MustCompile("(?i)[a-f0-9]{40}|[a-z2-7]{16}")
 var regexToken = regexp.MustCompile("(?i)[a-z0-9]{3}[a-z0-9]*")
+var regexAddress = regexp.MustCompile(`(?i)([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})`)
 var regexHashAddress = regexp.MustCompile(`(?i)(A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})`)
 
 func validatePassHash(str string) string {
@@ -50,6 +51,12 @@ func validatePublicKey(str string) string {
 func validateBox(str string) string {
 	if str != "inbox" && str != "sent" && str != "archive" {
 		log.Panicf("Expected 'inbox' or 'sent', got %s", str)
+	}
+	return str
+}
+func validateAddress(str string) string {
+	if !regexAddress.MatchString(str) {
+		log.Panicf("Invalid email address %s", str)
 	}
 	return str
 }
