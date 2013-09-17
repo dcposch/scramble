@@ -75,22 +75,40 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 	userId := authenticate(r)
 
+	type PubKeyErr struct {
+		PubKey string `json:"pubKey,omitempty"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	type HostRespErr struct {
+		Host string
+		Resp *http.Response
+		Err  error
+	}
+
 	// parse addresses & group by host
 	addrs := r.FormValue("addresses")
 	hostAddrs := groupAddrsByHost(strings.Split(addrs, ","))
 
 	// res will get returned as json: {address: {pubkey, err}}
-	type PubKeyErr struct {
-		PubKey string `json:"pubKey,omitempty"`
-		Error  string `json:"error,omitempty"`
-	}
 	res := map[string]*PubKeyErr{}
 
+	// server-to-server requests need no userId,
+	// but all requested addresses should belong to this server.
 	if userId == nil {
-		// server-to-server requests need no userId,
-		// but all requested addresses should belong to this server.
-		// all lookups will be done locally rather than dispatching further.
-		for _, addrs := range hostAddrs {
+		for host, _ := range hostAddrs {
+			if host != GetConfig().ThisMxHost {
+				log.Panicf("Invalid host for server-to-server /publickeys request. Expected %v, got %v", GetConfig().ThisMxHost, host)
+			}
+		}
+	}
+
+	// dispatch requests to each server.
+	ch := make(chan *HostRespErr)
+	counter := 0
+	for host, addrs := range hostAddrs {
+		// if host is this host
+		if host == GetConfig().ThisMxHost {
 			for _, addr := range addrs {
 				if !addr.IsHashAddress() {
 					panic("publicKeysHandler can't handle non-hash-addresses")
@@ -102,21 +120,10 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 					res[addr.String()] = &PubKeyErr{pubKey, ""}
 				}
 			}
-		}
-		resJson, err := json.Marshal(res)
-		if err != nil { panic(err) }
-		w.Write(resJson)
-	} else {
-		// dispatch requests to each server.
-		// TODO could be smarter about which host(s) is local.
-		type HostRespErr struct {
-			Host string
-			Resp *http.Response
-			Err  error
-		}
-		ch := make(chan *HostRespErr)
-		for host, addrs := range hostAddrs {
-			go func() {
+		// if host is an external host
+		} else {
+			counter += 1
+			go func(host string, addrs []Address) {
 				u := url.URL{}
 				u.Scheme = "https"
 				u.Host = host
@@ -129,51 +136,54 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 				body.Set("addresses", strings.Join(addrStrs, ","))
 				resp, err := http.PostForm(u.String(), body)
 				ch <- &HostRespErr{host, resp, err}
-			}()
+			}(host, addrs)
 		}
-		// update `res` with responses
-		counter := len(hostAddrs)
-		timeout := time.After(5 * time.Second)
-		timedOut := false
-		for counter > 0 && !timedOut {
-			select {
-				case hostRespErr := <-ch:
-					counter -= 1
-					if hostRespErr.Err != nil { continue } // TODO better error messages
-					respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
-					defer hostRespErr.Resp.Body.Close()
-					if err != nil { continue } // TODO better error messages
-					parsed := map[string]*PubKeyErr{}
-					err = json.Unmarshal(respBody, &parsed)
-					if err != nil { continue } // TODO better error messages
-					for addr, pubKeyErr := range parsed {
-						res[addr] = pubKeyErr
-					}
-				case <-timeout:
-					timedOut = true
-			}
-		}
-		// fill remaining addresses with appropriate error messages
-		// client must still verify that addresses aren't missing
-		for _, addrs := range hostAddrs {
-			for _, addr := range addrs {
-				if res[addr.String()] == nil {
-					res[addr.String()] = &PubKeyErr{"", "Failed to retrieve public key"}
+	}
+
+	// update `res` with responses
+	timeout := time.After(5 * time.Second)
+	timedOut := false
+	for counter > 0 && !timedOut {
+		select {
+			case hostRespErr := <-ch:
+				counter -= 1
+				if hostRespErr.Err != nil { continue } // TODO better error messages
+				respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
+				defer hostRespErr.Resp.Body.Close()
+				if err != nil { continue } // TODO better error messages
+				parsed := map[string]*PubKeyErr{}
+				err = json.Unmarshal(respBody, &parsed)
+				if err != nil { continue } // TODO better error messages
+				for addr, pubKeyErr := range parsed {
+					res[addr] = pubKeyErr
 				}
+			case <-timeout:
+				timedOut = true
+		}
+	}
+
+	// fill remaining addresses with appropriate error messages
+	// client must still verify that addresses aren't missing
+	for _, addrs := range hostAddrs {
+		for _, addr := range addrs {
+			if res[addr.String()] == nil {
+				res[addr.String()] = &PubKeyErr{"", "Failed to retrieve public key"}
 			}
 		}
-		// respond back
-		resJson, err := json.Marshal(res)
-		if err != nil { panic(err) }
-		w.Write(resJson)
-		// drain ch
-		for counter > 0 {
-			select {
-				case hostRespErr := <-ch:
-					counter -= 1
-					if hostRespErr.Err != nil { continue }
-					hostRespErr.Resp.Body.Close()
-			}
+	}
+
+	// respond back
+	resJson, err := json.Marshal(res)
+	if err != nil { panic(err) }
+	w.Write(resJson)
+
+	// drain ch
+	for counter > 0 {
+		select {
+			case hostRespErr := <-ch:
+				counter -= 1
+				if hostRespErr.Err != nil { continue }
+				hostRespErr.Resp.Body.Close()
 		}
 	}
 }
@@ -257,11 +267,9 @@ func authenticate(r *http.Request) *UserID {
 	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
 
 	// TODO: user email address should be stored, not computed
-	if userId == nil {
-		return nil
-	}
+	if userId == nil { return nil }
 	if r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") {
-		userId.EmailAddress = userId.PublicHash + "@scramble.io"
+		userId.EmailAddress = userId.PublicHash + "@" + GetConfig().ThisMxHost
 	} else {
 		userId.EmailAddress = userId.PublicHash + "@" + r.Host
 	}
@@ -408,7 +416,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", host)))
 			return
 		}
-		if server == GetConfig().ThisMxHost {
+		if server == GetConfig().ThisMxHost+"." {
 			// add to inbox locally
 			for _, addr := range addrs {
 				AddMessageToBox(email, addr.String(), "inbox")
