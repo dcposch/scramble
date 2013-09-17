@@ -1007,8 +1007,15 @@ function decodePgp(armoredText, privateKey){
         alert("Warning. Expected 1 PGP message, found "+msgs.length)
     }
     var msg = msgs[0]
-    if(msg.sessionKeys.length != 1){
-        alert("Warning. Expected 1 PGP session key, found "+msg.sessionKeys.length)
+    var sessionKey = null;
+    for (var i=0; i<msg.sessionKeys.length; i++) {
+        if (msg.sessionKeys[i].keyId.bytes == privateKey[0].getKeyId()) {
+            sessionKey = msg.sessionKeys[i];
+            break
+        }
+    }
+    if (sessionKey == null) {
+        alert("Warning. Matching PGP session key not found")
     }
     if(privateKey.length != 1){
         alert("Warning. Expected 1 PGP private key, found "+privateKey.length)
@@ -1017,8 +1024,7 @@ function decodePgp(armoredText, privateKey){
     if(!keymat.keymaterial.decryptSecretMPIs("")){
         alert("Error. The private key is passphrase protected.")
     }
-    var sessKey = msg.sessionKeys[0]
-    var text = msg.decrypt(keymat, sessKey)
+    var text = msg.decrypt(keymat, sessionKey)
     return text
 }
 
