@@ -161,34 +161,6 @@ func LoadBox(address string, box string) []EmailHeader {
 	return rowsToHeaders(rows)
 }
 
-// XXX what is this?
-func LoadAndFlagOutbox() []Email {
-	rows, err := db.Query("select message_id, unix_time, " +
-		" from_email, to_email, cipher_subject, cipher_body" +
-		" from email where box='outbox'")
-	if err != nil {
-		panic(err)
-	}
-	_, err = db.Exec("update email set box='sent' where box='outbox'")
-	if err != nil {
-		panic(err)
-	}
-
-	emails := make([]Email, 0)
-	for rows.Next() {
-		var email Email
-		rows.Scan(
-			&email.MessageID,
-			&email.UnixTime,
-			&email.From,
-			&email.To,
-			&email.CipherSubject,
-			&email.CipherBody)
-		emails = append(emails, email)
-	}
-	return emails
-}
-
 func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 	// collect a short description of each email
 	headers := make([]EmailHeader, 0)
@@ -233,22 +205,6 @@ func SaveMessage(e *Email) {
 	}
 }
 
-// Associates a message to a box (e.g. inbox, archive)
-// Also used to queue outbox messages, in which case
-//  the address is just the host portion.
-func AddMessageToBox(e *Email, address string, box string) {
-	_, err := db.Exec("insert into box "+
-		"(message_id, unix_time, address, box) "+
-		"values (?,?,?,?)",
-		e.MessageID,
-		e.UnixTime,
-		address,
-		box)
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Retrieves a single message, by id
 func LoadMessage(id string) Email {
 	var email Email
@@ -269,12 +225,48 @@ func LoadMessage(id string) Email {
 	return email
 }
 
+// Associates a message to a box (e.g. inbox, archive)
+// Also used to queue outbox messages, in which case
+//  the address is just the host portion.
+func AddMessageToBox(e *Email, address string, box string) {
+	_, err := db.Exec("insert into box "+
+		"(message_id, unix_time, address, box) "+
+		"values (?,?,?,?)",
+		e.MessageID,
+		e.UnixTime,
+		address,
+		box)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// See which boxes message belongs in for user.
+// e.g. ["inbox", "sent"]
+func BoxesForMessage(address string, id string) []string {
+	rows, err := db.Query("select box from box "+
+		"where address=? and message_id=?",
+		address, id)
+	if err != nil { panic(err) }
+	boxes := []string{}
+	for rows.Next() {
+		var box string
+		err := rows.Scan(&box)
+		if err != nil { panic(err) }
+		boxes = append(boxes, box)
+	}
+	return boxes
+}
+
 // Move the email to another box.
-// Cannot move an email from 'sent' box.
-func UpdateEmail(address string, messageID string, newBox string) {
+// This function only works within the 'inbox'/'archive'/'trash' boxes
+func MoveEmail(address string, messageID string, newBox string) {
+	if newBox != "inbox" && newBox != "archive" && newBox != "trash" {
+		panic("MoveEmail() cannot move emails to "+newBox)
+	}
 	res, err := db.Exec("update box "+
 		"set box=? "+
-		"where address=? and message_id=? and box!='sent'",
+		"where address=? and message_id=? and box in ('inbox', 'archive', 'trash')",
 		newBox, address, messageID)
 	if err != nil {
 		panic(err)
@@ -286,4 +278,50 @@ func UpdateEmail(address string, messageID string, newBox string) {
 	if rows != 1 {
 		log.Panicf("Expected to move one message (%v/%v), found %v", address, messageID, rows)
 	}
+}
+
+//
+// OUTBOX 
+//
+
+func LoadOutbox() []BoxedEmail {
+	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
+		" m.from_email, m.to_email, m.cipher_subject, m.cipher_subject, "+
+		" b.id, b.box, b.address " +
+		" FROM email AS m INNER JOIN box AS b "+
+		" ON b.message_id = m.message_id "+
+		" WHERE b.box='outbox' "+
+		" ORDER BY b.unix_time ASC")
+	if err != nil {
+		panic(err)
+	}
+	boxedEmails := []BoxedEmail{}
+	for rows.Next() {
+		var boxed BoxedEmail
+		rows.Scan(
+			&boxed.MessageID,
+			&boxed.UnixTime,
+			&boxed.From,
+			&boxed.To,
+			&boxed.CipherSubject,
+			&boxed.CipherBody,
+			&boxed.Id,
+			&boxed.Box,
+			&boxed.Address,
+		)
+		boxedEmails = append(boxedEmails, boxed)
+	}
+	return boxedEmails
+}
+
+func MarkedAsSent(boxedEmails []BoxedEmail) {
+	boxedIds := []int64{}
+	for _, boxedEmail := range boxedEmails {
+		boxedIds = append(boxedIds, boxedEmail.Id)
+	}
+	_, err := db.Exec("UPDATE box SET box='outbox-sent', unix_time=? WHERE "+
+		"id IN ? AND box='outbox'",
+		boxedIds,
+	)
+	if err != nil { panic(err) }
 }

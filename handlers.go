@@ -13,22 +13,6 @@ import (
 )
 
 //
-// UTILITY FUNCTIONS
-//
-
-func groupAddrsByHost(addrs []string) map[string][]Address {
-	hostAddrs := map[string][]Address{}
-	for _, addr := range addrs {
-		addr = validateAddress(addr)
-		match := regexAddress.FindStringSubmatch(addr)
-		name := match[1]
-		host := match[2]
-		hostAddrs[host] = append(hostAddrs[host], Address{name, host})
-	}
-	return hostAddrs
-}
-
-//
 // SERVE HTML, CSS, JS
 //
 
@@ -88,7 +72,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// parse addresses & group by host
 	addrs := r.FormValue("addresses")
-	hostAddrs := groupAddrsByHost(strings.Split(addrs, ","))
+	hostAddrs := GroupAddrsByHost(addrs)
 
 	// res will get returned as json: {address: {pubkey, err}}
 	res := map[string]*PubKeyErr{}
@@ -123,7 +107,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 		// if host is an external host
 		} else {
 			counter += 1
-			go func(host string, addrs []Address) {
+			go func(host string, addrs []EmailAddress) {
 				u := url.URL{}
 				u.Scheme = "https"
 				u.Host = host
@@ -355,9 +339,13 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/email/"):]
 	validateMessageID(id)
 
-	message := LoadMessage(id)
-	// XXX ensure that message belongs to user
-	w.Write([]byte(message.CipherBody))
+	if len(BoxesForMessage(userId.EmailAddress, id)) > 0 {
+		message := LoadMessage(id)
+		w.Write([]byte(message.CipherBody))
+	} else {
+		http.Error(w, "Invalid message", http.StatusUnauthorized)
+		return
+	}
 }
 
 // PUT /email/id can change things about an email, eg what box it's in
@@ -372,7 +360,7 @@ func emailBoxHandler(w http.ResponseWriter, r *http.Request) {
 	validateMessageID(id)
 	newBox := validateBox(r.FormValue("box"))
 
-	UpdateEmail(userId.EmailAddress, id, newBox)
+	MoveEmail(userId.EmailAddress, id, newBox)
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request) {
@@ -407,7 +395,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: separate goroutine?
 	// TODO: parallize mx lookup?
 	// for each address, lookup MX record & determine what to do.
-	hostAddrs := groupAddrsByHost(strings.Split(email.To, ","))
+	hostAddrs := GroupAddrsByHost(email.To)
 	for host, addrs := range hostAddrs {
 		server, err := smtpLookUp(host)
 		if err != nil {

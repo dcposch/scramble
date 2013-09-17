@@ -39,15 +39,10 @@ type InboxSummary struct {
 	EmailHeaders []EmailHeader
 }
 
-type Address struct {
-	Name    string
-	Host    string
-}
-
-func (this *Address) IsHashAddress() bool {
-	return regexHash.MatchString(this.Name)
-}
-
-func (this *Address) String() string {
-	return this.Name+"@"+this.Host
+// Represents an email in the box join table.
+type BoxedEmail struct {
+	Email
+    Id           int64
+	Box          string
+	Address      string
 }
