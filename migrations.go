@@ -116,7 +116,7 @@ func migrateEmailRefactor() error {
         id         BIGINT NOT NULL AUTO_INCREMENT,
         message_id CHAR(40) NOT NULL,
         address    VARCHAR(254) NOT NULL,
-        box        ENUM('inbox','outbox','sent','archive','trash','outbox-sent') NOT NULL,
+        box        ENUM('inbox','outbox','sent','archive','trash','outbox-sent','outbox-processing') NOT NULL,
         unix_time  BIGINT NOT NULL,
         
         PRIMARY KEY (id),

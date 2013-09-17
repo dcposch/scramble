@@ -47,7 +47,7 @@ func smtpLookUp(host string) (string, error) {
 // Sends all messages over SMTP.
 func smtpSendLoop() {
 	for {
-		msgs := LoadOutbox()
+		msgs := CheckoutOutbox(1)
 		for _, msg := range msgs {
 			go func(msg BoxedEmail) {
 				// msg.Address is the destination host for outbox messages
@@ -56,10 +56,11 @@ func smtpSendLoop() {
 				if err != nil {
 					// TODO: better error handling.
 					// mail servers & internet connectivity go down regularly,
-					// so maybe create an 'outbox-error' box
+					// so maybe create an "outbox-error" box
+					// MarkOutboxAs([]BoxedEmail{msg}, "outbox-error")
 					panic(err)
 				}
-				MarkedAsSent([]BoxedEmail{msg})
+				MarkOutboxAs([]BoxedEmail{msg}, "outbox-sent")
 			}(msg)
 		}
 		time.Sleep(time.Second)
@@ -102,5 +103,6 @@ func smtpSendTo(email *Email, smtpHost string, addrs EmailAddresses) error {
 		email.CipherSubject,
 		email.CipherBody)
 	log.Printf("SMTP: sending to %s\n", smtpHost)
-	return smtp.SendMail(smtpHost+":25", nil, email.From, addrs.Strings(), []byte(msg))
+	err := smtp.SendMail(smtpHost+":25", nil, email.From, addrs.Strings(), []byte(msg))
+	return err
 }

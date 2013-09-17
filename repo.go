@@ -6,6 +6,8 @@ import _ "github.com/go-sql-driver/mysql"
 import (
 	"log"
 	"time"
+	"strconv"
+	"strings"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -284,14 +286,17 @@ func MoveEmail(address string, messageID string, newBox string) {
 // OUTBOX 
 //
 
-func LoadOutbox() []BoxedEmail {
+// Load and set box as 'outbox-processing'
+func CheckoutOutbox(limit int) []BoxedEmail {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
 		" m.from_email, m.to_email, m.cipher_subject, m.cipher_subject, "+
 		" b.id, b.box, b.address " +
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
 		" WHERE b.box='outbox' "+
-		" ORDER BY b.unix_time ASC")
+		" ORDER BY b.unix_time ASC "+
+		" LIMIT ?",
+		limit)
 	if err != nil {
 		panic(err)
 	}
@@ -311,17 +316,24 @@ func LoadOutbox() []BoxedEmail {
 		)
 		boxedEmails = append(boxedEmails, boxed)
 	}
+	MarkOutboxAs(boxedEmails, "outbox-processing")
 	return boxedEmails
 }
 
-func MarkedAsSent(boxedEmails []BoxedEmail) {
-	boxedIds := []int64{}
-	for _, boxedEmail := range boxedEmails {
-		boxedIds = append(boxedIds, boxedEmail.Id)
+// Mark box items as "outbox-sent" or "outbox-processing"
+func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
+	if newBox != "outbox-sent" && newBox != "outbox-processing" {
+		panic("MarkOutboxAs() cannot move emails to "+newBox)
 	}
-	_, err := db.Exec("UPDATE box SET box='outbox-sent', unix_time=? WHERE "+
-		"id IN ? AND box='outbox'",
-		boxedIds,
+	boxedIds := []string{} // Do we really need to convert to strings? :(
+	for _, boxedEmail := range boxedEmails {
+		boxedIds = append(boxedIds, strconv.FormatInt(boxedEmail.Id, 10))
+	}
+	_, err := db.Exec("UPDATE box SET box=?, unix_time=? WHERE "+
+		"id IN (?) AND box IN ('outbox', 'outbox-processing', 'outbox-sent') ",
+		newBox,
+		time.Now().Unix(),
+		strings.Join(boxedIds, ","),
 	)
 	if err != nil { panic(err) }
 }
