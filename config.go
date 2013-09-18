@@ -8,8 +8,10 @@ import (
 )
 
 type Config struct {
+	MySQLHost  string
+
 	ThisMxHost string
-	MySQLHost string
+	SMTPPort   string // internal, which nginx forwards to
 }
 
 var config Config
@@ -35,6 +37,7 @@ func init() {
 	}
 	config.MySQLHost = strings.TrimSpace(configLines[0])
 	config.ThisMxHost = strings.TrimSpace(configLines[1])
+	config.SMTPPort = "8825"
 }
 
 func GetConfig() *Config {

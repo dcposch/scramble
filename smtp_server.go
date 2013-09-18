@@ -1,8 +1,5 @@
 /** 
-Go-Guerrilla SMTPd
-A minimalist SMTP server written in Go, made for receiving large volumes of mail.
-Works either as a stand-alone or in conjunction with Nginx SMTP proxy.
-
+Modified from Go-Guerrilla SMTPd for Scramble
 Copyright (c) 2012 Flashmob, GuerrillaMail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -22,56 +19,50 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 package main
 
 import (
-  "bufio"
+	"bufio"
 	"bytes"
 	"compress/zlib"
 	"crypto/md5"
-	"crypto/rand"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
-	"github.com/sloonz/go-iconv"
+	"github.com/sloonz/go-iconv" // TODO: requires GCC.
 	"github.com/sloonz/go-qprintable"
-	"github.com/ziutek/mymysql/autorc" // XXX remove mymysql dependencies
-	_ "github.com/ziutek/mymysql/godrv"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
-	"os"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+	"net/mail"
+	"crypto/rand"
 )
 
 type Client struct {
+	clientId    int64
 	state       int
 	helo        string
-	mail_from   string
-	rcpt_to     string
-	read_buffer string
 	response    string
-	address     string
-	data        string
-	subject     string
-	hash        string
-	time        int64
-	tls_on      bool
 	conn        net.Conn
 	bufin       *bufio.Reader
 	bufout      *bufio.Writer
-	kill_time   int64
+	killTime    int64
 	errors      int
-	clientId    int64
 	savedNotify chan int
+	// Email properties
+	time        int64
+	mailFrom    string
+	rcptTo      []string
+	subject     string
+	data        string
+	remoteAddr  string
 }
+
+var smtpTemplateRegexp *regexp.Regexp = regexp.MustCompile(`-----BEGIN PGP MESSAGE-----.*-----END PGP MESSAGE-----`)
 
 var serverName string
 var listenAddress string
@@ -80,24 +71,12 @@ var timeout time.Duration
 var sem chan int
 var SaveMailChan chan *Client
 
-// XXX remove gConfig
-var gConfig = map[string]string{
-	"MYSQL_HOST":             "127.0.0.1:3306",
-	"MYSQL_USER":             "gmail_mail",
-	"MYSQL_PASS":             "ok",
-	"MYSQL_DB":               "gmail_mail",
-	"GM_MAIL_TABLE":          "new_mail",
-}
-
-func logln(level int, s string) {
-	log.Println(s)
-}
-
+// TODO: get parameters from config.go
 func configure() {
-	//
-	serverName = "hashed.im"
-	//
-	listenAddress = "0.0.0.0:25"
+	// MX server name
+	serverName = GetConfig().ThisMxHost
+	// SMTP port that nginx forwards to
+	listenAddress = "127.0.0.1:"+GetConfig().SMTPPort
 	// max email size
 	maxSize = 131072
 	// timeout for reads
@@ -109,7 +88,7 @@ func configure() {
 	return
 }
 
-func main() {
+func StartSMTPServer() {
 	configure()
 	// start some savemail workers
 	for i := 0; i < 3; i++ {
@@ -118,23 +97,23 @@ func main() {
 	// Start listening for SMTP connections
 	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
-		logln(2, fmt.Sprintf("Cannot listen on port, %v", err))
+		log.Printf("Cannot listen on port, %v\n", err)
 	} else {
-		logln(1, fmt.Sprintf("Listening on tcp %s", listenAddress)
+		log.Printf("Listening on %s (SMTP)\n", listenAddress)
 	}
 	var clientId int64
 	clientId = 1
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			logln(1, fmt.Sprintf("Accept error: %s", err))
+			log.Printf("Accept error: %s\n", err)
 			continue
 		}
-		logln(1, fmt.Sprintf(" There are now "+strconv.Itoa(runtime.NumGoroutine())+" serving goroutines"))
+		log.Println(" There are now "+strconv.Itoa(runtime.NumGoroutine())+" serving goroutines")
 		sem <- 1 // Wait for active queue to drain.
 		go handleClient(&Client{
 			conn:        conn,
-			address:     conn.RemoteAddr().String(),
+			remoteAddr:  conn.RemoteAddr().String(),
 			time:        time.Now().Unix(),
 			bufin:       bufio.NewReader(conn),
 			bufout:      bufio.NewWriter(conn),
@@ -147,19 +126,20 @@ func main() {
 
 func handleClient(client *Client) {
 	defer closeClient(client)
-	//	defer closeClient(client)
+	// TODO: is it safe to show the clientId counter & sem?
+	//  it is nice debug info
 	greeting := "220 " + serverName +
-		" SMTP Guerrilla-SMTPd #" + strconv.FormatInt(client.clientId, 10) + " (" + strconv.Itoa(len(sem)) + ") " + time.Now().Format(time.RFC1123Z)
+		" SMTP Scramble-SMTPd #" + strconv.FormatInt(client.clientId, 10) + " (" + strconv.Itoa(len(sem)) + ") " + time.Now().Format(time.RFC1123Z)
 	advertiseTls := "250-STARTTLS\r\n"
 	for i := 0; i < 100; i++ {
 		switch client.state {
-		case 0:
+		case 0: // GREET
 			responseAdd(client, greeting)
 			client.state = 1
-		case 1:
+		case 1: // READ COMMAND
 			input, err := readSmtp(client)
 			if err != nil {
-				logln(1, fmt.Sprintf("Read error: %v", err))
+				log.Printf("Read error: %v\n", err)
 				if err == io.EOF {
 					// client closed the connection already
 					return
@@ -182,34 +162,42 @@ func handleClient(client *Client) {
 				if len(input) > 5 {
 					client.helo = input[5:]
 				}
-				responseAdd(client, "250-"+serverName+" Hello "+client.helo+"["+client.address+"]"+"\r\n"+"250-SIZE "+strconv.Itoa(maxSize)+"\r\n"+advertiseTls+"250 HELP")
+				responseAdd(client, "250-"+serverName+" Hello "+client.helo+"["+client.remoteAddr+"]"+"\r\n"+"250-SIZE "+strconv.Itoa(maxSize)+"\r\n"+advertiseTls+"250 HELP")
 			case strings.Index(cmd, "MAIL FROM:") == 0:
-				if len(input) > 10 {
-					client.mail_from = input[10:]
+				email := extractEmail(input[10:])
+				if email == "" {
+					responseAdd(client, "550 Invalid address")
+					killClient(client)
+				} else {
+					client.mailFrom = email
+					responseAdd(client, "250 Accepted")
 				}
-				responseAdd(client, "250 Ok")
 			case strings.Index(cmd, "XCLIENT") == 0:
 				// Nginx sends this
 				// XCLIENT ADDR=212.96.64.216 NAME=[UNAVAILABLE]
-				client.address = input[13:]
-				client.address = client.address[0:strings.Index(client.address, " ")]
-				fmt.Println("client address:[" + client.address + "]")
+				client.remoteAddr = input[13:]
+				client.remoteAddr = client.remoteAddr[0:strings.Index(client.remoteAddr, " ")]
+				fmt.Println("remote client address:[" + client.remoteAddr + "]")
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "RCPT TO:") == 0:
-				if len(input) > 8 {
-					client.rcpt_to = input[8:]
+				email := extractEmail(input[8:])
+				if email == "" {
+					responseAdd(client, "550 Invalid address")
+					killClient(client)
+				} else {
+					client.rcptTo = append(client.rcptTo, email)
+					responseAdd(client, "250 Accepted")
 				}
-				responseAdd(client, "250 Accepted")
 			case strings.Index(cmd, "NOOP") == 0:
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "RSET") == 0:
-				client.mail_from = ""
-				client.rcpt_to = ""
+				client.mailFrom = ""
+				client.rcptTo = nil
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "DATA") == 0:
 				responseAdd(client, "354 Enter message, ending with \".\" on a line by itself")
 				client.state = 2
-			case (strings.Index(cmd, "STARTTLS") == 0) && !client.tls_on:
+			case (strings.Index(cmd, "STARTTLS") == 0):
 				// with Nginx this shouldn't happen
 				// responseAdd(client, "220 Ready to start TLS")
 				log.Panic("STARTTLS requested but not supported. Nginx SMTP SSL support?")
@@ -224,7 +212,7 @@ func handleClient(client *Client) {
 					killClient(client)
 				}
 			}
-		case 2:
+		case 2: // READ DATA
 			var err error
 			client.data, err = readSmtp(client)
 			if err == nil {
@@ -235,14 +223,15 @@ func handleClient(client *Client) {
 				status := <-client.savedNotify
 
 				if status == 1 {
-					responseAdd(client, "250 OK : queued as "+client.hash)
+					responseAdd(client, "250 OK : queued")
 				} else {
-					responseAdd(client, "554 Error: transaction failed, blame it on the weather")
+					responseAdd(client, "554 Error : transaction failed, blame it on the weather")
 				}
 			} else {
-				logln(1, fmt.Sprintf("DATA read error: %v", err))
+				log.Printf("DATA read error: %v\n", err)
 			}
 			client.state = 1
+		}
 		// Send a response back to the client
 		err := responseWrite(client)
 		if err != nil {
@@ -255,7 +244,7 @@ func handleClient(client *Client) {
 				return
 			}
 		}
-		if client.kill_time > 1 {
+		if client.killTime > 1 {
 			return
 		}
 	}
@@ -270,7 +259,7 @@ func closeClient(client *Client) {
 	<-sem // Done; enable next client to run.
 }
 func killClient(client *Client) {
-	client.kill_time = time.Now().Unix()
+	client.killTime = time.Now().Unix()
 }
 
 func readSmtp(client *Client) (input string, err error) {
@@ -333,106 +322,113 @@ func responseWrite(client *Client) (err error) {
 }
 
 func saveMail() {
-	var to string
 	var err error
-	var body string
-	var length int
-	db := autorc.New("tcp", "", gConfig["MYSQL_HOST"], gConfig["MYSQL_USER"], gConfig["MYSQL_PASS"], gConfig["MYSQL_DB"])
-	db.Register("set names utf8")
-	sql := "INSERT INTO " + gConfig["GM_MAIL_TABLE"] + " "
-	sql += "(`date`, `to`, `from`, `subject`, `body`, `charset`, `mail`, `spam_score`, `hash`, `content_type`, `recipient`, `has_attach`, `ip_addr`)"
-	sql += " values (NOW(), ?, ?, ?, ? , 'UTF-8' , ?, 0, ?, '', ?, 0, ?)"
-	ins, sql_err := db.Prepare(sql)
-	if sql_err != nil {
-		logln(2, fmt.Sprintf("Sql statement incorrect: %s", sql_err))
-	}
-	sql = "UPDATE gm2_setting SET `setting_value` = `setting_value`+1 WHERE `setting_name`='received_emails' LIMIT 1"
-	incr, sql_err := db.Prepare(sql)
-	if sql_err != nil {
-		logln(2, fmt.Sprintf("Sql statement incorrect: %s", sql_err))
-	}
 
 	//  receives values from the channel repeatedly until it is closed.
 	for {
 		client := <-SaveMailChan
-		if user, _, addr_err := validateEmailData(client); addr_err != nil { // user, host, addr_err
-			logln(1, fmt.Sprintln("mail_from didnt validate: %v", addr_err)+" client.mail_from:"+client.mail_from)
+		// check mailFrom and rcptTo, etc.
+		if client_err := validateEmailData(client); client_err != nil {
+			log.Println(client_err)
 			// notify client that a save completed, -1 = error
 			client.savedNotify <- -1
 			continue
-		} else {
-			to = user + "@" + serverName // XXX what is this? used to be PRIMARY_MAIL_HOST
 		}
-		length = len(client.data)
 		client.subject = mimeHeaderDecode(client.subject)
-		client.hash = md5hex(to + client.mail_from + client.subject + strconv.FormatInt(time.Now().UnixNano(), 10))
-		// Add extra headers
-		add_head := ""
-		add_head += "Delivered-To: " + to + "\r\n"
-		add_head += "Received: from " + client.helo + " (" + client.helo + "  [" + client.address + "])\r\n"
-		add_head += "	by " + serverName + " with SMTP id " + client.hash + "@" + serverName + ";\r\n"
-		add_head += "	" + time.Now().Format(time.RFC1123Z) + "\r\n"
 		// compress to save space
-		client.data = compress(add_head + client.data)
-		body = "gzencode"
-		// bind data to cursor
-		ins.Bind(
-			to,
-			client.mail_from,
-			client.subject,
-			body,
-			client.data,
-			client.hash,
-			to,
-			client.address)
-		// save, discard result
-		_, _, err = ins.Exec()
+		// client.data = compress(add_head + client.data)
+
+		// insert data
+		err = deliverMailLocally(client)
 		if err != nil {
-			logln(1, fmt.Sprintf("Database error, %v %v", err))
+			log.Printf("Save error, %v\n", err)
 			client.savedNotify <- -1
 		} else {
-			logln(1, "Email saved "+client.hash+" len:"+strconv.Itoa(length))
-			_, _, err = incr.Exec()
-			if err != nil {
-				logln(1, fmt.Sprintf("Failed to incr count:", err))
-			}
+			log.Println("Saved new email")
 			client.savedNotify <- 1
 		}
 	}
 }
 
-func validateEmailData(client *Client) (user string, host string, addr_err error) {
-	if user, host, addr_err = extractEmail(client.mail_from); addr_err != nil {
-		return user, host, addr_err
+func deliverMailLocally(client *Client) error {
+
+	// parse the mail data to get the headers & body
+	parsed, err := mail.ReadMessage(strings.NewReader(client.data))
+	if err != nil { return err }
+
+	messageID := parsed.Header.Get("Message-ID")
+	if messageID == "" { // generate a message id
+		bytes := &[20]byte{}
+		rand.Read(bytes[:])
+		messageID = hex.EncodeToString(bytes[:])
 	}
-	client.mail_from = user + "@" + host
-	if user, host, addr_err = extractEmail(client.rcpt_to); addr_err != nil {
-		return user, host, addr_err
+
+	toList, err := parsed.Header.AddressList("To")
+	if err != nil { return err }
+	// TODO: add a way to distinguish To & Cc fields.
+	// for now just add merge them into To.
+	ccList, err := parsed.Header.AddressList("Cc")
+	if err != nil { return err }
+	toList = append(toList, ccList...)
+	// Bcc fields can be ignored, we still have rcptTo.
+	toStrList := []string{}
+	for _, to := range toList {
+		toStrList = append(toStrList, to.String())
 	}
-	client.rcpt_to = user + "@" + host
-	// check if on allowed hosts
-	// XXX allowedHosts is gone
-	if allowed := allowedHosts[host]; !allowed {
-		return user, host, errors.New("invalid host:" + host)
+
+	bodyBytes, err := ioutil.ReadAll(parsed.Body)
+	if err != nil { return err }
+	cipherPackets := smtpTemplateRegexp.FindAllString(string(bodyBytes), -1)
+	if len(cipherPackets) != 2 {
+		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body). Found %v", len(cipherPackets)))
 	}
-	return user, host, addr_err
+
+	email := new(Email)
+	email.MessageID = messageID
+	email.UnixTime = client.time
+	email.From = client.mailFrom
+	email.To = strings.Join(toStrList, ",")
+	email.CipherSubject = cipherPackets[0]
+	email.CipherBody = cipherPackets[1]
+
+	// TODO: consider if transactions are required.
+	// TODO: saveMessage may fail if messageId is not unique.
+	SaveMessage(email)
+
+	// add to inbox locally
+	for _, addr := range client.rcptTo {
+		AddMessageToBox(email, addr, "inbox")
+	}
+
+	return nil
 }
 
-func extractEmail(str string) (name string, host string, err error) {
-	re, _ := regexp.Compile(`<(.+?)@(.+?)>`) // go home regex, you're drunk!
-	if matched := re.FindStringSubmatch(str); len(matched) > 2 {
-		host = validHost(matched[2])
-		name = matched[1]
+func validateEmailData(client *Client) error {
+	if client.mailFrom == "" {
+		return errors.New("Missing MAIL FROM")
+	}
+	if len(client.rcptTo) == 0 {
+		return errors.New("Missing RCPT TO")
+	}
+	for _, addr := range client.rcptTo {
+		// TODO check the hosts of the rcptTo addresses.
+		addr = addr // noop :P
+	}
+	return nil
+}
+
+func extractEmail(str string) string {
+	re, _ := regexp.Compile(`<(.+?)>`)
+	var email string
+	if matched := re.FindStringSubmatch(str); len(matched) > 1 {
+		email = strings.Trim(matched[1], " ")
 	} else {
-		if res := strings.Split(str, "@"); len(res) > 1 {
-			name = res[0]
-			host = validHost(res[1])
-		}
+		email = strings.Trim(str, " ")
 	}
-	if host == "" || name == "" {
-		err = errors.New("Invalid address, [" + name + "@" + host + "] address:" + str)
-	}
-	return name, host, err
+	err := validateAddressSafe(email)
+	if err != nil { return "" }
+
+	return email
 }
 
 // Decode strings in Mime header format
@@ -457,15 +453,6 @@ func mimeHeaderDecode(str string) string {
 		}
 	}
 	return str
-}
-
-func validHost(host string) string {
-	host = strings.Trim(host, " ")
-	re, _ := regexp.Compile(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`)
-	if re.MatchString(host) {
-		return host
-	}
-	return ""
 }
 
 // decode from 7bit to 8bit UTF-8

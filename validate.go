@@ -57,8 +57,9 @@ func validateBox(str string) string {
 }
 func validateAddressSafe(str string) (err error) {
 	if !regexAddress.MatchString(str) {
-		err = errors.New("Invalid email address %s", str)
+		err = errors.New("Invalid email address "+str)
 	}
+	return
 }
 func validateAddress(str string) string {
 	err := validateAddressSafe(str)

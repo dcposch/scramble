@@ -101,7 +101,7 @@ func smtpSendTo(email *Email, smtpHost string, addrs EmailAddresses) error {
 	msg := fmt.Sprintf(smtpTemplate,
 		email.MessageID, GetConfig().ThisMxHost,
 		email.From,
-		email.To.AngledString(),
+		ParseEmailAddresses(email.To).AngledString(),
 		email.CipherSubject,
 		email.CipherBody)
 	log.Printf("SMTP: sending to %s\n", smtpHost)

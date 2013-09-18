@@ -424,7 +424,6 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 	header.Add("Auth-Status", "OK")
 	header.Add("Auth-Server", "127.0.0.1")
-	header.Add("Auth-Port", "25")
+	header.Add("Auth-Port",   GetConfig().SMTPPort)
 	w.Write([]byte{})
-	fmt.Println("!!!!")
 }

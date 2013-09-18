@@ -21,8 +21,11 @@ func main() {
 	// Resources
 	http.HandleFunc("/", staticHandler)
 
+	// SMTP Server
+	go StartSMTPServer()
+
 	address := "127.0.0.1:8888"
-	log.Printf("Listening on %s\n", address)
+	log.Printf("Listening on %s (HTTP)\n", address)
 	http.ListenAndServe(address, Log(http.DefaultServeMux))
 }
 
