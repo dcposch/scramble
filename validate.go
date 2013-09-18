@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"regexp"
+	"errors"
 )
 
 var regexHex = regexp.MustCompile("(?i)[a-f0-9]+")
@@ -54,10 +55,14 @@ func validateBox(str string) string {
 	}
 	return str
 }
-func validateAddress(str string) string {
+func validateAddressSafe(str string) (err error) {
 	if !regexAddress.MatchString(str) {
-		log.Panicf("Invalid email address %s", str)
+		err = errors.New("Invalid email address %s", str)
 	}
+}
+func validateAddress(str string) string {
+	err := validateAddressSafe(str)
+	if err != nil { log.Panic(err) }
 	return str
 }
 func validateHashAddress(str string) string {

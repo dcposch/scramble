@@ -16,6 +16,7 @@ func main() {
 	http.HandleFunc("/publickeys/", publicKeysHandler)
 	http.HandleFunc("/email/", emailHandler)
 	http.HandleFunc("/box/", inboxHandler)
+	http.HandleFunc("/nginx_proxy", nginxProxyHandler)
 
 	// Resources
 	http.HandleFunc("/", staticHandler)

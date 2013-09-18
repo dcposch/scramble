@@ -89,7 +89,8 @@ func smtpSend(msg *Email) error {
 	}
 }
 
-const smtpTemplate = `From: %s
+const smtpTemplate = `Message-ID: <%s@%s>
+From: <%s>
 To: %s
 Subject: Encrypted message
 
@@ -98,8 +99,9 @@ Subject: Encrypted message
 
 func smtpSendTo(email *Email, smtpHost string, addrs EmailAddresses) error {
 	msg := fmt.Sprintf(smtpTemplate,
+		email.MessageID, GetConfig().ThisMxHost,
 		email.From,
-		email.To,
+		email.To.AngledString(),
 		email.CipherSubject,
 		email.CipherBody)
 	log.Printf("SMTP: sending to %s\n", smtpHost)

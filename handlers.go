@@ -417,3 +417,14 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+// Tells where nginx should forward SMTP to
+func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
+	// http://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html
+	header := w.Header()
+	header.Add("Auth-Status", "OK")
+	header.Add("Auth-Server", "127.0.0.1")
+	header.Add("Auth-Port", "25")
+	w.Write([]byte{})
+	fmt.Println("!!!!")
+}

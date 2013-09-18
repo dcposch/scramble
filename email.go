@@ -52,14 +52,22 @@ func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
 }
 
 // This lets us add convenience methods to []EmailAddress
-//  i.e. String() -> "foo@bar.com,baz@boo.com"
-//  i.e. Strings() -> ["foo@bar.com","baz@boo.com"]
 type EmailAddresses []EmailAddress
 
+// -> "foo@bar.com,baz@boo.com"
 func (addrs EmailAddresses) String() string {
 	return strings.Join(addrs.Strings(), ",")
 }
 
+// -> "<foo@bar.com>,<baz@boo.com>"
+func (addrs EmailAddresses) AngledString() string {
+	if len(addrs) == 0 {
+		return ""
+	}
+	return "<"+strings.Join(addrs.Strings(), ">,<")+">"
+}
+
+// -> ["foo@bar.com","baz@boo.com"]
 func (addrs EmailAddresses) Strings() []string {
 	addrsList := []string{}
 	for _, addr := range addrs {
