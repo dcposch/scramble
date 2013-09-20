@@ -62,7 +62,7 @@ type Client struct {
 	remoteAddr string
 }
 
-var smtpTemplateRegexp *regexp.Regexp = regexp.MustCompile(`-----BEGIN PGP MESSAGE-----.*-----END PGP MESSAGE-----`)
+var regexSMTPTemplatep = regexp.MustCompile(`(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
 
 var serverName string
 var listenAddress string
@@ -177,7 +177,7 @@ func handleClient(client *Client) {
 				// XCLIENT ADDR=212.96.64.216 NAME=[UNAVAILABLE]
 				client.remoteAddr = input[13:]
 				client.remoteAddr = client.remoteAddr[0:strings.Index(client.remoteAddr, " ")]
-				fmt.Println("remote client address:[" + client.remoteAddr + "]")
+				log.Println("remote client address:[" + client.remoteAddr + "]")
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "RCPT TO:") == 0:
 				email := extractEmail(input[8:])
@@ -344,7 +344,6 @@ func saveMail() {
 			log.Printf("Save error, %v\n", err)
 			client.savedNotify <- -1
 		} else {
-			log.Println("Saved new email")
 			client.savedNotify <- 1
 		}
 	}
@@ -363,6 +362,15 @@ func deliverMailLocally(client *Client) error {
 		bytes := &[20]byte{}
 		rand.Read(bytes[:])
 		messageID = hex.EncodeToString(bytes[:])
+	} else {
+		re, _ := regexp.Compile(`<(.+?)>`)
+		if matched := re.FindStringSubmatch(messageID); len(matched) > 1 {
+			messageID = strings.Trim(matched[1], " ")
+		}
+		// trim messageID, we only allow so many characters.
+		if len(messageID) > 40 {
+			messageID = messageID[:40]
+		}
 	}
 
 	toList, err := parsed.Header.AddressList("To")
@@ -372,21 +380,18 @@ func deliverMailLocally(client *Client) error {
 	// TODO: add a way to distinguish To & Cc fields.
 	// for now just add merge them into To.
 	ccList, err := parsed.Header.AddressList("Cc")
-	if err != nil {
-		return err
+	if err == nil {
+		toList = append(toList, ccList...)
 	}
-	toList = append(toList, ccList...)
 	// Bcc fields can be ignored, we still have rcptTo.
 	toStrList := []string{}
 	for _, to := range toList {
-		toStrList = append(toStrList, to.String())
+		toStrList = append(toStrList, to.Address)
 	}
 
 	bodyBytes, err := ioutil.ReadAll(parsed.Body)
-	if err != nil {
-		return err
-	}
-	cipherPackets := smtpTemplateRegexp.FindAllString(string(bodyBytes), -1)
+	if err != nil { return err }
+	cipherPackets := regexSMTPTemplatep.FindAllString(string(bodyBytes), -1)
 	if len(cipherPackets) != 2 {
 		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body). Found %v", len(cipherPackets)))
 	}
@@ -402,10 +407,12 @@ func deliverMailLocally(client *Client) error {
 	// TODO: consider if transactions are required.
 	// TODO: saveMessage may fail if messageId is not unique.
 	SaveMessage(email)
+	log.Println("Saved new email " + messageID)
 
 	// add to inbox locally
 	for _, addr := range client.rcptTo {
 		AddMessageToBox(email, addr, "inbox")
+		log.Println("Got mail: " + addr)
 	}
 
 	return nil
