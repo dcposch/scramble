@@ -92,7 +92,7 @@
 <!-- INBOX -->
 <script id="inbox-template" type="text/x-handlebars-template">
 {{#each emailHeaders}}
-    <li data-id="{{MessageID}}" data-box="{{Box}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
+    <li data-id="{{MessageID}}" data-box="{{../box}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
 {{/each}}
 </script>
 
@@ -113,12 +113,12 @@
     <button id="replyButton">Reply</button>
     <button id="replyAllButton">Reply All</button>
     <button id="forwardButton">Forward</button>
-    {{#if isInbox}}
+    {{#ifCond box '==' "inbox"}}
     <button id="archiveButton">Archive</button>
-    {{/if}}
-    {{#if isArchive}}
+    {{/ifCond}}
+    {{#ifCond box '==' "archive"}}
     <button id="moveToInboxButton">Move to Inbox</button>
-    {{/if}}
+    {{/ifCond}}
 </div>
 <pre class="body">{{body}}</pre>
 </script>

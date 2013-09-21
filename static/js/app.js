@@ -379,7 +379,8 @@ function decryptAndDisplayInbox(inboxSummary, box){
                 token:        $.cookie("token"),
                 pubHash:      inboxSummary.PublicHash,
                 domain:       document.location.hostname,
-                emailHeaders: inboxSummary.EmailHeaders
+                emailHeaders: inboxSummary.EmailHeaders,
+                box:          box
             }
             $("#wrapper").html(render("page-template", data))
             bindSidebarEvents()
@@ -491,7 +492,9 @@ function displayEmail(target){
                 toAddresses: toAddresses,
 
                 subject:     target.text(),
-                body:        plaintextBody
+                body:        plaintextBody,
+
+                box:         target.data("box")
             }
             var html = render("email-template", viewState.email)
             $("#content").attr("class", "email").html(html)
@@ -1092,6 +1095,26 @@ Handlebars.registerHelper('formatDate', function(context, block) {
     var str = block.hash.format || "YYYY-MM-DD"
     return moment(context).format(str)
 })
+
+// Usage: {{ifCond something '==' other}}
+Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
+    switch (operator) {
+        case '==':
+            return (v1 == v2) ? options.fn(this) : options.inverse(this);
+        case '===':
+            return (v1 === v2) ? options.fn(this) : options.inverse(this);
+        case '<':
+            return (v1 < v2) ? options.fn(this) : options.inverse(this);
+        case '<=':
+            return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+        case '>':
+            return (v1 > v2) ? options.fn(this) : options.inverse(this);
+        case '>=':
+            return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+        default:
+            return options.inverse(this);
+    }
+});
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail(){
