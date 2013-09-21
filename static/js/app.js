@@ -66,7 +66,7 @@ $(function(){
     if(!token || !sessionStorage["passKey"]) {
         displayLogin()
     } else {
-        loadDecryptAndDisplayInbox()
+        loadDecryptAndDisplayBox()
     }
 })
 
@@ -81,9 +81,9 @@ var keyMap = {
     "k":readPrevEmail,
     "g":{
         "c":displayCompose,
-        "i":function(){loadDecryptAndDisplayInbox("inbox")},
-        "s":function(){loadDecryptAndDisplayInbox("sent")},
-        "a":function(){loadDecryptAndDisplayInbox("archive")}
+        "i":function(){loadDecryptAndDisplayBox("inbox")},
+        "s":function(){loadDecryptAndDisplayBox("sent")},
+        "a":function(){loadDecryptAndDisplayBox("archive")}
     },
     "r":emailReply,
     "a":emailReplyAll,
@@ -129,13 +129,13 @@ function bindKeyboardShortcuts() {
 function bindSidebarEvents() {
     // Navigate to Inbox, Sent, or Archive
     $("#tab-inbox").click(function(e){
-        loadDecryptAndDisplayInbox("inbox")
+        loadDecryptAndDisplayBox("inbox")
     })
     $("#tab-sent").click(function(e){
-        loadDecryptAndDisplayInbox("sent")
+        loadDecryptAndDisplayBox("sent")
     })
     $("#tab-archive").click(function(e){
-        loadDecryptAndDisplayInbox("archive")
+        loadDecryptAndDisplayBox("archive")
     })
     
     // Navigate to Compose
@@ -228,7 +228,7 @@ function login(token, pass){
     // try fetching the inbox
     $.get("/box/inbox", function(inbox){
         // logged in successfully!
-        decryptAndDisplayInbox(inbox)
+        decryptAndDisplayBox(inbox)
     }, 'json').fail(function(xhr){
         if(xhr.statusCode == 401) { // unauthorized 
             alert("Incorrect user or passphrase")
@@ -308,7 +308,7 @@ function createAccount(keys){
         setCookie("token", token)
         setCookie("passHash", passHash)
         $.get("/box/inbox", function(inbox){
-            decryptAndDisplayInbox(inbox)
+            decryptAndDisplayBox(inbox)
         }, 'json').fail(function(){
             alert("Try refreshing the page, then logging in.")
         })
@@ -349,26 +349,26 @@ function validateNewPassword(){
 
 
 //
-// INBOX
+// BOX
 //
 
-function bindInboxEvents(box) {
+function bindBoxEvents(box) {
     // Click on an email to open it
     $("#"+box+" li").click(function(e){
         displayEmail($(e.target))
     })
 }
 
-function loadDecryptAndDisplayInbox(box){
+function loadDecryptAndDisplayBox(box){
     box = box || "inbox"
     $.get("/box/"+box, function(summary){
-        decryptAndDisplayInbox(summary, box)
+        decryptAndDisplayBox(summary, box)
     }, 'json').fail(function(){
         displayLogin()
     })
 }
 
-function decryptAndDisplayInbox(inboxSummary, box){
+function decryptAndDisplayBox(inboxSummary, box){
     box = box || "inbox"
     sessionStorage["pubHash"] = inboxSummary.PublicHash
 
@@ -386,7 +386,7 @@ function decryptAndDisplayInbox(inboxSummary, box){
             bindSidebarEvents()
             setSelectedTab($("#tab-"+box))
             $("#"+box).html(render("inbox-template", data))
-            bindInboxEvents(box)
+            bindBoxEvents(box)
         })
     })
 }
@@ -466,7 +466,10 @@ function bindEmailEvents() {
 
 // Takes a subject-line <li>, selects it, shows the full email
 function displayEmail(target){
-    if(target.size()==0) return
+    if(target == null || target.size()==0) {
+        $("#content").attr("class", "").empty()
+        return
+    }
     $("li.current").removeClass("current")
     target.addClass("current")
 
