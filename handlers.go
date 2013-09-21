@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"net/url"
+	"net"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -255,7 +256,13 @@ func authenticate(r *http.Request) *UserID {
 	if r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") {
 		userId.EmailAddress = userId.PublicHash + "@" + GetConfig().ThisMxHost
 	} else {
-		userId.EmailAddress = userId.PublicHash + "@" + r.Host
+		if strings.Index(r.Host, ":") != -1 {
+			host, _, err := net.SplitHostPort(r.Host)
+			if err != nil { panic(err) }
+			userId.EmailAddress = userId.PublicHash + "@" + host
+		} else {
+			userId.EmailAddress = userId.PublicHash + "@" + r.Host
+		}
 	}
 	return userId
 }
@@ -397,6 +404,17 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	// for each address, lookup MX record & determine what to do.
 	hostAddrs := GroupAddrsByHost(email.To)
 	for host, addrs := range hostAddrs {
+
+		// if host is GetConfig().ThisMxHost, assume that the lookup will return itself.
+		// this saves us from having to set up test MX records for localhost testing.
+		if host == GetConfig().ThisMxHost {
+			// add to inbox locally
+			for _, addr := range addrs {
+				AddMessageToBox(email, addr.String(), "inbox")
+			}
+			continue
+		}
+
 		server, err := smtpLookUp(host)
 		if err != nil {
 			// TODO: better error handling
