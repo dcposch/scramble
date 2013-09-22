@@ -580,11 +580,11 @@ function sendEmail(to,subject,body){
 
     // extract the recipient public key hashes
     var pubHashesArr = toAddresses.map(extractPubHash)
-    var pubHashes = []
+    var scrambleAddresses = []
     var unencryptedToAddresses = []
     for(var i = 0; i < toAddresses.length; i++){
         if(pubHashesArr[i]){
-            addIfNotContains(pubHashes, pubHashesArr[i])
+            addIfNotContains(scrambleAddresses, toAddresses[i])
         } else {
             addIfNotContains(unencryptedToAddresses, toAddresses[i])
         }
@@ -598,7 +598,7 @@ function sendEmail(to,subject,body){
         sendEmailUnencrypted(to,subject,body)
     }
 
-    lookupPublicKeys(toAddresses, function(keyMap) {
+    lookupPublicKeys(scrambleAddresses, function(keyMap) {
         // keyMap: {toAddress: {pubKey: <pubKeyArmor>} or {error: <error string>}}
         var pubKeys = {}; // {toAddress: <pubKeyArmor>}
         var errors = {};  // {toAddress: <error string>}
