@@ -1,45 +1,68 @@
 package main
 
 import (
-	"os"
+	"encoding/json"
 	"io/ioutil"
 	"log"
-	"strings"
+	"os"
 )
 
 type Config struct {
-	MySQLHost  string
+	DbServer   string
+	DbUser     string
+	DbPassword string
+	DbCatalog  string
 
-	ThisMxHost string
-	SMTPPort   string // internal, which nginx forwards to
+	SmtpMxHost string
+	SmtpPort   int // internal, nginx handles TLS and forwards
+
+	HttpPort int // internal, nginx handles SSL and forwards
+}
+
+func GetConfig() *Config {
+	return &config
+}
+
+var defaultConfig = Config{
+	"127.0.0.1",
+	"scramble",
+	"scramble",
+	"scramble",
+
+	"dev.scramble.io",
+	8825,
+
+	8888,
 }
 
 var config Config
 
 func init() {
-	// read configuration
-	configFile := os.Getenv("HOME") + "/.scramble/scramble.config"
+	configFile := os.Getenv("HOME") + "/.scramble/config.json"
+
+	// try to read configuration. if missing, write default
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Panicf("Please create config file %s with the following lines.\n"+
-			"<db user>:<db pass>@<db host, empty if local>/scramble\n"+
-			"<this mx host>",
-			configFile)
+		writeDefaultConfig(configFile)
+		config = defaultConfig
+		return
 	}
-	configStr := strings.TrimSpace(string(configBytes))
-	configLines := strings.Split(configStr, "\n")
-	if len(configLines) != 2 {
-		log.Panicf("Invalid number of lines in config file.\n"+
-			"Please create config file %s with the following lines.\n"+
-			"<db user>:<db pass>@<db host, empty if local>/scramble\n"+
-			"<this mx host>",
-			configFile)
+
+	// try to parse configuration. on error, die
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		log.Panicf("Invalid configuration file %s: %v", configFile, err)
 	}
-	config.MySQLHost = strings.TrimSpace(configLines[0])
-	config.ThisMxHost = strings.TrimSpace(configLines[1])
-	config.SMTPPort = "8825"
 }
 
-func GetConfig() *Config {
-	return &config
+func writeDefaultConfig(configFile string) {
+	log.Printf("Creating default configration file %s", configFile)
+	configBytes, err := json.MarshalIndent(defaultConfig, "", "    ")
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(configFile, configBytes, 0600)
+	if err != nil {
+		panic(err)
+	}
 }

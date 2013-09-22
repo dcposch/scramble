@@ -1,11 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"runtime/debug"
-	//"github.com/dcposch/go-smtpd"
-	//"code.google.com/p/go.crypto/openpgp"
 )
 
 func main() {
@@ -24,13 +23,15 @@ func main() {
 	// SMTP Server
 	go StartSMTPServer()
 
-	address := "127.0.0.1:8888"
-	log.Printf("Listening on %s (HTTP)\n", address)
-	http.ListenAndServe(address, Log(http.DefaultServeMux))
+	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HttpPort)
+	log.Printf("Listening on http://%s\n", address)
+	http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux))
 }
 
-func Log(handler http.Handler) http.Handler {
+func recoverAndLog(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+
 		// Send a 500 error if a panic happens during a handler.
 		// Without this, Chrome & Firefox were retrying aborted ajax requests,
 		// at least to my localhost.
@@ -41,7 +42,6 @@ func Log(handler http.Handler) http.Handler {
 				log.Printf("%s: %s", e, debug.Stack())
 			}
 		}()
-		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
 		handler.ServeHTTP(w, r)
 	})
 }

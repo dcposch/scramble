@@ -1,12 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/smtp"
 	"time"
-	"errors"
 )
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
@@ -99,7 +99,7 @@ Subject: Encrypted message
 
 func smtpSendTo(email *Email, smtpHost string, addrs EmailAddresses) error {
 	msg := fmt.Sprintf(smtpTemplate,
-		email.MessageID, GetConfig().ThisMxHost,
+		email.MessageID, GetConfig().SmtpMxHost,
 		email.From,
 		ParseEmailAddresses(email.To).AngledString(),
 		email.CipherSubject,

@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
-	"net/url"
-	"net"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -57,7 +57,7 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 // The server is untrusted, so the client must verify by hashing.
 // Unknown public key hashes cause the server to dispatch requests
 //  to the address host.
-func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
+func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	userId := authenticate(r)
 
 	type PubKeyErr struct {
@@ -80,10 +80,11 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// server-to-server requests need no userId,
 	// but all requested addresses should belong to this server.
+	ourMxHost := GetConfig().SmtpMxHost
 	if userId == nil {
 		for host, _ := range hostAddrs {
-			if host != GetConfig().ThisMxHost {
-				log.Panicf("Invalid host for server-to-server /publickeys request. Expected %v, got %v", GetConfig().ThisMxHost, host)
+			if host != ourMxHost {
+				log.Panicf("Invalid host for server-to-server /publickeys request. Expected %v, got %v", ourMxHost, host)
 			}
 		}
 	}
@@ -93,7 +94,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 	counter := 0
 	for host, addrs := range hostAddrs {
 		// if host is this host
-		if host == GetConfig().ThisMxHost {
+		if host == GetConfig().SmtpMxHost {
 			for _, addr := range addrs {
 				if !addr.IsHashAddress() {
 					panic("publicKeysHandler can't handle non-hash-addresses")
@@ -105,7 +106,7 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 					res[addr.String()] = &PubKeyErr{pubKey, ""}
 				}
 			}
-		// if host is an external host
+			// if host is an external host
 		} else {
 			counter += 1
 			go func(host string, addrs []EmailAddress) {
@@ -130,20 +131,26 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 	timedOut := false
 	for counter > 0 && !timedOut {
 		select {
-			case hostRespErr := <-ch:
-				counter -= 1
-				if hostRespErr.Err != nil { continue } // TODO better error messages
-				respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
-				defer hostRespErr.Resp.Body.Close()
-				if err != nil { continue } // TODO better error messages
-				parsed := map[string]*PubKeyErr{}
-				err = json.Unmarshal(respBody, &parsed)
-				if err != nil { continue } // TODO better error messages
-				for addr, pubKeyErr := range parsed {
-					res[addr] = pubKeyErr
-				}
-			case <-timeout:
-				timedOut = true
+		case hostRespErr := <-ch:
+			counter -= 1
+			if hostRespErr.Err != nil {
+				continue
+			} // TODO better error messages
+			respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
+			defer hostRespErr.Resp.Body.Close()
+			if err != nil {
+				continue
+			} // TODO better error messages
+			parsed := map[string]*PubKeyErr{}
+			err = json.Unmarshal(respBody, &parsed)
+			if err != nil {
+				continue
+			} // TODO better error messages
+			for addr, pubKeyErr := range parsed {
+				res[addr] = pubKeyErr
+			}
+		case <-timeout:
+			timedOut = true
 		}
 	}
 
@@ -159,16 +166,20 @@ func publicKeysHandler( w http.ResponseWriter, r *http.Request) {
 
 	// respond back
 	resJson, err := json.Marshal(res)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	w.Write(resJson)
 
 	// drain ch
 	for counter > 0 {
 		select {
-			case hostRespErr := <-ch:
-				counter -= 1
-				if hostRespErr.Err != nil { continue }
-				hostRespErr.Resp.Body.Close()
+		case hostRespErr := <-ch:
+			counter -= 1
+			if hostRespErr.Err != nil {
+				continue
+			}
+			hostRespErr.Resp.Body.Close()
 		}
 	}
 }
@@ -252,19 +263,27 @@ func authenticate(r *http.Request) *UserID {
 	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
 
 	// TODO: user email address should be stored, not computed
-	if userId == nil { return nil }
-	if r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") {
-		userId.EmailAddress = userId.PublicHash + "@" + GetConfig().ThisMxHost
+	if userId == nil {
+		return nil
+	}
+	userId.EmailAddress = userId.PublicHash + "@" + computeEmailHost(r.Host)
+	return userId
+}
+
+func computeEmailHost(requestHost string) string {
+	if requestHost == "localhost" || strings.HasPrefix(requestHost, "localhost:") {
+		return GetConfig().SmtpMxHost
 	} else {
-		if strings.Index(r.Host, ":") != -1 {
-			host, _, err := net.SplitHostPort(r.Host)
-			if err != nil { panic(err) }
-			userId.EmailAddress = userId.PublicHash + "@" + host
+		if strings.Index(requestHost, ":") != -1 {
+			host, _, err := net.SplitHostPort(requestHost)
+			if err != nil {
+				panic(err)
+			}
+			return host
 		} else {
-			userId.EmailAddress = userId.PublicHash + "@" + r.Host
+			return requestHost
 		}
 	}
-	return userId
 }
 
 func authenticateUserPass(token string, passHash string, passHashOld string) *UserID {
@@ -405,9 +424,9 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	hostAddrs := GroupAddrsByHost(email.To)
 	for host, addrs := range hostAddrs {
 
-		// if host is GetConfig().ThisMxHost, assume that the lookup will return itself.
+		// if host is GetConfig().SmtpMxHost, assume that the lookup will return itself.
 		// this saves us from having to set up test MX records for localhost testing.
-		if host == GetConfig().ThisMxHost {
+		if host == GetConfig().SmtpMxHost {
 			// add to inbox locally
 			for _, addr := range addrs {
 				AddMessageToBox(email, addr.String(), "inbox")
@@ -422,7 +441,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", host)))
 			return
 		}
-		if server == GetConfig().ThisMxHost+"." {
+		if server == GetConfig().SmtpMxHost+"." {
 			// add to inbox locally
 			for _, addr := range addrs {
 				AddMessageToBox(email, addr.String(), "inbox")
@@ -442,6 +461,6 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 	header.Add("Auth-Status", "OK")
 	header.Add("Auth-Server", "127.0.0.1")
-	header.Add("Auth-Port",   GetConfig().SMTPPort)
+	header.Add("Auth-Port", fmt.Sprintf("%d", GetConfig().SmtpPort))
 	w.Write([]byte{})
 }

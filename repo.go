@@ -4,18 +4,25 @@ import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 
 import (
+	"fmt"
 	"log"
-	"time"
 	"strconv"
 	"strings"
+	"time"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
 var db *sql.DB
 
 func init() {
+	conf := GetConfig()
+	mysqlHost := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?charset=utf8",
+		conf.DbUser,
+		conf.DbPassword,
+		conf.DbServer,
+		conf.DbCatalog)
+
 	// connect to the database, ping periodically to maintain the connection
-	mysqlHost := GetConfig().MySQLHost + "?charset=utf8"
 	log.Printf("Connecting to %s\n", mysqlHost)
 	var err error
 	db, err = sql.Open("mysql", mysqlHost)
@@ -249,12 +256,16 @@ func BoxesForMessage(address string, id string) []string {
 	rows, err := db.Query("select box from box "+
 		"where address=? and message_id=?",
 		address, id)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	boxes := []string{}
 	for rows.Next() {
 		var box string
 		err := rows.Scan(&box)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 		boxes = append(boxes, box)
 	}
 	return boxes
@@ -264,7 +275,7 @@ func BoxesForMessage(address string, id string) []string {
 // This function only works within the 'inbox'/'archive'/'trash' boxes
 func MoveEmail(address string, messageID string, newBox string) {
 	if newBox != "inbox" && newBox != "archive" && newBox != "trash" {
-		panic("MoveEmail() cannot move emails to "+newBox)
+		panic("MoveEmail() cannot move emails to " + newBox)
 	}
 	res, err := db.Exec("update box "+
 		"set box=? "+
@@ -283,14 +294,14 @@ func MoveEmail(address string, messageID string, newBox string) {
 }
 
 //
-// OUTBOX 
+// OUTBOX
 //
 
 // Load and set box as 'outbox-processing'
 func CheckoutOutbox(limit int) []BoxedEmail {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
 		" m.from_email, m.to_email, m.cipher_subject, m.cipher_subject, "+
-		" b.id, b.box, b.address " +
+		" b.id, b.box, b.address "+
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
 		" WHERE b.box='outbox' "+
@@ -323,7 +334,7 @@ func CheckoutOutbox(limit int) []BoxedEmail {
 // Mark box items as "outbox-sent" or "outbox-processing"
 func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
 	if newBox != "outbox-sent" && newBox != "outbox-processing" {
-		panic("MarkOutboxAs() cannot move emails to "+newBox)
+		panic("MarkOutboxAs() cannot move emails to " + newBox)
 	}
 	boxedIds := []string{} // Do we really need to convert to strings? :(
 	for _, boxedEmail := range boxedEmails {
@@ -335,5 +346,7 @@ func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
 		time.Now().Unix(),
 		strings.Join(boxedIds, ","),
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 }

@@ -1,4 +1,4 @@
-/** 
+/**
 Modified from Go-Guerrilla SMTPd for Scramble
 Copyright (c) 2012 Flashmob, GuerrillaMail.com
 
@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -33,13 +34,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"net/mail"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-	"net/mail"
-	"crypto/rand"
 )
 
 type Client struct {
@@ -54,12 +54,12 @@ type Client struct {
 	errors      int
 	savedNotify chan int
 	// Email properties
-	time        int64
-	mailFrom    string
-	rcptTo      []string
-	subject     string
-	data        string
-	remoteAddr  string
+	time       int64
+	mailFrom   string
+	rcptTo     []string
+	subject    string
+	data       string
+	remoteAddr string
 }
 
 var smtpTemplateRegexp *regexp.Regexp = regexp.MustCompile(`-----BEGIN PGP MESSAGE-----.*-----END PGP MESSAGE-----`)
@@ -74,9 +74,9 @@ var SaveMailChan chan *Client
 // TODO: get parameters from config.go
 func configure() {
 	// MX server name
-	serverName = GetConfig().ThisMxHost
+	serverName = GetConfig().SmtpMxHost
 	// SMTP port that nginx forwards to
-	listenAddress = "127.0.0.1:"+GetConfig().SMTPPort
+	listenAddress = fmt.Sprintf("127.0.0.1:%d", GetConfig().SmtpPort)
 	// max email size
 	maxSize = 131072
 	// timeout for reads
@@ -109,7 +109,7 @@ func StartSMTPServer() {
 			log.Printf("Accept error: %s\n", err)
 			continue
 		}
-		log.Println(" There are now "+strconv.Itoa(runtime.NumGoroutine())+" serving goroutines")
+		log.Println(" There are now " + strconv.Itoa(runtime.NumGoroutine()) + " serving goroutines")
 		sem <- 1 // Wait for active queue to drain.
 		go handleClient(&Client{
 			conn:        conn,
@@ -354,7 +354,9 @@ func deliverMailLocally(client *Client) error {
 
 	// parse the mail data to get the headers & body
 	parsed, err := mail.ReadMessage(strings.NewReader(client.data))
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	messageID := parsed.Header.Get("Message-ID")
 	if messageID == "" { // generate a message id
@@ -364,11 +366,15 @@ func deliverMailLocally(client *Client) error {
 	}
 
 	toList, err := parsed.Header.AddressList("To")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	// TODO: add a way to distinguish To & Cc fields.
 	// for now just add merge them into To.
 	ccList, err := parsed.Header.AddressList("Cc")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	toList = append(toList, ccList...)
 	// Bcc fields can be ignored, we still have rcptTo.
 	toStrList := []string{}
@@ -377,7 +383,9 @@ func deliverMailLocally(client *Client) error {
 	}
 
 	bodyBytes, err := ioutil.ReadAll(parsed.Body)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	cipherPackets := smtpTemplateRegexp.FindAllString(string(bodyBytes), -1)
 	if len(cipherPackets) != 2 {
 		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body). Found %v", len(cipherPackets)))
@@ -426,7 +434,9 @@ func extractEmail(str string) string {
 		email = strings.Trim(str, " ")
 	}
 	err := validateAddressSafe(email)
-	if err != nil { return "" }
+	if err != nil {
+		return ""
+	}
 
 	return email
 }
@@ -530,4 +540,3 @@ func md5hex(str string) string {
 	sum := h.Sum([]byte{})
 	return hex.EncodeToString(sum)
 }
-
