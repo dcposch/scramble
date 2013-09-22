@@ -15,7 +15,9 @@ sudo apt-get install mysql-server nginx
 # Make a user `scramble` and corresponding DB. No password.
 echo "Creating MySQL user 'scramble' and database 'scramble'..."
 read -s -p "Enter MySQL root password: " pass
+echo ""
 read -s -p "Enter MySQL password for new user 'scramble': " spass
+echo ""
 (
     echo "create database if not exists scramble;"
     echo "grant all on scramble.* to scramble@localhost identified by '$spass';"
@@ -25,9 +27,11 @@ read -s -p "Enter MySQL password for new user 'scramble': " spass
 
 # Configure the Scramble app server
 # Point it to your database server
-echo "Writing app server configuration to ~/.scramble/db.config"
+echo "Writing app server configuration to ~/.scramble/scramble.config"
+read -s -p "Enter MX host name: " host
+echo ""
 mkdir -p ~/.scramble
-echo "scramble:$spass@/scramble" > ~/.scramble/db.config
+echo "scramble:$spass@/scramble\n$host" > ~/.scramble/scramble.config
 
 # Download the latest release
 echo "Downloading Scramble binary..."
@@ -36,4 +40,3 @@ chmod +x scramble
 
 # Run it
 ./scramble
-
