@@ -590,12 +590,12 @@ function sendEmail(to,subject,body){
         }
     }
     if(unencryptedToAddresses.length > 0
-        && !confirm("Are you sure you want to send unencrypted email to: "+unencryptedToAddresses.join())){
+        alert("You cannot send to non-scramble addresses.\n"+unencryptedToAddresses.join(", "))
         return
     }
-    for(var i = 0; i < unencryptedToAddresses.length; i++){
-        var addr = unencryptedToAddresses[i];
-        sendEmailUnencrypted(to,subject,body)
+    if (scrambleAddresses.length == 0) {
+        alert("Enter a valid recipient address.")
+        return
     }
 
     lookupPublicKeys(scrambleAddresses, function(keyMap) {
