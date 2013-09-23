@@ -7488,15 +7488,23 @@ function r2s(t) {
  */
 function openpgp_encoding_deArmor(text) {
 	var type = getPGPMessageType(text);
-	if (type != 2) {
-	var splittedtext = text.split('-----');
-	data = { openpgp: openpgp_encoding_base64_decode(splittedtext[2].split('\n\n')[1].split("\n=")[0].replace(/\n- /g,"\n")),
-			type: type};
-	if (verifyCheckSum(data.openpgp, splittedtext[2].split('\n\n')[1].split("\n=")[1].split('\n')[0]))
-		return data;
-	else
-		util.print_error("Ascii armor integrity check on message failed: '"+splittedtext[2].split('\n\n')[1].split("\n=")[1].split('\n')[0]+"' should be '"+getCheckSum(data))+"'";
-	} else {
+    if (type != 2) {
+        var splittedtext = text.split('-----');
+        var bodyAndChecksum = splittedtext[2].split('\n\n')[1].split("\n=");
+        var body = bodyAndChecksum[0].replace(/\n- /g,"\n");
+        var checksum;
+        if(bodyAndChecksum.length == 1){
+            checksum = splittedtext[2].split('\n\n')[2].replace(/[\n=]/g, "");
+        } else {
+            checksum = bodyAndChecksum[1].split('\n')[0];
+        }
+        data = { openpgp: openpgp_encoding_base64_decode(body), type: type};
+        if (verifyCheckSum(data.openpgp, checksum)) {
+            return data;
+        } else { 
+            util.print_error("Ascii armor integrity check on message failed: '"+checksum+"' should be '"+getCheckSum(data))+"'";
+        }
+    } else { 
 		var splittedtext = text.split('-----');
 		var result = { text: splittedtext[2].replace(/\n- /g,"\n").split("\n\n")[1],
 		               openpgp: openpgp_encoding_base64_decode(splittedtext[4].split("\n\n")[1].split("\n=")[0]),
