@@ -25,14 +25,6 @@ echo ""
 ) | mysql -u root -p$pass
 
 
-# Configure the Scramble app server
-# Point it to your database server
-echo "Writing app server configuration to ~/.scramble/scramble.config"
-read -s -p "Enter MX host name: " host
-echo ""
-mkdir -p ~/.scramble
-echo "scramble:$spass@/scramble\n$host" > ~/.scramble/scramble.config
-
 # Download the latest release
 echo "Downloading Scramble binary..."
 wget https://scramble.io/bin/scramble -O scramble
@@ -40,3 +32,6 @@ chmod +x scramble
 
 # Run it
 ./scramble
+
+# Configure the Scramble app server at ~/.scramble/config.json
+# Point it to your database server & run ./scramble again

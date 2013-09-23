@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"fmt"
 )
 
 type Config struct {
@@ -44,7 +45,8 @@ func init() {
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		writeDefaultConfig(configFile)
-		config = defaultConfig
+		fmt.Println("Config file written to ~/.scramble/config.json. Please edit & run again")
+		os.Exit(1)
 		return
 	}
 
