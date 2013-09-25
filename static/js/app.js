@@ -589,7 +589,7 @@ function sendEmail(to,subject,body){
             addIfNotContains(unencryptedToAddresses, toAddresses[i])
         }
     }
-    if(unencryptedToAddresses.length > 0
+    if(unencryptedToAddresses.length > 0) {
         alert("You cannot send to non-scramble addresses.\n"+unencryptedToAddresses.join(", "))
         return
     }
