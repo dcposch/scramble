@@ -20,6 +20,7 @@ var ALGO_AES128 = 7
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
+var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i
 
 var SCRYPT_PARAMS = {
     N:16384, // difficulty=2^14, recommended range 2^14 to 2^20
@@ -474,6 +475,7 @@ function displayEmail(target){
     target.addClass("current")
 
     var from = target.data("from")
+    var subject = target.text()
 
     lookupPublicKeys([from], function(keyMap) {
         var fromKey = keyMap[from].pubKey
@@ -483,6 +485,18 @@ function displayEmail(target){
         $.get("/email/"+target.data("id"), function(cipherBody){
             getPrivateKey(function(privateKey){
                 var plaintextBody = tryDecodePgp(cipherBody, privateKey, fromKey)
+                // extract subject on the first line
+                var parts = REGEX_BODY.exec(plaintextBody)
+                if (parts == null) {
+                    alert("Error: Bad email body format. Subject unverified")
+                } else {
+                    if (parts[1] != subject) {
+                        // TODO better message
+                        alert("Warning: Subject verification failed!")
+                    } else {
+                        plaintextBody = parts[2]
+                    }
+                }
 
                 var fromName = contactNameFromAddress(from)
                 var toAddresses = target.data("to").split(",").map(function(addr){
@@ -501,7 +515,7 @@ function displayEmail(target){
                     to:          target.data("to"),
                     toAddresses: toAddresses,
 
-                    subject:     target.text(),
+                    subject:     subject,
                     body:        plaintextBody,
 
                     box:         target.data("box")
@@ -691,7 +705,9 @@ function sendEmailEncrypted(addrPubKeys,subject,body){
         // Encrypt message for all recipients in `addrPubKeys`
         var pubKeys = Object.values(addrPubKeys);
         var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
-        var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, body);
+        // Embed the subject into the body for verification
+        var subjectAndBody = "Subject: "+subject+"\n\n"+body;
+        var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
 
         // send our message
         var data = {
