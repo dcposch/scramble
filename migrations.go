@@ -12,6 +12,8 @@ var migrations = []func() error{
 	migratePasswordHash,
 	migrateEmailRefactor,
 	migrateLengthenSubject,
+	migrateShortenToken,
+	migrateCreateNameResolution,
 }
 
 func migrateDb() {
@@ -228,5 +230,20 @@ func migrateEmailRefactor() error {
 
 func migrateLengthenSubject() error {
 	_, err := db.Exec(`ALTER TABLE email MODIFY cipher_subject TEXT`)
+	return err
+}
+
+func migrateShortenToken() error {
+	_, err := db.Exec(`ALTER TABLE user MODIFY token VARCHAR(64)`)
+	return err
+}
+
+func migrateCreateNameResolution() error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS name_resolution (
+		name           VARCHAR(64),
+		host           VARCHAR(255),
+		hash           CHAR(16),
+		index (host, name)
+    )`)
 	return err
 }

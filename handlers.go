@@ -93,8 +93,8 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan *HostRespErr)
 	counter := 0
 	for host, addrs := range mxHostAddrs {
-		// if host is this host
 		if host == GetConfig().SmtpMxHost {
+			// if host is this host
 			for _, addr := range addrs {
 				if !addr.IsHashAddress() {
 					panic("publicKeysHandler can't handle non-hash-addresses")
@@ -106,8 +106,8 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 					res[addr.String()] = &PubKeyErr{pubKey, ""}
 				}
 			}
-			// if host is an external host
 		} else {
+			// if host is an external host
 			counter += 1
 			go func(host string, addrs []EmailAddress) {
 				u := url.URL{}
@@ -211,7 +211,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.Token = validateToken(r.FormValue("token"))
 	user.PasswordHash = validatePassHash(r.FormValue("passHash"))
 	user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
-	user.PublicHash = computePublicHash(user.PublicKey)
+	user.PublicHash = ComputePublicHash(user.PublicKey)
 	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 
 	log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
@@ -474,6 +474,10 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 		AddMessageToBox(email, mxHost, "outbox")
 	}
 }
+
+//
+// NGINX
+//
 
 // Tells where nginx should forward SMTP to
 func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {

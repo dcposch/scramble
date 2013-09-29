@@ -29,6 +29,9 @@ func ParseEmailAddress(addr string) EmailAddress {
 
 // "foo@bar.com,baz@boo.com" -> []EmailAddress
 func ParseEmailAddresses(addrList string) EmailAddresses {
+	if addrList == "" {
+		return nil
+	}
 	addrParts := strings.Split(addrList, ",")
 	addrs := make([]EmailAddress, 0)
 	for _, addrPart := range addrParts {
@@ -39,6 +42,9 @@ func ParseEmailAddresses(addrList string) EmailAddresses {
 
 // "foo@bar.com,baz@boo.com" -> {<host>:[]EmailAddress}
 func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
+	if addrList == "" {
+		return nil
+	}
 	addrs := strings.Split(addrList, ",")
 	hostAddrs := map[string]EmailAddresses{}
 	for _, addr := range addrs {

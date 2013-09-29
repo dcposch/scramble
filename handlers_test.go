@@ -52,24 +52,61 @@ OewXcIuOdtHovjU05JwUjYcg30lZ
 	SaveUser(user)
 }
 
-func TestPublicKeysHandler(t *testing.T) {
+func requestLoggedIn(handler http.HandlerFunc, method string, path string, form url.Values) *httptest.ResponseRecorder {
 	record := httptest.NewRecorder()
 	req := &http.Request{
-		Method: "POST",
-		URL:    &url.URL{Path: "publickeys/"},
+		Method: method,
+		URL:    &url.URL{Path: path},
 		Header: map[string][]string{},
-		Form:   url.Values{
-			  "addresses": {"x6urvahzhylq5swe@hashed.im,y7a4hsiyklzptjqf@hashed.im"},
-			},
-		}
+		Form:   form,
+	}
 	expires := time.Now().AddDate(0,0,1)
 	req.AddCookie(&http.Cookie{Name:"token", Value:"test", Expires:expires})
 	req.AddCookie(&http.Cookie{Name:"passHash", Value:"5026f031ceea00023da878da2be4660ae85040e8", Expires:expires})
 	req.AddCookie(&http.Cookie{Name:"passHashOld", Value:"909b45492bad2efe39489d2d0878ea574ea9a6d4", Expires:expires})
-	publicKeysHandler(record, req)
+	handler(record, req)
+	return record
+}
+
+func TestPublicKeysHandler(t *testing.T) {
+	record := requestLoggedIn(
+		publicKeysHandler,
+		"POST", "publickeys/",
+		url.Values{
+		  "addresses": {"x6urvahzhylq5swe@hashed.im,y7a4hsiyklzptjqf@hashed.im"},
+		},
+	)
 	log.Println(record.Code, record.Body.String())
 
 	// TODO: this test doesn't actually test much,
 	// since there are no test hosts to dispatch to.
 	// We could set up some test servers.
+}
+
+func TestNotaryQueryHandler(t *testing.T) {
+	record := requestLoggedIn(
+		notaryQueryHandler,
+		"POST", "notary/query",
+		url.Values{
+			"addresses": {"test@dev.hashed.im"},
+			"notaries": {"dontcare@dev.hashed.im,dontcare@dev2.hashed.im"},
+		},
+	)
+	log.Println(record.Code, record.Body.String())
+
+	// TODO: parse the response and ensure that
+	// pubHash, timestamp, and signature are present.
+	/* Sample:
+		{
+		  "dontcare@dev.hashed.im": {
+			"result": {
+			  "test@dev.hashed.im": {
+				"pubHash": "x6urvahzhylq5swe",
+				"timestamp": 1380432121,
+				"signature": "-----BEGIN PGP SIGNATURE----- ..."
+			  }
+			}
+		  }
+		}
+	*/
 }

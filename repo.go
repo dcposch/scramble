@@ -107,6 +107,21 @@ func LoadUserID(token string) *UserID {
 	return &user
 }
 
+// Loads a given public hash by a user's token (name)
+func LoadPubHash(token string) string {
+	var hash string
+	err := db.QueryRow("SELECT public_hash "+
+		" FROM user WHERE token=?",
+		token).Scan(&hash)
+	if err == sql.ErrNoRows {
+		return ""
+	}
+	if err != nil {
+		panic(err)
+	}
+	return hash
+}
+
 // Loads a given public key by it's hash
 // The client then verifies that the key is correct
 func LoadPubKey(publicHash string) string {
@@ -349,4 +364,29 @@ func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+//
+// NOTARY
+//
+
+func AddNameResolution(name, host, hash string) {
+	_, err := db.Exec("INSERT INTO name_resolution "+
+		"(name, host, hash) "+
+		"VALUES (?,?,?)",
+		name,
+		host,
+		hash)
+	if err != nil { panic(err) }
+}
+
+func GetNameResolution(name, host string) (hash string) {
+	err := db.QueryRow("SELECT "+
+		"hash FROM name_resolution WHERE " +
+		"name=? AND host=?",
+		name, host).Scan(
+		&hash)
+	if err == sql.ErrNoRows { return "" }
+	if err != nil { panic(err) }
+	return
 }

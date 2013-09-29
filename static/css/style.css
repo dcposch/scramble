@@ -286,3 +286,13 @@ margin:3px 3px 3px 0;
 padding:3px;
 }
 
+#content.contacts li input.name {
+width:120px;
+}
+
+#content.contacts li .pubHash {
+display: inline-block;
+width: 140px;
+color: #888;
+}
+

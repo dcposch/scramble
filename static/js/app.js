@@ -52,7 +52,7 @@ var SCRYPT_PARAMS = {
 
 var viewState = {}
 viewState.email = null // plaintext subject, body, etc of the currently opened email
-viewState.contacts = null // plaintext address book
+viewState.contacts = null // plaintext address book, must *always* be good data.
 
 
 
@@ -266,7 +266,7 @@ function displayCreateAccountModal(){
         // create a new mailbox. this takes a few seconds...
         keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored)
-        var email = getUserEmail()
+        var email = getUserHashEmail()
 
         // Change "Generating..." to "Done", explain what's going on to the user
         $("#createAccountModal h3").text("Welcome, "+email)
@@ -469,9 +469,9 @@ function bindEmailEvents() {
     $("#moveToInboxButton").click(function(){moveEmail("inbox")})
 
     $("#enterFromNameButton").click(function(){
-        var nick = prompt("Contact nick for "+viewState.email.from)
-        if(nick){
-            trySaveContact(nick, viewState.email.from)
+        var name = prompt("Contact name for "+viewState.email.from)
+        if(name){
+            trySaveContact(name, viewState.email.from)
             displayEmail($(".box li.current"))
         }
     })
@@ -638,8 +638,8 @@ function sendEmail(to,subject,body){
         var errors = {};  // {toAddress: <error string>}
 
         // Verify all recipient public keys from keyMap
-        for (var i = 0; i < toAddresses.length; i++) {
-            var toAddr = toAddresses[i];
+        for (var i = 0; i < scrambleAddresses.length; i++) {
+            var toAddr = scrambleAddresses[i];
             var pubHash = extractPubHash(toAddr);
             var result = keyMap[toAddr];
             if (result.error) {
@@ -678,7 +678,7 @@ function sendEmail(to,subject,body){
     return false
 }
 
-// returns: {toAddress: {pubKey: <pubKey>, pubKeyArmor: <pubKeyArmor>} or {error: <error string>}}
+// cb: function(data), data: {toAddress: {pubKey: <pubKey>, pubKeyArmor: <pubKeyArmor>} or {error: <error string>}}
 function lookupPublicKeys(addresses, cb) {
     var params = {
         addresses: addresses.join(',')
@@ -719,9 +719,7 @@ function sendEmailEncrypted(addrPubKeys,subject,body){
             // Encrypt message for all recipients in `addrPubKeys`
             var pubKeys = Object.values(addrPubKeys);
             pubKeys.push(publicKey[0])
-            console.log("!!", pubKeys)
             pubKeys = pubKeys.unique(function(pubKey){ return pubKey.getKeyId() })
-            console.log(pubKeys)
             
             var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
             // Embed the subject into the body for verification
@@ -783,7 +781,6 @@ function extractPubHash(email){
 }
 
 
-
 //
 // CONTACTS
 //
@@ -808,19 +805,38 @@ function bindContactsEvents(){
     $("#saveContactsButton").click(function(){
         var rows = $(".contacts li")
         var contacts = []
+        var needResolution = {} // need to find pubhash before saving
+                                // {address: name}
+
         for(var i = 0; i < rows.length; i++){
             var name = trim($(rows[i]).find(".name").val())
             var address = trim($(rows[i]).find(".address").val())
-            if(name=="" && address=="") {
+            // var pubHash = trim($(rows[i]).find(".pubHash").val())
+            // ^^ We don't allow the user to enter the pubHash --
+            //  it's always resolved via notaries.
+            // TODO: what about non-scramble addresses?
+            var resolvedPubHash = resolveAddressLocally(address)
+            if (name=="" && address=="") {
                 continue
-            } else {
-                contacts.push({name:name, address:address})
+            } else if (!resolvedPubHash) {
+                needResolution[address] = name
+                continue
             }
+            contacts.push({name:name, address:address, pubHash:resolvedPubHash})
         }
 
-        trySaveContacts(contacts, function(){
-            displayStatus("Contacts saved")
-            displayContacts()
+        resolveAddresses(Object.keys(needResolution), function(pubHashes) {
+            for (var address in pubHashes) {
+                contacts.push({
+                    name:    needResolution[address],
+                    address: address,
+                    pubHash: pubHashes[address],
+                })
+            }
+            trySaveContacts(contacts, function(){
+                displayStatus("Contacts saved")
+                displayContacts()
+            })
         })
     })
 }
@@ -835,34 +851,45 @@ function deleteRow(e){
 
 function trySaveContacts(contacts, done){
     // Index the contacts
-    var tokens = [], errors = []
-    var tokenToAddress = {}, tokenToName = {}, addressToToken = {}
+    var errors = []
+    var lnameToContact = {}
+    var addresses = {}
     for(var i = 0; i < contacts.length; i++){
         var name = trim(contacts[i].name)
         var address = trimToLower(contacts[i].address)
+        var addressHash = extractPubHash(address)
+        var addressMatch = address.match(REGEX_EMAIL)
+        var pubHash = trimToLower(contacts[i].pubHash)
 
-        if (name == ""){
-            errors.push("No name entered for "+address)
-        } else if (address == ""){
+        if (address == "") {
             errors.push("No address entered for "+name)
-        } else if(!address.match(REGEX_EMAIL)){
+        } else if(!addressMatch) {
             errors.push("The following doesn't look like a valid email address: "+address)
+        } else if (addressHash && addressHash != pubHash) {
+            errors.push("Hash mismatch for "+address)
+        } else if (addressHash && name == "") {
+            errors.push("No name entered for "+address)
+        } else if (pubHash == "") {
+            errors.push("Public key hash unknown for "+address)
         } 
 
-        var token = name.toLowerCase()
-        if(tokenToAddress[token]){
-            errors.push("You entered the same name more than once: "+token)
-        } else {
-            tokenToAddress[token] = address
-        }
-        if(addressToToken[address]){
+        var lname = name.toLowerCase()
+        var hashAddress = pubHash+"@"+addressMatch[2] // may equal address.
+        
+        if(addresses[address]) {
             errors.push("You entered the same email address more than once: "+address)
+        } else if (addresses[hashAddress]) {
+            errors.push("You entered more than one address with the same hash and host: "+hashAddress)
         } else {
-            addressToToken[address] = token
+            addresses[address] = true
+            addresses[hashAddress] = true
         }
 
-        tokens.push(token)
-        tokenToName[token] = name
+        if(lnameToContact[lname]){
+            errors.push("You entered the same name more than once: "+lname)
+        } else {
+            lnameToContact[lname] = {name:name, address:address, pubHash:pubHash}
+        }
     }
 
     // if there are mistakes, tell the user and bail
@@ -872,13 +899,8 @@ function trySaveContacts(contacts, done){
     } 
 
     // sort the contacts book
-    tokens.sort()
-    var contacts = tokens.map(function(token){
-        return {
-            name: tokenToName[token],
-            address: tokenToAddress[token],
-        }
-    })
+    var lnames = Object.keys(lnameToContact).sort()
+    var contacts = lnames.map(function(lname){ return lnameToContact[lname] })
     viewState.contacts = contacts
 
     // encrypt it
@@ -894,15 +916,31 @@ function trySaveContacts(contacts, done){
         })
 }
 
-function trySaveContact(name, address){
+function trySaveContact(name, address, pubHash){
+
+    // get pubHash for address.
+    if (pubHash == null) {
+        pubHash = extractPubHash(address)
+        if (pubHash != null) {
+            return trySaveContact(name, address, pubHash)
+        } else {
+            resolveAddresses([address], function(pubHashes) {
+                return trySaveContact(name, address, pubHashes[address])
+            })
+        }
+    }
+
+    // save
     var newContact = {
         name: trim(name),
-        address: trimToLower(address)
+        address: trimToLower(address),
+        pubHash: trimToLower(pubHash),
     }
     var newContacts = viewState.contacts.concat([newContact])
     trySaveContacts(newContacts, function(){
-            displayStatus("Contact saved")
+        displayStatus("Contact saved")
     })
+
 }
 
 function contactNameFromAddress(address){
@@ -942,7 +980,8 @@ function loadAndDecryptContacts(fn){
         if(xhr.status == 404){
             viewState.contacts = [{
                 name: "me",
-                address: getUserEmail()
+                address: getUserEmail(),
+                pubHash: sessionStorage["pubHash"],
             }]
             fn(viewState.contacts)
         } else {
@@ -951,6 +990,170 @@ function loadAndDecryptContacts(fn){
     })
 }
 
+// Looks at viewState.contact & look up pubHash
+// returns: a pubHash or null
+function resolveAddressLocally(addr) {
+    var pubHash = extractPubHash(addr)
+    if (pubHash) { return pubHash }
+    for (var i=0; i<viewState.contacts.length; i++) {
+        if (viewState.contacts[i].address == addr) {
+            return viewState.contacts[i].pubHash
+        }
+    }
+    return null
+}
+
+
+//
+// NOTARY
+//
+
+
+// Resolve the addresses, e.g. token@scramble.io -> <pubHash>
+// If any fail to meet some predetermined criteria,
+//  it pops up a modal.
+// Perhaps it's a failure message,
+//  or perhaps it allows the user to override & continue.
+//
+// addresses: for convenience just calls cb() if addresses is null or empty.
+// cb:        function(pubHashes), pubHashes: {<address>:<pubHash>}
+function resolveAddresses(addresses, cb) {
+    // Convenience
+    if (addresses.length == 0) {
+        cb({})
+        return
+    }
+
+    // Make sure none of the addresses are hash addresses.
+    for (var i=0; i<addresses.length; i++) {
+        if (extractPubHash(addresses[i]) != null) {
+            alert("Cannot resolve a hash address: "+addresses[i])
+            return
+        }
+    }
+    
+    // Get list of notaries and query.
+    loadNotaries(function(notaryKeys) {
+        var notaries = Object.keys(notaryKeys)
+        var params = {
+            addresses: addresses.join(','),
+            notaries:  notaries.join(','),
+        }
+        // Post to the scramble server which is the primary notary.
+        // In the future this may be configurable.
+        $.post("/notary/query", params, function(data) {
+            var pubHashes = {} // {<address>:<pubHash>}
+            var notarized = {} // {<address>:[<notary1@host>,...]}
+            var warnings = []
+            var errors = []
+            for (var notary in notaryKeys) {
+                var notaryPublicKey = notaryKeys[notary]
+                var notaryRes = data[notary]
+                if (notaryRes.error) {
+                    // This may be ok if there were enough notaries that succeeded.
+                    warnings.push("Notary "+notary+" failed: "+notaryRes.error)
+                    continue
+                }
+                for (var address in notaryRes.result) {
+                    var addressRes = notaryRes.result[address]
+                    addressRes.address = address
+                    if (!verifyNotaryResponse(addressRes, notaryPublicKey)) {
+                        // This is a serious error in terms of security.
+                        // Handle with care.
+                        errors.push("Invalid notary response from "+notary+" for "+address)
+                        continue
+                    }
+                    if (notarized[address]) {
+                        if (pubHashes[address] != addressRes.pubHash) {
+                            // This is another serious error in terms of security.
+                            // There is disagreement about name resolution.
+                            // Handle with care.
+                            errors.push("Notary conflict for "+address)
+                            continue
+                        }
+                        notarized[address].push(notary)
+                    } else {
+                        notarized[address] = [notary]
+                        pubHashes[address] = addressRes.pubHash
+                    }
+                }
+            }
+            // For now, make sure that all notaries were successfull.
+            // In the future we'll be more flexible with occasional errors,
+            //  especially when we have more notaries serving.
+            for (var i=0; i<addresses.length; i++) {
+                var address = addresses[i];
+                if (!notarized[address] || notarized[address].length != notaries.length) {
+                    errors.push("Error: Could not resolve address: "+address)
+                }
+            }
+            // If there were any errors or warnings, show.
+            // Warnings aren't serious security issues so they don't
+            //  need to prevent the callback from being called.
+            // Errors should stop this procedure and skip the callback.
+            // TODO show warnings
+            if (warnings.length > 0) { console.log(warnings) }
+            // TODO do something better
+            if (errors.length > 0) {
+                alert(errors.join("\n"))
+                return
+            } else {
+                cb(pubHashes)
+            }
+        }, "json");
+    })
+}
+
+// Load list of notaries.
+// TODO Currently just hardcoded, will change in the future.
+// TODO Needs to be overridden for local testing.
+// TODO Load public keys by querying /notary/id & saving it maybe.
+// cb: function(notaries), notaries: {<hash@host>:<publicKey>, ...}
+function loadNotaries(cb) {
+    cb({
+        '4gjgpocrvdx4cqnb@hashed.im':
+            openpgp.read_publicKey(
+                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
+                "\n"+
+                "xsBNBFJLk4EBCAC4nrwXquYcsFdixa/ibyqRMivsZiqurfAViNtPdVK+p10YAFkK\n"+
+                "GQIi+E4p05k1CyDbHFUChouB+cQk2fSteLbb3VBND91mwixxElcuMVHOhDtObYod\n"+
+                "ND++RgwZZJ+OWG9M0zKQxGWBSSiaH2PHfofEmg1rRD7cU+DJPLkuDbG7OMrS3ayW\n"+
+                "g4qgXGHfsypR/1R7cytta7l8lCRSJOJnE4MSzVqkg5LU/TbAlI6GFvz1j0MAuPp/\n"+
+                "wqnXaGJAOvCtcKSHbtTkhdWdg+/IQkkh1u3TOqIZ3zUg/MiCdg5inoFuW5UIJe2Z\n"+
+                "KvEPNLylVjRKxuOzw47IjwlHFIK/Rg1FVtOTABEBAAHNQU5vdGFyeSAoTm90YXJ5\n"+
+                "IGZvciBoYXNoZWQuaW0gU2NyYW1ibGUgU2VydmVyKSA8c3VwcG9ydEBoYXNoZWQu\n"+
+                "aW0+wsBiBBMBCAAWBQJSS5OBCRCgZUoGo32kEAIbAwIZAQAAOwoIACRIIXmK5C3n\n"+
+                "EdNsGZeIeIT9W/1ip68m4VciWfhzWSipRVtjKyTFDS0lFx9I5kpNNA57+8dIWwCh\n"+
+                "JaY2Tz4h4lAOEhbp1lLQB+SITqnQsfRBpxvtVCs5LeRZ/3BcCPAIlcVyqHAkuFCx\n"+
+                "SHTzpxLvx3dklxuPn7+RnWtfpCwIMjUUHod6mQxVFXkZxom44IMWYGQmLKF416zj\n"+
+                "0Jg/JGmSKXMiUSKV2gIPk98Wkz4ab3xhblAbCalK2IAmAkA1QBbhAwqIPAA5rF0d\n"+
+                "zZ867WAMTFqiFQ0nipfE/s0opBokNmV/v9881yQ3VtM8PoPfoDX/zjXiETSHhPhF\n"+
+                "fkBl+ISqgqvOwE0EUkuTgQEIANvgLWvl0hjbJ6Qo7SC9AlVirgA1tdsL7eGNZJDJ\n"+
+                "uGzyhcFGubXQA0TDZl3bdUqCWCWwqNHB4hTSxink75Akfl3R4Vob60eOm3QYccPI\n"+
+                "giN9PB0Mt0ixSIbJ3rB/qAV4ZH4Fty2zthbxmqNhsYQBZ75IydQBUwjChD2Shs1t\n"+
+                "BQSreB+G95sf6vw0EnjdfpUuy0Aw38gHAGNr05Szep7OQ9Mf3h+9cszDpPVyNDU8\n"+
+                "xawQYdMJlVCgAkmSpRbCFIuGanze4ViLrmkhPHbzedDeLxHzq3GxAG2WeGspPLS+\n"+
+                "HDr3kGJisHQ4bPRcoPn16xEphCqFLrrUmQ1ErRvCmduUHFcAEQEAAcLAXwQYAQgA\n"+
+                "EwUCUkuTgQkQoGVKBqN9pBACGwwAAGv+CACaSfCTIKPhv35dBQSyZI7j7h/Fq6It\n"+
+                "opBqeqTEPq8Nz7tHE3b5bnRx0uLEv/gaGRr93fUJU5jdA+kQRp9AEa/wwcFu58VC\n"+
+                "vISKdmcZetT6D+hbNqFGTor01rQcO+MSTNFi9jB8AQx7wYKSI3WugsTBAuifzp6E\n"+
+                "N+e1s+ADMuAk9e92KNaX3i/2loexfB5f486th7+/ALNo2G4I2SrPFIq5GVNixOkf\n"+
+                "vlUab6/0EUC+d25//P3PPgqmNPyEYNrI1fYtqn7VYxa0jycsLOVCd/ak/SwqIlUo\n"+
+                "rk3ZF3pZKAwV5UM2IQSgS0fshNrDpuMkRxscv/KYW+tVqYeP8UX1r74k\n"+
+                "=J+9O\n"+
+                "-----END PGP PUBLIC KEY BLOCK-----"
+            )
+    })
+}
+
+// Ensure that notaryRes is properly signed with notaryPublicKey.
+// notaryRes: {address,pubHash,timestamp,signature}
+// returns true or false
+function verifyNotaryResponse(notaryRes, notaryPublicKey) {
+    var toSign = notaryRes.address+"="+notaryRes.pubHash+"@"+notaryRes.timestamp
+    var sig = openpgp.read_message(notaryRes.signature)
+    return sig[0].signature.verify(toSign, {obj:notaryPublicKey[0]})
+}
 
 //
 // CRYPTO
@@ -1206,6 +1409,11 @@ Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail(){
+    return $.cookie("token")+"@"+window.location.hostname
+}
+
+// The Scramble hash email address of the currently logged-in user
+function getUserHashEmail(){
     var pubHash = sessionStorage["pubHash"]
     if(!pubHash) throw "Missing public hash"
     return pubHash+"@"+window.location.hostname

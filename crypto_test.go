@@ -8,7 +8,7 @@ func TestPublicHash(t *testing.T) {
 		{"herp derp", "im2xxvv3yyfccmu3"}}
 	for _, pair := range pairs {
 		in, out := pair[0], pair[1]
-		if x := computePublicHash(in); x != out {
+		if x := ComputePublicHash(in); x != out {
 			t.Errorf("ComputePublicHash(%s) = %s, should be %s", in, x, out)
 		}
 	}
