@@ -38,6 +38,8 @@ var SCRYPT_PARAMS = {
 //
 // For convenience, we also have
 // sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
+// sessionStorage["publicKeyArmored"] is the extracted public key of the privateKey.
+//   -> This is used for encrypting to self. The hash may or may not be equal to pubHash.
 //
 
 
@@ -256,10 +258,13 @@ function setCookie(name, value){
 function displayCreateAccountModal(){
     showModal("create-account-template")
 
+    var keys;
+    var cb;
+
     // defer the slow part, so that the modal actually appears
     setTimeout(function(){
         // create a new mailbox. this takes a few seconds...
-        var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
+        keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "")
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored)
         var email = getUserEmail()
 
@@ -267,10 +272,17 @@ function displayCreateAccountModal(){
         $("#createAccountModal h3").text("Welcome, "+email)
         $("#spinner").css("display", "none")
         $("#createForm").css("display", "block")
+
+        // call cb, the user had already pressed the create button
+        if (cb) { cb() }
     }, 100)
 
     $("#createButton").click(function(){
-        createAccount(keys)
+        if (keys) {
+            createAccount(keys)
+        } else {
+            cb = function(){ createAccount(keys) };
+        }
     })
 }
 
@@ -457,9 +469,9 @@ function bindEmailEvents() {
     $("#moveToInboxButton").click(function(){moveEmail("inbox")})
 
     $("#enterFromNameButton").click(function(){
-        var name = prompt("Contact name for "+viewState.email.from)
-        if(name){
-            trySaveContact(name, viewState.email.from)
+        var nick = prompt("Contact nick for "+viewState.email.from)
+        if(nick){
+            trySaveContact(nick, viewState.email.from)
             displayEmail($(".box li.current"))
         }
     })
@@ -700,29 +712,37 @@ function sendEmailEncrypted(addrPubKeys,subject,body){
     var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
 
     // Get the private key so we can sign the encrypted message
-    getPrivateKey(function(privateKey){
+    getPrivateKey(function(privateKey) {
+        // Get the public key so we can also read it in the sent box
+        getPublicKey(function(publicKey) {
 
-        // Encrypt message for all recipients in `addrPubKeys`
-        var pubKeys = Object.values(addrPubKeys);
-        var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
-        // Embed the subject into the body for verification
-        var subjectAndBody = "Subject: "+subject+"\n\n"+body;
-        var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
+            // Encrypt message for all recipients in `addrPubKeys`
+            var pubKeys = Object.values(addrPubKeys);
+            pubKeys.push(publicKey[0])
+            console.log("!!", pubKeys)
+            pubKeys = pubKeys.unique(function(pubKey){ return pubKey.getKeyId() })
+            console.log(pubKeys)
+            
+            var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
+            // Embed the subject into the body for verification
+            var subjectAndBody = "Subject: "+subject+"\n\n"+body;
+            var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
 
-        // send our message
-        var data = {
-            msgId:msgId,
-            // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
-            // pubHashTo: pubHash,
-            to: Object.keys(addrPubKeys).join(","),
-            cipherSubject: cipherSubject,
-            cipherBody: cipherBody
-        }
-        $.post("/email/", data, function(){
-            displayStatus("Sent")
-            displayCompose()
-        }).fail(function(xhr){
-            alert("Sending failed: "+xhr.responseText)
+            // send our message
+            var data = {
+                msgId:msgId,
+                // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
+                // pubHashTo: pubHash,
+                to: Object.keys(addrPubKeys).join(","),
+                cipherSubject: cipherSubject,
+                cipherBody: cipherBody
+            }
+            $.post("/email/", data, function(){
+                displayStatus("Sent")
+                displayCompose()
+            }).fail(function(xhr){
+                alert("Sending failed: "+xhr.responseText)
+            })
         })
     })
 }
@@ -814,7 +834,7 @@ function deleteRow(e){
 }
 
 function trySaveContacts(contacts, done){
-    // index the contacts
+    // Index the contacts
     var tokens = [], errors = []
     var tokenToAddress = {}, tokenToName = {}, addressToToken = {}
     for(var i = 0; i < contacts.length; i++){
@@ -896,6 +916,40 @@ function contactNameFromAddress(address){
     return null
 }
 
+function getContacts(fn){
+    if(viewState.contacts){
+        fn(viewState.contacts)
+    } else {
+        loadAndDecryptContacts(fn)
+    }
+}
+
+function loadAndDecryptContacts(fn){
+    if(!sessionStorage["passKey"]){
+        alert("Missing passphrase. Please log out and back in.")
+        return
+    }
+
+    $.get("/user/me/contacts", function(cipherContactsHex){
+        var cipherContacts = hex2bin(cipherContactsHex)
+        var jsonContacts = passphraseDecrypt(cipherContacts)
+        if(!jsonContacts) {
+            return
+        }
+        viewState.contacts = JSON.parse(jsonContacts)
+        fn(viewState.contacts)
+    }, "text").fail(function(xhr){
+        if(xhr.status == 404){
+            viewState.contacts = [{
+                name: "me",
+                address: getUserEmail()
+            }]
+            fn(viewState.contacts)
+        } else {
+            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
+        }
+    })
+}
 
 
 //
@@ -1039,6 +1093,20 @@ function getPrivateKey(fn){
     })
 }
 
+function getPublicKey(fn) {
+    if(sessionStorage["publicKeyArmored"]) {
+        var publicKey = openpgp.read_publicKey(sessionStorage["publicKeyArmored"])
+        fn(publicKey)
+        return
+    }
+
+    getPrivateKey(function(privateKey) {
+        var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey())
+        fn(publicKey)
+        return
+    })
+}
+
 // if publicKey exists, it is used to verify the signature.
 function tryDecodePgp(armoredText, privateKey, publicKey){
     try {
@@ -1083,42 +1151,6 @@ function decodePgp(armoredText, privateKey, publicKey){
     }
     return text
 }
-
-function getContacts(fn){
-    if(viewState.contacts){
-        fn(viewState.contacts)
-    } else {
-        loadAndDecryptContacts(fn)
-    }
-}
-
-function loadAndDecryptContacts(fn){
-    if(!sessionStorage["passKey"]){
-        alert("Missing passphrase. Please log out and back in.")
-        return
-    }
-
-    $.get("/user/me/contacts", function(cipherContactsHex){
-        var cipherContacts = hex2bin(cipherContactsHex)
-        var jsonContacts = passphraseDecrypt(cipherContacts)
-        if(!jsonContacts) {
-            return
-        }
-        viewState.contacts = JSON.parse(jsonContacts)
-        fn(viewState.contacts)
-    }, "text").fail(function(xhr){
-        if(xhr.status == 404){
-            viewState.contacts = [{
-                name: "me",
-                address: getUserEmail()
-            }]
-            fn(viewState.contacts)
-        } else {
-            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
-        }
-    })
-}
-
 
 
 //
@@ -1197,11 +1229,4 @@ function trim(str){
 }
 function trimToLower(str){
     return trim(str).toLowerCase()
-}
-Object.values = function(object) {
-  var values = [];
-  for(var property in object) {
-    values.push(object[property]);
-  }
-  return values;
 }
