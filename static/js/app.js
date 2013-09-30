@@ -20,6 +20,7 @@ var ALGO_AES128 = 7
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_HASH_EMAIL = /^([A-F0-9]{40}|[A-Z2-7]{16})@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
+var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i
 
 var SCRYPT_PARAMS = {
     N:16384, // difficulty=2^14, recommended range 2^14 to 2^20
@@ -37,6 +38,8 @@ var SCRYPT_PARAMS = {
 //
 // For convenience, we also have
 // sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
+// sessionStorage["publicKeyArmored"] is the extracted public key of the privateKey.
+//   -> This is used for encrypting to self. The hash may or may not be equal to pubHash.
 //
 
 
@@ -255,6 +258,9 @@ function setCookie(name, value){
 function displayCreateAccountModal(){
     showModal("create-account-template")
 
+    var keys;
+    var cb;
+
     // defer the slow part, so that the modal actually appears
     setTimeout(function(){
         // create a new mailbox. this takes a few seconds...
@@ -266,10 +272,17 @@ function displayCreateAccountModal(){
         $("#createAccountModal h3").text("Welcome, "+email)
         $("#spinner").css("display", "none")
         $("#createForm").css("display", "block")
+
+        // call cb, the user had already pressed the create button
+        if (cb) { cb() }
     }, 100)
 
     $("#createButton").click(function(){
-        createAccount(keys)
+        if (keys) {
+            createAccount(keys)
+        } else {
+            cb = function(){ createAccount(keys) };
+        }
     })
 }
 
@@ -456,9 +469,9 @@ function bindEmailEvents() {
     $("#moveToInboxButton").click(function(){moveEmail("inbox")})
 
     $("#enterFromNameButton").click(function(){
-        var name = prompt("Contact name for "+viewState.email.from)
-        if(name){
-            trySaveContact(name, viewState.email.from)
+        var nick = prompt("Contact nick for "+viewState.email.from)
+        if(nick){
+            trySaveContact(nick, viewState.email.from)
             displayEmail($(".box li.current"))
         }
     })
@@ -473,37 +486,58 @@ function displayEmail(target){
     $("li.current").removeClass("current")
     target.addClass("current")
 
-    $.get("/email/"+target.data("id"), function(cipherBody){
-        getPrivateKey(function(privateKey){
-            var plaintextBody = tryDecodePgp(cipherBody, privateKey)
+    var from = target.data("from")
+    var subject = target.text()
 
-            var fromName = contactNameFromAddress(target.data("from"))
-            var toAddresses = target.data("to").split(",").map(function(addr){
-                addr = trimToLower(addr)
-                return {
-                    address: addr,
-                    name: contactNameFromAddress(addr)
+    lookupPublicKeys([from], function(keyMap) {
+        var fromKey = keyMap[from].pubKey
+        if (!fromKey) {
+            alert("Failed to find public key for the sender ("+from+"). Message is unverified!")
+        }
+        $.get("/email/"+target.data("id"), function(cipherBody){
+            getPrivateKey(function(privateKey){
+                var plaintextBody = tryDecodePgp(cipherBody, privateKey, fromKey)
+                // extract subject on the first line
+                var parts = REGEX_BODY.exec(plaintextBody)
+                if (parts == null) {
+                    alert("Error: Bad email body format. Subject unverified")
+                } else {
+                    if (parts[1] != subject) {
+                        // TODO better message
+                        alert("Warning: Subject verification failed!")
+                    } else {
+                        plaintextBody = parts[2]
+                    }
                 }
+
+                var fromName = contactNameFromAddress(from)
+                var toAddresses = target.data("to").split(",").map(function(addr){
+                    addr = trimToLower(addr)
+                    return {
+                        address: addr,
+                        name: contactNameFromAddress(addr)
+                    }
+                })
+                viewState.email = {
+                    id:          target.data("id"),
+                    time:        new Date(target.data("time")*1000),
+
+                    from:        trimToLower(target.data("from")),
+                    fromName:    fromName,
+                    to:          target.data("to"),
+                    toAddresses: toAddresses,
+
+                    subject:     subject,
+                    body:        plaintextBody,
+
+                    box:         target.data("box")
+                }
+                var html = render("email-template", viewState.email)
+                $("#content").attr("class", "email").html(html)
+                bindEmailEvents()
             })
-            viewState.email = {
-                id:          target.data("id"),
-                time:        new Date(target.data("time")*1000),
-
-                from:        trimToLower(target.data("from")),
-                fromName:    fromName,
-                to:          target.data("to"),
-                toAddresses: toAddresses,
-
-                subject:     target.text(),
-                body:        plaintextBody,
-
-                box:         target.data("box")
-            }
-            var html = render("email-template", viewState.email)
-            $("#content").attr("class", "email").html(html)
-            bindEmailEvents()
-        })
-    }, "text")
+        }, "text")
+    })
 }
 
 function emailReply(){
@@ -589,7 +623,7 @@ function sendEmail(to,subject,body){
             addIfNotContains(unencryptedToAddresses, toAddresses[i])
         }
     }
-    if(unencryptedToAddresses.length > 0
+    if(unencryptedToAddresses.length > 0) {
         alert("You cannot send to non-scramble addresses.\n"+unencryptedToAddresses.join(", "))
         return
     }
@@ -599,8 +633,8 @@ function sendEmail(to,subject,body){
     }
 
     lookupPublicKeys(scrambleAddresses, function(keyMap) {
-        // keyMap: {toAddress: {pubKey: <pubKeyArmor>} or {error: <error string>}}
-        var pubKeys = {}; // {toAddress: <pubKeyArmor>}
+        // keyMap: {toAddress: {pubKey: <pubKey>, pubKeyArmor: <pubKeyArmor>} or {error: <error string>}}
+        var pubKeys = {}; // {toAddress: <pubKey>}
         var errors = {};  // {toAddress: <error string>}
 
         // Verify all recipient public keys from keyMap
@@ -612,7 +646,7 @@ function sendEmail(to,subject,body){
                 errors[toAddr] = result.error;
                 continue;
             }
-            var computedHash = computePublicHash(result.pubKey);
+            var computedHash = computePublicHash(result.pubKeyArmor);
             if (computedHash != pubHash) {
                 // this is a serious error. security breach?
                 var error = "WARNING: the server gave us an incorrect public key for "+toAddr+"\n"+
@@ -644,51 +678,72 @@ function sendEmail(to,subject,body){
     return false
 }
 
-function lookupPublicKeys(toAddresses, cb) {
+// returns: {toAddress: {pubKey: <pubKey>, pubKeyArmor: <pubKeyArmor>} or {error: <error string>}}
+function lookupPublicKeys(addresses, cb) {
     var params = {
-        addresses: toAddresses.join(',')
+        addresses: addresses.join(',')
     }
     $.post("/publickeys/", params, function(data) {
+
+        // read armored pubkeys
+        for (var addr in data) {
+            if (data[addr].pubKey) {
+                var armor = data[addr].pubKey;
+                var pka = openpgp.read_publicKey(armor);
+                if (pka.length == 1) {
+                    data[addr].pubKeyArmor = armor;
+                    data[addr].pubKey = pka[0];
+                } else {
+                    alert("Incorrect number of publicKeys in armor for address "+toAddr);
+                    return;
+                }
+            }
+        }
+
         cb(data);
     }, "json");
 }
 
-// pubKeys: {toAddress: <pubKeyArmored>}
-function sendEmailEncrypted(pubKeys,subject,body){
+// addrPubKeys: {toAddress: <pubKey>}
+function sendEmailEncrypted(addrPubKeys,subject,body){
     // generate 160-bit (20 byte) message id
     // secure random generator, so it will be unique
     // TODO: Maybe we should hash the encrypted message bytes so that it is deterministic.
     var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
 
-    // Encrypt message for all recipients in `pubKeys`
-    var publicKeys = [];
-    for (var toAddr in pubKeys) {
-        var pubKeyArmor = pubKeys[toAddr];
-        var pka = openpgp.read_publicKey(pubKeyArmor);
-        if (pka.length == 1) {
-            publicKeys.push(pka[0]);
-        } else {
-            alert("Incorrect number of publicKeys in armor for address "+toAddr);
-            return;
-        }
-    }
-    var cipherSubject = openpgp.write_encrypted_message(publicKeys, subject)
-    var cipherBody = openpgp.write_encrypted_message(publicKeys, body)
+    // Get the private key so we can sign the encrypted message
+    getPrivateKey(function(privateKey) {
+        // Get the public key so we can also read it in the sent box
+        getPublicKey(function(publicKey) {
 
-    // send our message
-    var data = {
-        msgId:msgId,
-        // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
-        // pubHashTo: pubHash,
-        to: Object.keys(pubKeys).join(","),
-        cipherSubject: cipherSubject,
-        cipherBody: cipherBody
-    }
-    $.post("/email/", data, function(){
-        displayStatus("Sent")
-        displayCompose()
-    }).fail(function(xhr){
-        alert("Sending failed: "+xhr.responseText)
+            // Encrypt message for all recipients in `addrPubKeys`
+            var pubKeys = Object.values(addrPubKeys);
+            pubKeys.push(publicKey[0])
+            console.log("!!", pubKeys)
+            pubKeys = pubKeys.unique(function(pubKey){ return pubKey.getKeyId() })
+            console.log(pubKeys)
+            
+            var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
+            // Embed the subject into the body for verification
+            var subjectAndBody = "Subject: "+subject+"\n\n"+body;
+            var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
+
+            // send our message
+            var data = {
+                msgId:msgId,
+                // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
+                // pubHashTo: pubHash,
+                to: Object.keys(addrPubKeys).join(","),
+                cipherSubject: cipherSubject,
+                cipherBody: cipherBody
+            }
+            $.post("/email/", data, function(){
+                displayStatus("Sent")
+                displayCompose()
+            }).fail(function(xhr){
+                alert("Sending failed: "+xhr.responseText)
+            })
+        })
     })
 }
 
@@ -779,7 +834,7 @@ function deleteRow(e){
 }
 
 function trySaveContacts(contacts, done){
-    // index the contacts
+    // Index the contacts
     var tokens = [], errors = []
     var tokenToAddress = {}, tokenToName = {}, addressToToken = {}
     for(var i = 0; i < contacts.length; i++){
@@ -861,6 +916,40 @@ function contactNameFromAddress(address){
     return null
 }
 
+function getContacts(fn){
+    if(viewState.contacts){
+        fn(viewState.contacts)
+    } else {
+        loadAndDecryptContacts(fn)
+    }
+}
+
+function loadAndDecryptContacts(fn){
+    if(!sessionStorage["passKey"]){
+        alert("Missing passphrase. Please log out and back in.")
+        return
+    }
+
+    $.get("/user/me/contacts", function(cipherContactsHex){
+        var cipherContacts = hex2bin(cipherContactsHex)
+        var jsonContacts = passphraseDecrypt(cipherContacts)
+        if(!jsonContacts) {
+            return
+        }
+        viewState.contacts = JSON.parse(jsonContacts)
+        fn(viewState.contacts)
+    }, "text").fail(function(xhr){
+        if(xhr.status == 404){
+            viewState.contacts = [{
+                name: "me",
+                address: getUserEmail()
+            }]
+            fn(viewState.contacts)
+        } else {
+            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
+        }
+    })
+}
 
 
 //
@@ -1004,15 +1093,30 @@ function getPrivateKey(fn){
     })
 }
 
-function tryDecodePgp(armoredText, privateKey){
+function getPublicKey(fn) {
+    if(sessionStorage["publicKeyArmored"]) {
+        var publicKey = openpgp.read_publicKey(sessionStorage["publicKeyArmored"])
+        fn(publicKey)
+        return
+    }
+
+    getPrivateKey(function(privateKey) {
+        var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey())
+        fn(publicKey)
+        return
+    })
+}
+
+// if publicKey exists, it is used to verify the signature.
+function tryDecodePgp(armoredText, privateKey, publicKey){
     try {
-        return decodePgp(armoredText, privateKey)
+        return decodePgp(armoredText, privateKey, publicKey)
     } catch (err){
         return "(Decryption failed)"
     }
 }
 
-function decodePgp(armoredText, privateKey){
+function decodePgp(armoredText, privateKey, publicKey){
     var msgs = openpgp.read_message(armoredText)
     if(msgs.length != 1){
         alert("Warning. Expected 1 PGP message, found "+msgs.length)
@@ -1035,45 +1139,18 @@ function decodePgp(armoredText, privateKey){
     if(!keymat.keymaterial.decryptSecretMPIs("")){
         alert("Error. The private key is passphrase protected.")
     }
-    var text = msg.decrypt(keymat, sessionKey)
+    if (publicKey) {
+        var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}])
+        if (!res.signatureValid) {
+            // old messages will pop this error modal.
+            alert("Error. The signature is invalid!");
+        }
+        var text = res.text;
+    } else {
+        var text = msg.decryptWithoutVerification(keymat, sessionKey)
+    }
     return text
 }
-
-function getContacts(fn){
-    if(viewState.contacts){
-        fn(viewState.contacts)
-    } else {
-        loadAndDecryptContacts(fn)
-    }
-}
-
-function loadAndDecryptContacts(fn){
-    if(!sessionStorage["passKey"]){
-        alert("Missing passphrase. Please log out and back in.")
-        return
-    }
-
-    $.get("/user/me/contacts", function(cipherContactsHex){
-        var cipherContacts = hex2bin(cipherContactsHex)
-        var jsonContacts = passphraseDecrypt(cipherContacts)
-        if(!jsonContacts) {
-            return
-        }
-        viewState.contacts = JSON.parse(jsonContacts)
-        fn(viewState.contacts)
-    }, "text").fail(function(xhr){
-        if(xhr.status == 404){
-            viewState.contacts = [{
-                name: "me",
-                address: getUserEmail()
-            }]
-            fn(viewState.contacts)
-        } else {
-            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
-        }
-    })
-}
-
 
 
 //
@@ -1090,6 +1167,9 @@ function initPGP(){
     return false
   }   
 }
+
+// openpgp really wants this function.
+function showMessages() {}
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
 function render(templateId, data) {

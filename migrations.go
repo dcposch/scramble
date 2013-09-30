@@ -11,6 +11,7 @@ var migrations = []func() error{
 	migrateAddContacts,
 	migratePasswordHash,
 	migrateEmailRefactor,
+	migrateLengthenSubject,
 }
 
 func migrateDb() {
@@ -222,5 +223,10 @@ func migrateEmailRefactor() error {
 	_, err = db.Exec(`RENAME TABLE new_email to email`)
 	if err != nil { return err }
 
+	return err
+}
+
+func migrateLengthenSubject() error {
+	_, err := db.Exec(`ALTER TABLE email MODIFY cipher_subject TEXT`)
 	return err
 }
