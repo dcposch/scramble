@@ -8614,7 +8614,7 @@ function openpgp_msg_message() {
 	 * @return {String} plaintext of the message or null on error
 	 */
 	function decrypt(private_key, sessionkey) {
-        return this.decryptAndVerifySignature(private_key, sessionkey).text;
+		return this.decryptAndVerifySignature(private_key, sessionkey).text;
 	}
 
 	/**
@@ -8631,22 +8631,50 @@ function openpgp_msg_message() {
 		var decrypted = sessionkey.decrypt(this, private_key.keymaterial);
 		if (decrypted == null)
 			return null;
-		var packet;
-		var position = 0;
-		var len = decrypted.length;
 		var validSignatures = new Array();
 		util.print_debug_hexstr_dump("openpgp.msg.messge decrypt:\n",decrypted);
 		
 		var messages = openpgp.read_messages_dearmored({text: decrypted, openpgp: decrypted});
+		var text;
 		for(var m in messages){
 			if(messages[m].data){
-				this.text = messages[m].data;
+				text = messages[m].data;
 			}
-			if(messages[m].signature){
-			    validSignatures.push(messages[m].verifySignature(pubkey));
+			if(messages[m].signature && messages[m].verifySignature(pubkey)){
+				validSignatures.push(messages[m]);
 			}
 		}
-		return {text:this.text, validSignatures:validSignatures};
+		if (validSignatures.length > 0) {
+			// ignores edge case with > 1 valid signature.
+			return {text:validSignatures[0].text, signatureValid:true};
+		} else {
+			return {text:text, signatureValid:false};
+		}
+	}
+
+	/**
+	 * Decrypts a message and generates user interface message out of the found.
+	 * Signatures will be ignored.
+	 * @param {openpgp_msg_privatekey} private_key the private the message is encrypted with (corresponding to the session key)
+	 * @param {openpgp_packet_encryptedsessionkey} sessionkey the session key to be used to decrypt the message
+	 * @return {String} plaintext of the message or null on error
+	 */
+	function decryptWithoutVerification(private_key, sessionkey) {
+		if (private_key == null || sessionkey == null || sessionkey == "")
+			return null;
+		var decrypted = sessionkey.decrypt(this, private_key.keymaterial);
+		if (decrypted == null)
+			return null;
+		util.print_debug_hexstr_dump("openpgp.msg.messge decrypt:\n",decrypted);
+		
+		var messages = openpgp.read_messages_dearmored({text: decrypted, openpgp: decrypted});
+        var text;
+		for(var m in messages){
+			if(messages[m].data){
+				text = messages[m].data;
+			}
+		}
+        return text;
 	}
 	
 	/**
@@ -8657,16 +8685,16 @@ function openpgp_msg_message() {
 	function verifySignature(pubkey) {
 		var result = false;
 		if (this.signature.tagType == 2) {
-		    if(!pubkey || pubkey.length == 0){
-			    var pubkey;
-			    if (this.signature.version == 4) {
-				    pubkey = openpgp.keyring.getPublicKeysForKeyId(this.signature.issuerKeyId);
-			    } else if (this.signature.version == 3) {
-				    pubkey = openpgp.keyring.getPublicKeysForKeyId(this.signature.keyId);
-			    } else {
-				    util.print_error("unknown signature type on message!");
-				    return false;
-			    }
+			if(!pubkey || pubkey.length == 0){
+				var pubkey;
+				if (this.signature.version == 4) {
+					pubkey = openpgp.keyring.getPublicKeysForKeyId(this.signature.issuerKeyId);
+				} else if (this.signature.version == 3) {
+					pubkey = openpgp.keyring.getPublicKeysForKeyId(this.signature.keyId);
+				} else {
+					util.print_error("unknown signature type on message!");
+					return false;
+				}
 			}
 			if (pubkey.length == 0)
 				util.print_warning("Unable to verify signature of issuer: "+util.hexstrdump(this.signature.issuerKeyId)+". Public key not found in keyring.");
@@ -8706,6 +8734,7 @@ function openpgp_msg_message() {
 	}
 	this.decrypt = decrypt;
 	this.decryptAndVerifySignature = decryptAndVerifySignature;
+	this.decryptWithoutVerification = decryptWithoutVerification;
 	this.verifySignature = verifySignature;
 	this.toString = toString;
 }
