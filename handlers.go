@@ -71,9 +71,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		Err  error
 	}
 
-	// parse addresses & group by host
+	// parse addresses & group by mx host
 	addrs := r.FormValue("addresses")
-	hostAddrs := GroupAddrsByHost(addrs)
+	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(addrs)
 
 	// res will get returned as json: {address: {pubkey, err}}
 	res := map[string]*PubKeyErr{}
@@ -82,7 +82,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// but all requested addresses should belong to this server.
 	ourMxHost := GetConfig().SmtpMxHost
 	if userId == nil {
-		for host, _ := range hostAddrs {
+		for host, _ := range mxHostAddrs {
 			if host != ourMxHost {
 				log.Panicf("Invalid host for server-to-server /publickeys request. Expected %v, got %v", ourMxHost, host)
 			}
@@ -92,7 +92,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// dispatch requests to each server.
 	ch := make(chan *HostRespErr)
 	counter := 0
-	for host, addrs := range hostAddrs {
+	for host, addrs := range mxHostAddrs {
 		// if host is this host
 		if host == GetConfig().SmtpMxHost {
 			for _, addr := range addrs {
@@ -156,7 +156,14 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	// fill remaining addresses with appropriate error messages
 	// client must still verify that addresses aren't missing
-	for _, addrs := range hostAddrs {
+	for failedHost, addrs := range failedHostAddrs {
+		for _, addr := range addrs {
+			if res[addr.String()] == nil {
+				res[addr.String()] = &PubKeyErr{"", "Failed to resolve Mx record for domain "+failedHost}
+			}
+		}
+	}
+	for _, addrs := range mxHostAddrs {
 		for _, addr := range addrs {
 			if res[addr.String()] == nil {
 				res[addr.String()] = &PubKeyErr{"", "Failed to retrieve public key"}
@@ -420,13 +427,26 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: separate goroutine?
 	// TODO: parallize mx lookup?
-	// for each address, lookup MX record & determine what to do.
-	hostAddrs := GroupAddrsByHost(email.To)
-	for host, addrs := range hostAddrs {
 
-		// if host is GetConfig().SmtpMxHost, assume that the lookup will return itself.
+	// for each address, lookup MX record & determine what to do.
+	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(email.To)
+
+	// fail immediately if any address cannot be resolved.
+	if (len(failedHostAddrs) != 0) {
+		// TODO: better error handling
+		failedHosts := []string{}
+		for failedHost, _ := range failedHostAddrs {
+			failedHosts = append(failedHosts, failedHost)
+		}
+		w.WriteHeader(500)
+		w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", strings.Join(failedHosts, ","))))
+		return
+	}
+
+	for mxHost, addrs := range mxHostAddrs {
+		// if mxHost is GetConfig().SmtpMxHost, assume that the lookup will return itself.
 		// this saves us from having to set up test MX records for localhost testing.
-		if host == GetConfig().SmtpMxHost {
+		if mxHost == GetConfig().SmtpMxHost {
 			// add to inbox locally
 			for _, addr := range addrs {
 				AddMessageToBox(email, addr.String(), "inbox")
@@ -434,24 +454,12 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		server, err := smtpLookUp(host)
-		if err != nil {
-			// TODO: better error handling
-			w.WriteHeader(500)
-			w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", host)))
-			return
-		}
-		if server == GetConfig().SmtpMxHost+"." {
-			// add to inbox locally
-			for _, addr := range addrs {
-				AddMessageToBox(email, addr.String(), "inbox")
-			}
-		} else {
-			// add to outbox for delivery
-			// note that we only store the host for the 'address' column,
-			// and only once for multiple recipients on the same host.
-			AddMessageToBox(email, host, "outbox")
-		}
+		// Add to outbox for delivery
+		// Note that we only store the mxHost part for the 'address' column,
+		//  and only once for multiple recipients on the same mxHost.
+		// This is because SMTP can support sending the same email to
+		//  multiple recipients on the same host at once.
+		AddMessageToBox(email, mxHost, "outbox")
 	}
 }
 
