@@ -51,6 +51,31 @@ func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
 	return hostAddrs
 }
 
+// Like GroupAddrsByHost, but resolves the hostname to Mx host.
+// Returns two maps where the second is all the hosts for which the Mx lookup failed.
+func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, map[string]EmailAddresses) {
+	hostAddrs := GroupAddrsByHost(addrList)
+	mxHostAddrs := map[string]EmailAddresses{}
+	failedHostAddrs := map[string]EmailAddresses{}
+	for host, addrs := range hostAddrs {
+		var mxHost string
+		// Skip lookup for self
+		// This helps with localhost testing
+		if host == GetConfig().SmtpMxHost {
+			mxHostAddrs[host] = append(mxHostAddrs[host], addrs...)
+			continue
+		}
+		// Lookup Mx record
+		mxHost, err := smtpLookUp(host)
+		if err != nil {
+			failedHostAddrs[host] = addrs
+		} else {
+			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs...)
+		}
+	}
+	return mxHostAddrs, failedHostAddrs
+}
+
 // This lets us add convenience methods to []EmailAddress
 type EmailAddresses []EmailAddress
 
