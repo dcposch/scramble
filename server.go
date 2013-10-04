@@ -12,7 +12,7 @@ func main() {
 	http.HandleFunc("/user/", userHandler)
 	http.HandleFunc("/user/me/contacts", contactsHandler)
 	http.HandleFunc("/user/me/key", privateKeyHandler)
-	http.HandleFunc("/publickeys/", publicKeysHandler)
+	http.HandleFunc("/publickeys/query", publicKeysHandler)
 	http.HandleFunc("/email/", emailHandler)
 	http.HandleFunc("/box/", inboxHandler)
 	http.HandleFunc("/nginx_proxy", nginxProxyHandler)

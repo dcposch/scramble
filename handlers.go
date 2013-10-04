@@ -52,7 +52,7 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// POST /publickeys to look up many public keys from
+// POST /publickeys/query to look up many public keys from
 //  many <public key hash>@<host> addresses.
 // The server is untrusted, so the client must verify by hashing.
 // Unknown public key hashes cause the server to dispatch requests
@@ -84,7 +84,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	if userId == nil {
 		for host, _ := range mxHostAddrs {
 			if host != ourMxHost {
-				log.Panicf("Invalid host for server-to-server /publickeys request. Expected %v, got %v", ourMxHost, host)
+				log.Panicf("Invalid host for server-to-server /publickeys/query request. Expected %v, got %v", ourMxHost, host)
 			}
 		}
 	}
@@ -113,7 +113,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				u := url.URL{}
 				u.Scheme = "https"
 				u.Host = host
-				u.Path = "/publickeys/"
+				u.Path = "/publickeys/query"
 				body := url.Values{}
 				addrStrs := []string{}
 				for _, addr := range addrs {
@@ -134,20 +134,31 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		case hostRespErr := <-ch:
 			counter -= 1
 			if hostRespErr.Err != nil {
+				log.Printf("Error in /publickeys/query dispatch request: %s", hostRespErr.Err.Error())
 				continue
 			} // TODO better error messages
 			respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
 			defer hostRespErr.Resp.Body.Close()
 			if err != nil {
+				log.Printf("Error in /publickeys/query dispatch request body read: %s", err.Error())
 				continue
 			} // TODO better error messages
 			parsed := map[string]*PubKeyErr{}
 			err = json.Unmarshal(respBody, &parsed)
 			if err != nil {
+				log.Println("Error in /publickeys/query json parse: %s", err.Error())
 				continue
 			} // TODO better error messages
 			for addr, pubKeyErr := range parsed {
-				res[addr] = pubKeyErr
+				// The client still verifies the hash, but
+				//  we should still be careful lest it tramples a valid entry
+				//  from another host.
+				if ParseEmailAddress(addr).Host != hostRespErr.Host {
+					log.Printf("Dispatched /publickeys/query to %s returned an invalid address: %s",
+						hostRespErr.Host, addr)
+				} else {
+					res[addr] = pubKeyErr
+				}
 			}
 		case <-timeout:
 			timedOut = true
@@ -184,6 +195,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		case hostRespErr := <-ch:
 			counter -= 1
 			if hostRespErr.Err != nil {
+				log.Printf("Error in (timed out) /publickeys/query dispatch request drain: %s", hostRespErr.Err.Error())
 				continue
 			}
 			hostRespErr.Resp.Body.Close()

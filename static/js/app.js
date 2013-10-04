@@ -683,7 +683,7 @@ function lookupPublicKeys(addresses, cb) {
     var params = {
         addresses: addresses.join(',')
     }
-    $.post("/publickeys/", params, function(data) {
+    $.post("/publickeys/query", params, function(data) {
 
         // read armored pubkeys
         for (var addr in data) {
