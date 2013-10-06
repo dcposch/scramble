@@ -407,7 +407,9 @@ function decryptSubjects(headers, privateKey){
     for(var i = 0; i < headers.length; i++){
         var h = headers[i]
         h.Subject = tryDecodePgp(h.CipherSubject, privateKey)
-        if(trim(h.Subject)==""){
+        if(h.Subject == null) {
+            h.Subject = "(Decryption failed)"
+        } else if(trim(h.Subject)==""){
             h.Subject = "(No subject)"
         }
     }
@@ -872,12 +874,12 @@ function bindContactsEvents(){
             contacts.push({name:name, address:address, pubHash:resolvedPubHash})
         }
 
-        resolveAddresses(Object.keys(needResolution), function(pubHashes) {
-            for (var address in pubHashes) {
+        lookupPublicKeys(Object.keys(needResolution), function(keyMap) {
+            for (var address in needResolution) {
                 contacts.push({
                     name:    needResolution[address],
                     address: address,
-                    pubHash: pubHashes[address],
+                    pubHash: keyMap[address].pubHash,
                 })
             }
             trySaveContacts(contacts, function(){
@@ -1151,7 +1153,40 @@ function loadNotaries(cb) {
                 "rk3ZF3pZKAwV5UM2IQSgS0fshNrDpuMkRxscv/KYW+tVqYeP8UX1r74k\n"+
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
-            )
+            ),
+        "notary@dev.hashed.im":
+            openpgp.read_publicKey(
+                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
+                "\n"+
+                "xsBNBFJM2MQBCAC+6XtfSNnub2S3OAUPCPVkQ+5FHQ1BKBft1R1rFlhsBYnBFp9O\n"+
+                "9mOG945gkq6tF3cW5IEOrHbTkyB3aHzunoU90AIE5r6FT/9d6BrSU68SdDGimYmd\n"+
+                "32UnIZpAYEBxOkVxKH1/qD1SBjqqFjCEfUNVfb+Yrtmpu+X7ZIOPsQvVG49Fm9jz\n"+
+                "Ec8czgh1+vZs76qljrNAfcHNNZnwLghF3bFwd0opckBRQ0Fy4iaxSn3ovwjKu2bZ\n"+
+                "/fzAMDSzjWm5SVOr3bgDKseJmfP3ILDfAzEH5BksDatPqWRDI96YOFNHNfmJ9AmO\n"+
+                "fdLeR234rixSrfcMiCPCk8ghjtkrh6MGFOVbABEBAAHNTU5vdGFyeSAoTm90YXJ5\n"+
+                "IGZvciBkZXYuc2NyYW1ibGUuaW8gU2NyYW1ibGUgU2VydmVyKSA8c3VwcG9ydEBk\n"+
+                "ZXYuc2NyYW1ibGUuaW8+wsBiBBMBCAAWBQJSTNjECRBkHs2sSxRdNAIbAwIZAQAA\n"+
+                "NTIIAHYURtQ9kPzbM2we5NEtSYugGUtaOlfksH4eNdLeSUta0lo5sAhTIDqhpU6r\n"+
+                "VZBFC/QMenvsJNjfLrusbDHUduOSdyHOWGMspvYMDD9k5b46HA6Gg/wS1HJvMImp\n"+
+                "3wMEnbP0hOx5RGgizYzRJW4t0lGJ24MPvXxyzH4XEWIpev5vskP50e/Al36i4w21\n"+
+                "xdJ73JSXw0AqZqaK3dQeZYRqFEK7UDdAWifOmgBWTKn1PH8zFIdf8YPx8y/Atq6K\n"+
+                "nEBKmrEAMkwOZxRFXGnQl6ZdvgbGWg3U5L8M7vkf2mQObbqqTkUEDh5DdC4so37t\n"+
+                "M9lIDTbqvzo80fUX/l/mzYc6HyTOwE0EUkzYxAEIAKA3QTMKdayva/0VgFXv7vjM\n"+
+                "SOqjcqFgcWgIsZyRGjWd04X2KZrAr3iO6V842JO3my34vmNuKG7Bys2A+b0oRrCU\n"+
+                "OP+XKmcqYwyf/lzwWgvSzZ/B7wsCn2pic8/gdbFvK4Nl2gwPmD+BPxy7ykdvIdkM\n"+
+                "ZYJVyPR9LSoPPXDsFwDXQ9FGtijfS5MeCAOadMHhk8Lzk1gSi4lGwP8seJwllH1d\n"+
+                "31YWprpKbMxZOZSvZSc5BvEgGeTgNGDzOnX0UqlAGIbUlwAhP/O/Q7np8LcYYIuS\n"+
+                "bwGa51na39Z/MVyZiwJya1Sw4ovNqZiB/LZHe6vObCdvB0MjShEriZnKslKok1UA\n"+
+                "EQEAAcLAXwQYAQgAEwUCUkzYxAkQZB7NrEsUXTQCGwwAAAHpCAB3ZRFjStuoO3FR\n"+
+                "efXaFQeFXSjV7x9MeFq0atoKp/5HGICnWyGvRWAVLhUu1svs15BeEBOXPKhCyWAc\n"+
+                "tzCQVvqlXEK0zcRW74nlOWoQH4QbjrYHQxdzHnzUfOIK2/zOcH0voX+QMu6kyC62\n"+
+                "2SRA0PxrANdFMrgRrxKzpptQiTYFvy1cZR/wZ5cutaO2BNBwHh5grPiTtLw9YAUQ\n"+
+                "cipCIzR5sCwi1wxU0hXrKlyP2fXFDgcreqP46ZUQObg6SnjvArxMzsYNnStfbW/W\n"+
+                "aNQWj12+wxHNgUyo1xhkvPk5g8svGhAFsZHVB93YxkKMX79SFku6nQGNbl7Ez3Mu\n"+
+                "hO2q+5YC\n"+
+                "=Hmrz\n"+
+                "-----END PGP PUBLIC KEY BLOCK-----"
+            ),
     })
 }
 

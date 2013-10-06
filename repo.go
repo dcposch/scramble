@@ -319,7 +319,7 @@ func MoveEmail(address string, messageID string, newBox string) {
 // Load and set box as 'outbox-processing'
 func CheckoutOutbox(limit int) []BoxedEmail {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
-		" m.from_email, m.to_email, m.cipher_subject, m.cipher_subject, "+
+		" m.from_email, m.to_email, m.cipher_subject, m.cipher_body, "+
 		" b.id, b.box, b.address "+
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
