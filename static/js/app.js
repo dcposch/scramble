@@ -57,9 +57,10 @@ viewState.contacts = null // plaintext address book, must *always* be good data.
 
 //
 // LOAD THE SITE
+// Called on load: $(main)
 //
 
-$(function(){
+function main(){
     if(!initPGP()) return
     bindKeyboardShortcuts()
 
@@ -70,7 +71,7 @@ $(function(){
     } else {
         loadDecryptAndDisplayBox()
     }
-})
+}
 
 
 
@@ -1172,7 +1173,7 @@ function verifyNotarySignature(notaryRes, notaryPublicKey) {
 var scrypt = scrypt_module_factory();
 function computeAesKey(token, pass){
     var salt = "2"+token
-    return hex2bin(computeScrypt(token, pass, salt, 16)) // 16 bytes = 128 bits
+    return hex2bin(computeScrypt(pass, salt, 16)) // 16 bytes = 128 bits
 }
 
 // Backcompat only: uses SHA1 to create a AES-128 key (binary)
@@ -1186,10 +1187,10 @@ function computeAesKeyOld(token, pass){
 // Returns 160-bit hex
 function computeAuth(token, pass){
     var salt = "1"+token
-    return computeScrypt(token, pass, salt, 20) // 20 bytes = 160 bits
+    return computeScrypt(pass, salt, 20) // 20 bytes = 160 bits
 }
 
-function computeScrypt(token, pass, salt, nbytes){
+function computeScrypt(pass, salt, nbytes){
     var param = SCRYPT_PARAMS
     var hash = scrypt.crypto_scrypt(
             scrypt.encode_utf8(pass), 
