@@ -64,30 +64,6 @@ func init() {
 	log.Printf("Notary loaded: %v@%v", GetNotaryInfo().Hash, GetConfig().SmtpMxHost)
 }
 
-//
-// ID HANDLER
-//
-
-func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
-
-	resJson, err := json.Marshal(struct {
-			Address string `json:"address"`
-			PubKey  string `json:"pubkey"`
-		}{
-			GetNotaryInfo().Hash+"@"+GetConfig().SmtpMxHost,
-			GetNotaryInfo().PublicKeyArmor,
-		},
-	)
-	if err != nil { panic(err) }
-	w.Write(resJson)
-
-}
-
-
-//
-// QUERY HANDLER
-//
-
 type NotarySignedResult struct {
 	PubHash   string `json:"pubHash"`
 	Timestamp int64  `json:"timestamp"`

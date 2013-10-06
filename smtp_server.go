@@ -327,6 +327,7 @@ func saveMail() {
 	//  receives values from the channel repeatedly until it is closed.
 	for {
 		client := <-SaveMailChan
+		log.Println("Mail from "+client.mailFrom+" to "+strings.Join(client.rcptTo, ","))
 		// check mailFrom and rcptTo, etc.
 		if client_err := validateEmailData(client); client_err != nil {
 			log.Println(client_err)

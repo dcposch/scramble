@@ -13,10 +13,10 @@ func main() {
 	http.HandleFunc("/user/me/contacts", contactsHandler)
 	http.HandleFunc("/user/me/key", privateKeyHandler)
 	http.HandleFunc("/publickeys/query", publicKeysHandler)
+	http.HandleFunc("/publickeys/notary", notaryIdHandler)
 	http.HandleFunc("/email/", emailHandler)
 	http.HandleFunc("/box/", inboxHandler)
 	http.HandleFunc("/nginx_proxy", nginxProxyHandler)
-	http.HandleFunc("/notary/id", notaryIdHandler)
 
 	// Resources
 	http.HandleFunc("/", staticHandler)

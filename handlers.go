@@ -63,7 +63,6 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	type PubKeyError struct {
 		PubKey  string `json:"pubKey,omitempty"`
-		PubHash string `json:"pubHash,omitempty"`
 		Error   string `json:"error,omitempty"`
 	}
 
@@ -126,11 +125,13 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	for mxHost, hashAddrs := range mxHostHashAddrs {
 		allRequests[mxHost] = &PerMxHostRequest{nil, hashAddrs}
 	}
-	for _, notary := range notaries {
-		if allRequests[notary.Host] == nil {
-			allRequests[notary.Host] = &PerMxHostRequest{nameAddrs, nil}
-		} else {
-			allRequests[notary.Host].NameAddresses = nameAddrs
+	if len(nameAddrs) > 0 {
+		for _, notary := range notaries {
+			if allRequests[notary.Host] == nil {
+				allRequests[notary.Host] = &PerMxHostRequest{nameAddrs, nil}
+			} else {
+				allRequests[notary.Host].NameAddresses = nameAddrs
+			}
 		}
 	}
 
@@ -162,21 +163,21 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				res.NameResolution[mxHost] = thisResult
+				res.NameResolution["notary@"+mxHost] = thisResult
 			}
 
 			// handle pubkey lookup
 			for _, addr := range request.HashAddresses {
 				pubHash := LoadPubHash(addr.Name)
 				if pubHash == "" {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Unknown name "+addr.Name}
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Unknown name "+addr.Name}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
 				if pubHash == addr.Hash {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, ""}
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, ""}
 				} else {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, "Wrong hash for name"}
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, "Wrong hash for name"}
 				}
 			}
 			// also load pubkeys for name addresses whose mx host is self
@@ -185,7 +186,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 					for _, addr := range addrs {
 						pubHash := LoadPubHash(addr.Name)
 						pubKey := LoadPubKey(pubHash)
-						res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, ""}
+						res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, ""}
 					}
 				}
 			}
@@ -221,6 +222,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			respBody, err := ioutil.ReadAll(mxHostRespErr.Resp.Body)
 			defer mxHostRespErr.Resp.Body.Close()
+			log.Println("Dispatch response: ", string(respBody))
 			if err != nil {
 				log.Printf("Error in /publickeys/query dispatch request body read: %s", err.Error())
 				continue
@@ -259,7 +261,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, addr := range addrs {
 			if res.PublicKeys[addr.StringNoHash()] == nil {
-				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Failed to retrieve public key"}
+				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
 			}
 		}
 	}
@@ -269,15 +271,17 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, addr := range addrs {
 			if res.PublicKeys[addr.StringNoHash()] == nil {
-				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Failed to retrieve public key"}
+				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
 			}
 		}
 	}
-	for _, notary := range notaries {
-		if res.NameResolution[notary.StringNoHash()] == nil {
-			res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
-				nil,
-				fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
+	if len(nameAddrs) > 0 {
+		for _, notary := range notaries {
+			if res.NameResolution[notary.StringNoHash()] == nil {
+				res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
+					nil,
+					fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
+				}
 			}
 		}
 	}
@@ -583,4 +587,23 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 	header.Add("Auth-Server", "127.0.0.1")
 	header.Add("Auth-Port", fmt.Sprintf("%d", GetConfig().SmtpPort))
 	w.Write([]byte{})
+}
+
+//
+// NOTARY
+//
+
+func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
+
+	resJson, err := json.Marshal(struct {
+			Address string `json:"address"`
+			PubKey  string `json:"pubkey"`
+		}{
+			GetNotaryInfo().Hash+"@"+GetConfig().SmtpMxHost,
+			GetNotaryInfo().PublicKeyArmor,
+		},
+	)
+	if err != nil { panic(err) }
+	w.Write(resJson)
+
 }

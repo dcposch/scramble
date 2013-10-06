@@ -55,7 +55,7 @@ func ping() {
 func SaveUser(user *User) bool {
 	res, err := db.Exec("insert ignore into user"+
 		" (token, password_hash, public_hash, public_key, cipher_private_key, email_host)"+
-		" values (?, ?, ?, ?, ?)",
+		" values (?, ?, ?, ?, ?, ?)",
 		user.Token, user.PasswordHash,
 		user.PublicHash, user.PublicKey,
 		user.CipherPrivateKey, user.EmailHost)

@@ -189,7 +189,7 @@ color:red;
 margin:8px 0;
 font-weight:bold;
 }
-#sidebar .email {
+#sidebar .email, #sidebar .pubHash {
 font:9px monospace;
 margin:8px 0;
 }
