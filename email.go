@@ -7,24 +7,29 @@ import (
 
 type EmailAddress struct {
 	Name string
+	Hash string
 	Host string
 }
 
 func (addr *EmailAddress) String() string {
-	return addr.Name + "@" + addr.Host
+	if addr.Hash == "" {
+		return addr.Name+"@"+addr.Host
+	} else {
+		return addr.Name+"#"+addr.Hash+"@"+addr.Host
+	}
 }
 
-func (addr *EmailAddress) IsHashAddress() bool {
-	return regexHash.MatchString(addr.Name)
+func (addr *EmailAddress) StringNoHash() string {
+	return addr.Name+"@"+addr.Host
 }
 
 // "foo@bar.com" -> EmailAddress
 func ParseEmailAddress(addr string) EmailAddress {
-	parts := strings.Split(strings.TrimSpace(addr), "@")
-	if len(parts) != 2 {
+	match := regexHashAddress.FindStringSubmatch(addr)
+	if match == nil {
 		log.Panicf("Invalid email address %s", addr)
 	}
-	return EmailAddress{parts[0], parts[1]}
+	return EmailAddress{match[1], match[2], match[3]}
 }
 
 // "foo@bar.com,baz@boo.com" -> []EmailAddress
@@ -48,11 +53,8 @@ func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
 	addrs := strings.Split(addrList, ",")
 	hostAddrs := map[string]EmailAddresses{}
 	for _, addr := range addrs {
-		addr = validateAddress(addr)
-		match := regexAddress.FindStringSubmatch(addr)
-		name := match[1]
-		host := match[2]
-		hostAddrs[host] = append(hostAddrs[host], EmailAddress{name, host})
+		email := ParseEmailAddress(addr)
+		hostAddrs[email.Host] = append(hostAddrs[email.Host], email)
 	}
 	return hostAddrs
 }

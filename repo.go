@@ -54,11 +54,11 @@ func ping() {
 
 func SaveUser(user *User) bool {
 	res, err := db.Exec("insert ignore into user"+
-		" (token, password_hash, public_hash, public_key, cipher_private_key)"+
+		" (token, password_hash, public_hash, public_key, cipher_private_key, email_host)"+
 		" values (?, ?, ?, ?, ?)",
 		user.Token, user.PasswordHash,
 		user.PublicHash, user.PublicKey,
-		user.CipherPrivateKey)
+		user.CipherPrivateKey, user.EmailHost)
 	if err != nil {
 		panic(err)
 	}
@@ -73,13 +73,15 @@ func LoadUser(token string) *User {
 	var user User
 	user.Token = token
 	err := db.QueryRow("select"+
-		" password_hash, password_hash_old, public_hash, public_key, cipher_private_key"+
+		" password_hash, password_hash_old, public_hash, public_key, cipher_private_key, email_host"+
 		" from user where token=?", token).Scan(
 		&user.PasswordHash,
 		&user.PasswordHashOld,
 		&user.PublicHash,
 		&user.PublicKey,
-		&user.CipherPrivateKey)
+		&user.CipherPrivateKey,
+		&user.EmailHost)
+	user.EmailAddress = user.Token+"@"+user.EmailHost
 	if err == sql.ErrNoRows {
 		return nil
 	}
@@ -93,11 +95,13 @@ func LoadUserID(token string) *UserID {
 	var user UserID
 	user.Token = token
 	err := db.QueryRow("select"+
-		" password_hash, password_hash_old, public_hash"+
+		" password_hash, password_hash_old, public_hash, email_host"+
 		" from user where token=?", token).Scan(
 		&user.PasswordHash,
 		&user.PasswordHashOld,
-		&user.PublicHash)
+		&user.PublicHash,
+		&user.EmailHost)
+	user.EmailAddress = user.Token+"@"+user.EmailHost
 	if err == sql.ErrNoRows {
 		return nil
 	}

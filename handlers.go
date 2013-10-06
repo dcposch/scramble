@@ -52,77 +52,159 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// POST /publickeys/query to look up many public keys from
-//  many <public key hash>@<host> addresses.
-// The server is untrusted, so the client must verify by hashing.
-// Unknown public key hashes cause the server to dispatch requests
-//  to the address host.
+// POST /publickeys/query to resolve addresses to public key hashes &
+//  also look up public keys from those hashes.
+// Read more here:
+//  https://github.com/dcposch/scramble/wiki/Name-Resolution-&-Public-Key-Fetching
+// The server is untrusted, so the client must verify everything.
 func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	userId := authenticate(r)
+	timestamp := time.Now().Unix()
 
-	type PubKeyErr struct {
-		PubKey string `json:"pubKey,omitempty"`
-		Error  string `json:"error,omitempty"`
+	type PubKeyError struct {
+		PubKey  string `json:"pubKey,omitempty"`
+		PubHash string `json:"pubHash,omitempty"`
+		Error   string `json:"error,omitempty"`
 	}
 
-	type HostRespErr struct {
-		Host string
-		Resp *http.Response
-		Err  error
+	type Response struct {
+		NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"` // defined in notary.go
+		PublicKeys     map[string]*PubKeyError       `json:"publicKeys,omitempty"`
+	}
+
+	type MxHostRespErr struct {
+		MxHost string
+		Resp   *http.Response
+		Err    error
+	}
+
+	type PerMxHostRequest struct {
+		NameAddresses EmailAddresses
+		HashAddresses EmailAddresses
 	}
 
 	// parse addresses & group by mx host
-	addrs := r.FormValue("addresses")
-	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(addrs)
+	nameAddrs := ParseEmailAddresses(r.FormValue("nameAddresses"))
+	mxHostNameAddrs, failedNameAddrs := GroupAddrsByMxHost(r.FormValue("nameAddresses"))
+	mxHostHashAddrs, failedHostAddrs := GroupAddrsByMxHost(r.FormValue("hashAddresses"))
+	notaries := ParseEmailAddresses(r.FormValue("notaries"))
+	res := Response{}
+	res.NameResolution = map[string]*NotaryResultError{}
+	res.PublicKeys =     map[string]*PubKeyError{}
 
-	// res will get returned as json: {address: {pubkey, err}}
-	res := map[string]*PubKeyErr{}
+	// fail immediately if any address cannot be resolved.
+	if (len(failedHostAddrs) != 0 || len(failedNameAddrs) != 0) {
+		// TODO: better error handling
+		failedHosts := []string{}
+		for failedHost, _ := range failedHostAddrs {
+			failedHosts = append(failedHosts, failedHost)
+		}
+		for failedHost, _ := range failedNameAddrs {
+			failedHosts = append(failedHosts, failedHost)
+		}
+		w.WriteHeader(500)
+		w.Write([]byte(fmt.Sprintf("Host (%v) has no MX record", strings.Join(failedHosts, ","))))
+		return
+	}
 
 	// server-to-server requests need no userId,
 	// but all requested addresses should belong to this server.
 	ourMxHost := GetConfig().SmtpMxHost
 	if userId == nil {
-		for host, _ := range mxHostAddrs {
+		for host, _ := range mxHostHashAddrs {
 			if host != ourMxHost {
 				log.Panicf("Invalid host for server-to-server /publickeys/query request. Expected %v, got %v", ourMxHost, host)
 			}
 		}
+		if len(notaries) > 1 || notaries[0].Host != GetConfig().SmtpMxHost {
+			log.Panicf("Expected 0 or 1 notary address @"+GetConfig().SmtpMxHost+", got ["+notaries.String()+"]")
+		}
+	}
+
+	// compile requests by mx host.
+	allRequests := map[string]*PerMxHostRequest{}
+	for mxHost, hashAddrs := range mxHostHashAddrs {
+		allRequests[mxHost] = &PerMxHostRequest{nil, hashAddrs}
+	}
+	for _, notary := range notaries {
+		if allRequests[notary.Host] == nil {
+			allRequests[notary.Host] = &PerMxHostRequest{nameAddrs, nil}
+		} else {
+			allRequests[notary.Host].NameAddresses = nameAddrs
+		}
 	}
 
 	// dispatch requests to each server.
-	ch := make(chan *HostRespErr)
+	ch := make(chan *MxHostRespErr)
 	counter := 0
-	for host, addrs := range mxHostAddrs {
-		if host == GetConfig().SmtpMxHost {
+	for mxHost, request := range allRequests {
+		if mxHost == GetConfig().SmtpMxHost {
 			// if host is this host
-			for _, addr := range addrs {
-				if !addr.IsHashAddress() {
-					panic("publicKeysHandler can't handle non-hash-addresses")
+
+			// handle resolution request
+			if len(request.NameAddresses) > 0 {
+				signedResults := map[string]*NotarySignedResult{}
+				thisResult := &NotaryResultError{signedResults, ""}
+				for mxHost, addrs := range mxHostNameAddrs {
+					for _, addr := range addrs {
+						var pubHash string
+						if mxHost == GetConfig().SmtpMxHost {
+							// TODO: what if addr's host is not the user's default?
+							pubHash = LoadPubHash(addr.Name)
+						} else {
+							pubHash = ResolveName(addr.Name, addr.Host)
+						}
+						// pubHash may be "", and that's a ok.
+						signedResults[addr.String()] = &NotarySignedResult{
+							pubHash,
+							timestamp,
+							SignNotaryResponse(addr.Name, addr.Host, pubHash, timestamp),
+						}
+					}
 				}
-				pubKey := LoadPubKey(addr.Name)
-				if pubKey == "" {
-					res[addr.String()] = &PubKeyErr{"", "Unknown address"}
+				res.NameResolution[mxHost] = thisResult
+			}
+
+			// handle pubkey lookup
+			for _, addr := range request.HashAddresses {
+				pubHash := LoadPubHash(addr.Name)
+				if pubHash == "" {
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Unknown name "+addr.Name}
+					continue
+				}
+				pubKey := LoadPubKey(pubHash)
+				if pubHash == addr.Hash {
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, ""}
 				} else {
-					res[addr.String()] = &PubKeyErr{pubKey, ""}
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, "Wrong hash for name"}
 				}
 			}
+			// also load pubkeys for name addresses whose mx host is self
+			for mxHost, addrs := range mxHostNameAddrs {
+				if mxHost == GetConfig().SmtpMxHost {
+					for _, addr := range addrs {
+						pubHash := LoadPubHash(addr.Name)
+						pubKey := LoadPubKey(pubHash)
+						res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, pubHash, ""}
+					}
+				}
+			}
+
 		} else {
 			// if host is an external host
 			counter += 1
-			go func(host string, addrs []EmailAddress) {
+			go func(mxHost string, request *PerMxHostRequest) {
 				u := url.URL{}
 				u.Scheme = "https"
-				u.Host = host
+				u.Host = mxHost
 				u.Path = "/publickeys/query"
 				body := url.Values{}
-				addrStrs := []string{}
-				for _, addr := range addrs {
-					addrStrs = append(addrStrs, addr.String())
-				}
-				body.Set("addresses", strings.Join(addrStrs, ","))
+				body.Set("nameAddresses", request.NameAddresses.String())
+				body.Set("hashAddresses", request.HashAddresses.String())
+				body.Set("notaries", "notary@"+mxHost)
 				resp, err := http.PostForm(u.String(), body)
-				ch <- &HostRespErr{host, resp, err}
-			}(host, addrs)
+				ch <- &MxHostRespErr{mxHost, resp, err}
+			}(mxHost, request)
 		}
 	}
 
@@ -131,33 +213,37 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	timedOut := false
 	for counter > 0 && !timedOut {
 		select {
-		case hostRespErr := <-ch:
+		case mxHostRespErr := <-ch:
 			counter -= 1
-			if hostRespErr.Err != nil {
-				log.Printf("Error in /publickeys/query dispatch request: %s", hostRespErr.Err.Error())
+			if mxHostRespErr.Err != nil {
+				log.Printf("Error in /publickeys/query dispatch request: %s", mxHostRespErr.Err.Error())
 				continue
-			} // TODO better error messages
-			respBody, err := ioutil.ReadAll(hostRespErr.Resp.Body)
-			defer hostRespErr.Resp.Body.Close()
+			}
+			respBody, err := ioutil.ReadAll(mxHostRespErr.Resp.Body)
+			defer mxHostRespErr.Resp.Body.Close()
 			if err != nil {
 				log.Printf("Error in /publickeys/query dispatch request body read: %s", err.Error())
 				continue
-			} // TODO better error messages
-			parsed := map[string]*PubKeyErr{}
+			}
+			parsed := Response{}
 			err = json.Unmarshal(respBody, &parsed)
 			if err != nil {
 				log.Println("Error in /publickeys/query json parse: %s", err.Error())
 				continue
-			} // TODO better error messages
-			for addr, pubKeyErr := range parsed {
+			}
+			// aggregate notary responses
+			res.NameResolution["notary@"+mxHostRespErr.MxHost] =
+				parsed.NameResolution["notary@"+mxHostRespErr.MxHost]
+			// merge pubkeys
+			for addr, pubKeyErr := range parsed.PublicKeys {
 				// The client still verifies the hash, but
 				//  we should still be careful lest it tramples a valid entry
 				//  from another host.
-				if ParseEmailAddress(addr).Host != hostRespErr.Host {
-					log.Printf("Dispatched /publickeys/query to %s returned an invalid address: %s",
-						hostRespErr.Host, addr)
+				if ParseEmailAddress(addr).Host != mxHostRespErr.MxHost {
+					log.Printf("Dispatched /publickeys/query to %s returned public key for an invalid address: %s",
+						mxHostRespErr.MxHost, addr)
 				} else {
-					res[addr] = pubKeyErr
+					res.PublicKeys[addr] = pubKeyErr
 				}
 			}
 		case <-timeout:
@@ -167,17 +253,31 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	// fill remaining addresses with appropriate error messages
 	// client must still verify that addresses aren't missing
-	for failedHost, addrs := range failedHostAddrs {
+	for mxHost, addrs := range mxHostNameAddrs {
+		if mxHost == GetConfig().SmtpMxHost {
+			continue // no need to fill error messages, already filled.
+		}
 		for _, addr := range addrs {
-			if res[addr.String()] == nil {
-				res[addr.String()] = &PubKeyErr{"", "Failed to resolve Mx record for domain "+failedHost}
+			if res.PublicKeys[addr.StringNoHash()] == nil {
+				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Failed to retrieve public key"}
 			}
 		}
 	}
-	for _, addrs := range mxHostAddrs {
+	for mxHost, addrs := range mxHostHashAddrs {
+		if mxHost == GetConfig().SmtpMxHost {
+			continue // no need to fill error messages, already filled.
+		}
 		for _, addr := range addrs {
-			if res[addr.String()] == nil {
-				res[addr.String()] = &PubKeyErr{"", "Failed to retrieve public key"}
+			if res.PublicKeys[addr.StringNoHash()] == nil {
+				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "", "Failed to retrieve public key"}
+			}
+		}
+	}
+	for _, notary := range notaries {
+		if res.NameResolution[notary.StringNoHash()] == nil {
+			res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
+				nil,
+				fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
 			}
 		}
 	}
@@ -192,13 +292,13 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// drain ch
 	for counter > 0 {
 		select {
-		case hostRespErr := <-ch:
+		case mxHostRespErr := <-ch:
 			counter -= 1
-			if hostRespErr.Err != nil {
-				log.Printf("Error in (timed out) /publickeys/query dispatch request drain: %s", hostRespErr.Err.Error())
+			if mxHostRespErr.Err != nil {
+				log.Printf("Error in (timed out) /publickeys/query dispatch request drain: %s", mxHostRespErr.Err.Error())
 				continue
 			}
-			hostRespErr.Resp.Body.Close()
+			mxHostRespErr.Resp.Body.Close()
 		}
 	}
 }
@@ -213,6 +313,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
 	user.PublicHash = ComputePublicHash(user.PublicKey)
 	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
+	user.EmailHost = computeEmailHost(r.Host)
+	user.EmailAddress = user.Token+"@"+computeEmailHost(r.Host)
 
 	log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
@@ -280,12 +382,6 @@ func authenticate(r *http.Request) *UserID {
 		passHashOldVal = passHashOld.Value
 	}
 	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
-
-	// TODO: user email address should be stored, not computed
-	if userId == nil {
-		return nil
-	}
-	userId.EmailAddress = userId.PublicHash + "@" + computeEmailHost(r.Host)
 	return userId
 }
 

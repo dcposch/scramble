@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"encoding/json"
-	"time"
-	"fmt"
 	//"crypto/tls"
 )
 
@@ -101,165 +99,6 @@ type NotaryResultError struct {
 	Error  string    `json:"error,omitempty"`
 }
 
-
-/*
-	POST /notary/query to look up many public hashes from
-	 many <name>@<host> addresses.
-
-	Expected form values:
-	 - addresses: A comma delimited list of addresses
-	 - notaries:  A comma delmited list of notary addresses to forward requests to.
-	              Forward recipients (secondary notaries) expect exactly 1 address (self).
-
-	Result format:
-	{
-		<notaryAddress1>: {
-			// ON SUCCESS:
-			"result": {
-				<queryAddress>: {
-					// success:
-					"pubhash":   "1234567890123456",
-					"timestamp": 1380383422,
-					"signature": <armor>,
-			   }
-			},
-			// OR, ON ERROR:
-			"error": <message>
-		},
-		<notaryAddress2>: ...
-	}
-*/
-func notaryQueryHandler( w http.ResponseWriter, r *http.Request) {
-
-	userId := authenticate(r)
-
-	timestamp := time.Now().Unix()
-
-	type NotaryRespErr struct {
-		Notary EmailAddress
-		Resp   *http.Response
-		Err    error
-	}
-
-	// the address (name@host) to resolve to hash@host.
-	addrs := ParseEmailAddresses(r.FormValue("addresses"))
-	// the notaries to ask in the form of hash@host.
-	notaries := ParseEmailAddresses(r.FormValue("notaries"))
-	res := map[string]*NotaryResultError{}
-
-	// server-to-server queries need no userId,
-	// but notaries should only contain this notary's address.
-	if userId == nil {
-		if len(notaries) != 1 || notaries[0].Host != GetConfig().SmtpMxHost {
-			log.Panicf("Expected 1 notary address @"+GetConfig().SmtpMxHost+", got ["+notaries.String()+"]")
-		}
-	}
-
-	// dispatch query to each notary.
-	ch := make(chan *NotaryRespErr)
-	counter := 0
-	for _, notary := range notaries {
-		if notary.Host == GetConfig().SmtpMxHost {
-			// if notary is this host
-			results := map[string]*NotarySignedResult{}
-			res[notary.String()] = &NotaryResultError{results, ""}
-			for _, addr := range addrs {
-				if addr.IsHashAddress() {
-					panic("Cannot accept a hash-address")
-				}
-				var pubHash string
-				if addr.Host == GetConfig().SmtpMxHost {
-					pubHash = LoadPubHash(addr.Name)
-				} else {
-					pubHash = ResolveName(addr.Name, addr.Host)
-				}
-				// pubHash may be "", and that's a ok.
-				results[addr.String()] = &NotarySignedResult{
-					pubHash,
-					timestamp,
-					SignNotaryResponse(addr.Name, addr.Host, pubHash, timestamp),
-				}
-			}
-		} else {
-			// if notary is an external host
-			counter += 1
-			go func(notary EmailAddress, addrs string) {
-				u := url.URL{}
-				u.Scheme = "https"
-				u.Host = notary.Host
-				u.Path = "/notary/query"
-				body := url.Values{}
-				body.Set("addresses", addrs)
-				body.Set("notaries", notary.String())
-				resp, err := http.PostForm(u.String(), body)
-				ch <- &NotaryRespErr{notary, resp, err}
-			}(notary, r.FormValue("addresses"))
-		}
-	}
-
-	// update `res` with responses
-	timeout := time.After(5 * time.Second)
-	timedOut := false
-	for counter > 0 && !timedOut {
-		select {
-		case notaryRespErr := <-ch:
-			counter -= 1
-			notary := notaryRespErr.Notary
-			if notaryRespErr.Err != nil {
-				log.Printf("Error in /notary/query dispatch request: %s", notaryRespErr.Err.Error())
-				continue
-			} // TODO better error messages
-			respBody, err := ioutil.ReadAll(notaryRespErr.Resp.Body)
-			defer notaryRespErr.Resp.Body.Close()
-			if err != nil {
-				log.Printf("Error in /notary/query dispatch request body read: %s", err.Error())
-				continue
-			} // TODO better error messages
-			parsed := map[string]*NotaryResultError{}
-			err = json.Unmarshal(respBody, &parsed)
-			if err != nil {
-				log.Println("Error in /notary/query json parse: %s", err.Error())
-				continue
-			} // TODO better error messages
-			res[notary.String()] = parsed[notary.String()]
-		case <-timeout:
-			timedOut = true
-		}
-	}
-
-	// missing notary responses get error messages.
-	// client must still verify that addresses aren't missing
-	for _, notary := range notaries {
-		if res[notary.String()] == nil {
-			res[notary.String()] = &NotaryResultError{
-				nil,
-				fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
-			}
-		}
-	}
-
-	// respond back
-	resJson, err := json.Marshal(res)
-	if err != nil {
-		panic(err)
-	}
-	w.Write(resJson)
-
-	// drain ch
-	for counter > 0 {
-		select {
-		case notaryRespErr := <-ch:
-			counter -= 1
-			if notaryRespErr.Err != nil {
-				log.Printf("Error in (timed out) /notary/query dispatch request drain: %s", notaryRespErr.Err.Error())
-				continue
-			}
-			notaryRespErr.Resp.Body.Close()
-		}
-	}
-
-}
-
 // returns the hash if known, otherwise queues to fetch later.
 func ResolveName(name, host string) string {
 	addr := name+"@"+host
@@ -274,10 +113,10 @@ func ResolveName(name, host string) string {
 			u := url.URL{}
 			u.Scheme = "https"
 			u.Host = mxHost
-			u.Path = "/notary/query"
+			u.Path = "/publickeys/query"
 			body := url.Values{}
-			body.Set("addresses", addr)
-			body.Set("notaries", "any@"+mxHost) // TODO look it up?
+			body.Set("nameAddresses", addr)
+			body.Set("notaries", "notary@"+mxHost)
 
 			// Alternatively, use the following snippet to ignore bad certs.
 			/*
@@ -299,19 +138,25 @@ func ResolveName(name, host string) string {
 				log.Printf("Failed to retrieve hash for %s", addr)
 				return
 			}
-			parsed := map[string]*NotaryResultError{}
+
+			type Response struct {
+				NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"` // defined in notary.go
+				// ignore publicKeys, we don't need it.
+				//PublicKeys     map[string]*PubKeyError       `json:"publicKeys,omitempty"`
+			}
+
+			parsed := Response{}
 			err = json.Unmarshal(respBody, &parsed)
 			if err != nil {
 				log.Printf("Failed to parse response for %s:\n\n%s\n\n%s", addr, respBody, err.Error())
 				return
-			} // TODO better error messages
-			if len(parsed) != 1 {
+			}
+			if len(parsed.NameResolution) != 1 {
 				log.Printf("Unexpected number of responses for %s", addr)
 				return
 			}
-			// TODO: check notary id & signature.
-			// Would be good to keep a record of those & notify the administrator for manual review.
-			for _, resErr := range parsed {
+			// TODO: check notary signature?
+			for _, resErr := range parsed.NameResolution {
 				if resErr.Result != nil && resErr.Result[addr] != nil {
 					AddNameResolution(name, host, resErr.Result[addr].PubHash)
 				}

@@ -14,6 +14,7 @@ var migrations = []func() error{
 	migrateLengthenSubject,
 	migrateShortenToken,
 	migrateCreateNameResolution,
+	migrateAddUserEmailAddress,
 }
 
 func migrateDb() {
@@ -245,5 +246,12 @@ func migrateCreateNameResolution() error {
 		hash           CHAR(16),
 		index (host, name)
     )`)
+	return err
+}
+
+func migrateAddUserEmailAddress() error {
+	_, err := db.Exec(`ALTER TABLE user ADD COLUMN email_host VARCHAR(254) NOT NULL DEFAULT ""`)
+	if err != nil { return err }
+	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
 	return err
 }
