@@ -34,16 +34,20 @@ type Email struct {
 	CipherBody string
 }
 
-type InboxSummary struct {
-	Token        string
+type BoxSummary struct {
+	EmailAddress string
 	PublicHash   string
+	Box          string
+	Offset       int
+	Limit        int
+	Total        int
 	EmailHeaders []EmailHeader
 }
 
 // Represents an email in the box join table.
 type BoxedEmail struct {
 	Email
-    Id           int64
+	Id           int64
 	Box          string
 	Address      string
 }

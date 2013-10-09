@@ -17,6 +17,8 @@ var KEY_SIZE = 2048
 var ALGO_SHA1 = 2
 var ALGO_AES128 = 7
 
+var BOX_PAGE_SIZE = 20
+
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i
@@ -229,16 +231,19 @@ function login(token, pass){
     setCookie("passHashOld", computeAuthOld(token, pass))
 
     // try fetching the inbox
-    $.get("/box/inbox", function(inbox){
-        // logged in successfully!
-        decryptAndDisplayBox(inbox)
-    }, 'json').fail(function(xhr){
-        if(xhr.statusCode == 401) { // unauthorized 
-            alert("Incorrect user or passphrase")
-        } else {
-            alert(xhr.responseText || "Could not reach the server, try again")
+    $.get("/box/inbox",
+        { offset: 0, limit: BOX_PAGE_SIZE },
+        function(inbox){
+            // logged in successfully!
+            decryptAndDisplayBox(inbox)
+        }, 'json').fail(function(xhr){
+            if(xhr.statusCode == 401) { // unauthorized 
+                alert("Incorrect user or passphrase")
+            } else {
+                alert(xhr.responseText || "Could not reach the server, try again")
+            }
         }
-    })
+    )
 }
 
 function setCookie(name, value){
@@ -319,11 +324,14 @@ function createAccount(keys){
         // set cookies, try loading the inbox
         setCookie("token", token)
         setCookie("passHash", passHash)
-        $.get("/box/inbox", function(inbox){
-            decryptAndDisplayBox(inbox)
-        }, 'json').fail(function(){
-            alert("Try refreshing the page, then logging in.")
-        })
+        $.get("/box/inbox",
+            { offset: 0, limit: BOX_PAGE_SIZE },
+            function(inbox){
+                decryptAndDisplayBox(inbox)
+            }, 'json').fail(function(){
+                alert("Try refreshing the page, then logging in.")
+            }
+        )
     }).fail(function(xhr){
         alert(xhr.responseText)
     })
@@ -366,18 +374,29 @@ function validateNewPassword(){
 
 function bindBoxEvents(box) {
     // Click on an email to open it
-    $("#"+box+" li").click(function(e){
+    $("#"+box+" .box-items>li").click(function(e){
         displayEmail($(e.target))
+    })
+    // Click on a pagination link
+    $('#'+box+" .box-pagination a").click(function(e) {
+        var box = $(this).data("box")
+        var page = $(this).data("page")
+        loadDecryptAndDisplayBox(box, page)
+        return false
     })
 }
 
-function loadDecryptAndDisplayBox(box){
+function loadDecryptAndDisplayBox(box, page){
     box = box || "inbox"
-    $.get("/box/"+box, function(summary){
-        decryptAndDisplayBox(summary, box)
-    }, 'json').fail(function(){
-        displayLogin()
-    })
+    page = page || 1
+    $.get("/box/"+box,
+        { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
+        function(summary){
+            decryptAndDisplayBox(summary, box)
+        }, 'json').fail(function(){
+            displayLogin()
+        }
+    )
 }
 
 function decryptAndDisplayBox(inboxSummary, box){
@@ -389,15 +408,25 @@ function decryptAndDisplayBox(inboxSummary, box){
             decryptSubjects(inboxSummary.EmailHeaders, privateKey)
             var data = {
                 token:        $.cookie("token"),
+                emailAddress: inboxSummary.EmailAddress,
                 pubHash:      inboxSummary.PublicHash,
-                domain:       document.location.hostname,
+                box:          inboxSummary.Box,
+                offset:       inboxSummary.Offset,
+                limit:        inboxSummary.Limit,
+                total:        inboxSummary.Total,
+                page:         Math.floor(inboxSummary.Offset / inboxSummary.Limit)+1,
+                totalPages:   Math.ceil(inboxSummary.Total / inboxSummary.Limit),
                 emailHeaders: inboxSummary.EmailHeaders,
-                box:          box
             }
+            var pages = [];
+            for (var i=0; i<data.totalPages; i++) {
+                pages.push({page:i+1})
+            }
+            data.pages = pages
             $("#wrapper").html(render("page-template", data))
             bindSidebarEvents()
             setSelectedTab($("#tab-"+box))
-            $("#"+box).html(render("inbox-template", data))
+            $("#"+box).html(render("box-template", data))
             bindBoxEvents(box)
         })
     })
@@ -1450,6 +1479,8 @@ Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
             return options.inverse(this);
     }
 });
+
+Handlebars.registerPartial("box-pagination", $('#box-pagination-partial').html())
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail(){

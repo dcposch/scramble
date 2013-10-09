@@ -174,7 +174,7 @@ func SaveContacts(token string, cipherContacts string) {
 // Loads all email headers in a certain box
 // For example, inbox or sent box
 // That are encrypted for a given user
-func LoadBox(address string, box string) []EmailHeader {
+func LoadBox(address string, box string, offset, limit int) []EmailHeader {
 	log.Printf("Fetching %s for %s\n", box, address)
 
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
@@ -182,11 +182,21 @@ func LoadBox(address string, box string) []EmailHeader {
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
 		" WHERE b.address = ? and b.box=? "+
-		" ORDER BY b.unix_time DESC", address, box)
+		" ORDER BY b.unix_time DESC"+
+		" LIMIT ?, ? ",
+		address, box,
+		offset, limit)
 	if err != nil {
 		panic(err)
 	}
 	return rowsToHeaders(rows)
+}
+
+func CountBox(address string, box string) (count int, err error) {
+	err = db.QueryRow("SELECT count(*) FROM box "+
+		" WHERE address = ? and box = ?",
+		address, box).Scan(&count)
+	return
 }
 
 func rowsToHeaders(rows *sql.Rows) []EmailHeader {

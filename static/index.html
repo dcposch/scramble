@@ -75,15 +75,15 @@
     <h1>SCRAMBLE</h1>
     <div class="warning" id="warningBar"></div>
     <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout">Log Out</a></div>
-    <div class="email">{{token}}@{{domain}}</div>
+    <div class="email">{{emailAddress}}</div>
     <div class="pubHash">#{{pubHash}}</div>
     <a id="tab-compose" href="#" class="tab">Compose</a>
     <a id="tab-inbox" href="#" class="tab">Inbox</a>
-    <ul id="inbox" class="box"></ul>
+    <div id="inbox" class="box"></div>
     <a id="tab-sent" href="#" class="tab">Sent</a>
-    <ul id="sent" class="box"></ul>
+    <div id="sent" class="box"></div>
     <a id="tab-archive" href="#" class="tab">Archive</a>
-    <ul id="archive" class="box"></ul>
+    <div id="archive" class="box"></div>
     <a id="tab-contacts" href="#" class="tab">Contacts</a>
     <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a>
 </div>
@@ -91,10 +91,34 @@
 
 
 <!-- INBOX -->
-<script id="inbox-template" type="text/x-handlebars-template">
-{{#each emailHeaders}}
-    <li data-id="{{MessageID}}" data-box="{{../box}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
-{{/each}}
+<script id="box-template" type="text/x-handlebars-template">
+{{> box-pagination}}
+<ul class="box-items">
+    {{#each emailHeaders}}
+        <li data-id="{{MessageID}}" data-box="{{../box}}" data-time="{{UnixTime}}" data-from="{{From}}" data-to="{{To}}">{{Subject}}</li>
+    {{/each}}
+</ul>
+{{> box-pagination}}
+</script>
+
+<script id="box-pagination-partial" type="text/x-handlebars-template">
+<div class="box-pagination">
+{{#ifCond totalPages '>' 1}}
+    {{#ifCond 1 '<' page}}
+        <a href="#" data-page="0">&#171;</a>
+    {{/ifCond}}
+    {{#each pages}}
+        {{#ifCond ../page '==' page}}
+            <span class="page-link page-current">{{page}}</span>
+        {{else}}
+            <a class="page-link" href="#" data-page="{{page}}" data-box="{{../../box}}">{{page}}</a>
+        {{/ifCond}}
+    {{/each}}
+    {{#ifCond page '<' totalPages}}
+        <a href="#" data-page="{{totalPages}}">&#187;</a>
+    {{/ifCond}}
+{{/ifCond}}
+</div>
 </script>
 
 

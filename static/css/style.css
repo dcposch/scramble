@@ -207,12 +207,12 @@ color:#000;
 
 
 /* INBOX */
-.box {
+.box-items {
 list-style-type:none;
 padding:0px;
 margin:0px;
 }
-.box li {
+.box-items ul li {
 border-top:1px solid #ddd;
 padding:6px 0;
 white-space:nowrap;
@@ -220,10 +220,14 @@ overflow:hidden;
 text-overflow:ellipsis;
 cursor:pointer;
 }
-.box li:hover, .box li.current {
+.box-items li:hover, .box-items li.current {
 background:#eee;
 }
 
+.box-pagination {
+font-size: 0.8em;
+text-align: center;
+}
 
 
 /* SINGLE EMAIL */

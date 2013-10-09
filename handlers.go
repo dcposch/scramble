@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"strconv"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -436,10 +437,18 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	box := r.URL.Path[len("/box/"):]
+	query := r.URL.Query()
+	offset, err := strconv.Atoi(query.Get("offset"))
+	if err != nil { panic(err) }
+	limit, err := strconv.Atoi(query.Get("limit"))
+	if err != nil { panic(err) }
 
 	var emailHeaders []EmailHeader
+	var total int
 	if box == "inbox" || box == "archive" || box == "sent" {
-		emailHeaders = LoadBox(userId.EmailAddress, box)
+		emailHeaders = LoadBox(userId.EmailAddress, box, offset, limit)
+		total, err = CountBox(userId.EmailAddress, box)
+		if err != nil { panic(err) }
 	} else {
 		http.Error(w, "Unknown box. "+
 			"Expected 'inbox','sent', etc, got "+box,
@@ -447,16 +456,20 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var inbox InboxSummary
-	inbox.Token = userId.Token
-	inbox.PublicHash = userId.PublicHash
-	inbox.EmailHeaders = emailHeaders
+	var summary BoxSummary
+	summary.EmailAddress = userId.EmailAddress
+	summary.PublicHash = userId.PublicHash
+	summary.Box = box
+	summary.Offset = offset
+	summary.Limit = limit
+	summary.Total = total
+	summary.EmailHeaders = emailHeaders
 
-	inboxJson, err := json.Marshal(inbox)
+	summaryJson, err := json.Marshal(summary)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(inboxJson)
+	w.Write(summaryJson)
 }
 
 //
