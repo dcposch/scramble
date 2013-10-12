@@ -22,6 +22,7 @@ var BOX_PAGE_SIZE = 20
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i
+var REGEX_CONTACT_NAME = /^[a-z0-9._%+-]+$/i
 
 var SCRYPT_PARAMS = {
     N:16384, // difficulty=2^14, recommended range 2^14 to 2^20
@@ -634,18 +635,34 @@ function displayCompose(to, subject, body){
 function sendEmail(to,subject,body){
     // validate email addresses
     var toAddresses = to.split(",").map(trimToLower)
-    var invalidToAddresses = toAddresses.filter(function(addr){
-        return !addr.match(REGEX_EMAIL)
-    })
-    if(invalidToAddresses.length>0){
-        alert("Invalid email addresses "+invalidToAddresses.join(", "))
-        return
-    }
     if (toAddresses.length == 0) {
         alert("Enter an email address to send to")
         return;
     }
 
+    // lookup nicks from contacts
+    var errors = [];
+    for (var i=0; i<toAddresses.length; i++) {
+        var addr = toAddresses[i];
+        if (!addr.match(REGEX_EMAIL)) {
+            if (addr.match(REGEX_CONTACT_NAME)) {
+                var contactAddr = contactAddressFromName(addr);
+                if (contactAddr) {
+                    toAddresses[i] = contactAddr;
+                } else {
+                    errors.push("Unknown contact name "+addr);
+                    continue;
+                }
+            } else {
+                errors.push("Invalid email address "+addr);
+                continue
+            }
+        }
+    }
+    if (errors.length > 0) {
+        alert("Error:\n"+errors.join("\n"));
+        return;
+    }
 
     // extract the recipient public key hashes
     lookupPublicKeys(toAddresses, function(keyMap) {
@@ -938,6 +955,10 @@ function trySaveContacts(contacts, done){
         var addressMatch = address.match(REGEX_EMAIL)
         var pubHash = trimToLower(contacts[i].pubHash)
 
+        if (!name.match(REGEX_CONTACT_NAME)) {
+            errors.push("Invalid contact nick: "+name)
+        }
+
         if (address == "") {
             errors.push("No address entered for "+name)
         } else if(!addressMatch) {
@@ -1031,6 +1052,17 @@ function contactNameFromAddress(address){
         var contact = viewState.contacts[i]
         if(contact.address==address){
             return contact.name
+        }
+    }
+    return null
+}
+
+function contactAddressFromName(name){
+    name = trimToLower(name)
+    for(var i = 0; i < viewState.contacts.length; i++){
+        var contact = viewState.contacts[i]
+        if(contact.name.toLowerCase() == name){
+            return contact.address;
         }
     }
     return null
