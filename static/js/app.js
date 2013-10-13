@@ -1300,7 +1300,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "notary@www.hashed.im":
+        "notary@dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
