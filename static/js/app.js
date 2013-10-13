@@ -500,10 +500,24 @@ function bindEmailEvents() {
     $("#moveToInboxButton").click(function(){moveEmail("inbox")})
 
     $("#enterFromNameButton").click(function(){
-        var name = prompt("Contact name for "+viewState.email.from)
+        var addr = viewState.email.from
+        var name = prompt("Contact name for "+addr)
         if(name){
-            tryAddContact(name, viewState.email.from)
-            displayEmail($(".box li.current"))
+            getPubHash(viewState.email.from, function(pubHash, error) {
+                if (error) {
+                    alert(error)
+                    return
+                }
+                var contacts = addContacts(
+                    viewState.contacts,
+                    {name:name, address:addr, pubHash:pubHash}
+                )
+                trySaveContacts(contacts, function() {
+                    displayStatus("Contact saved")
+                })
+            })
+            // XXX was is this here?
+            // displayEmail($(".box li.current"))
         }
     })
 }
@@ -520,10 +534,14 @@ function displayEmail(target){
     var from = target.data("from")
     var subject = target.text()
 
-    lookupPublicKeys([from], function(keyMap) {
+    lookupPublicKeys([from], function(keyMap, newPubHashes) {
         var fromKey = keyMap[from].pubKey
+        var fromHash = keyMap[from].pubHash
         if (!fromKey) {
             alert("Failed to find public key for the sender ("+from+"). Message is unverified!")
+        }
+        if (newPubHashes.length > 0) {
+            trySaveContacts(addContacts(viewState.contacts, newPubHashes))
         }
         $.get("/email/"+target.data("id"), function(cipherBody){
             getPrivateKey(function(privateKey){
@@ -665,20 +683,29 @@ function sendEmail(to,subject,body){
     }
 
     // extract the recipient public key hashes
-    lookupPublicKeys(toAddresses, function(keyMap) {
-        // keyMap: {toAddress: {pubHash: <pubHash>, pubKey: <pubKey>, pubKeyArmor: <pubKeyArmor>} or {error: <error string>}}
+    lookupPublicKeys(toAddresses, function(keyMap, newPubHashes) {
         var pubKeys = {}; // {toAddress: <pubKey>}
-        var errors = {};  // {toAddress: <error string>}
+
+        // Save new addresses to contacts
+        if (newPubHashes.length > 0) {
+            trySaveContacts(addContacts(viewState.contacts, newPubHashes))
+        }
 
         // Verify all recipient public keys from keyMap
         for (var i = 0; i < toAddresses.length; i++) {
             var toAddr = toAddresses[i];
             var result = keyMap[toAddr];
             if (result.error) {
-                errors[toAddr] = result.error;
+                errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
                 continue;
             }
             pubKeys[toAddr] = result.pubKey;
+        }
+
+        // If errors, abort.
+        if (errors.length > 0) {
+            alert("Error:\n"+errors.join("\n"));
+            return;
         }
 
         sendEmailEncrypted(pubKeys, subject, body);
@@ -687,22 +714,37 @@ function sendEmail(to,subject,body){
     return false
 }
 
-// Gets the public keys for the given addresses.
+// Looks up the public keys for the given addresses.
 // First it looks in the contacts list to see if we already know the pubHash.
 // Then we send all the addresses to the server (along with pubHashes if known),
-// and the server will dispatch to notaries & fetch the public keys as necessary.
-// Then we need to verify the server response.
+//  and the server will dispatch to notaries & fetch the public keys as necessary.
+// Then we verify the response by computing the hash, etc.
 //
-// cb: function(data), data: {
-//     toAddress: {
-//         pubHash:     <pubHash>,
-//         pubKeyArmor: <pubKeyArmor>
-//         pubKey:      <pubKey>,
-//     } or {
-//         error: <error string>
+// cb: function(keyMap, newPubHashes),
+//
+//     keyMap => {
+//         <address>: {
+//             pubHash:     <pubHash>,
+//             pubKeyArmor: <pubKeyArmor>,
+//             pubKey:      <pubKey>,
+//             # or,
+//             error:       <error string>
+//         },...
 //     }
+// 
+//     # newly resolved hashes.
+//     # caller probably wants to save them to contacts.
+//     newPubHashes => [{address, pubHash}, ...]
+//
 // }
 function lookupPublicKeys(addresses, cb) {
+
+    var keyMap = {}       // {<address>: {pubHash, pubKeyArmor, pubKey || error}
+    var newPubHashes = [] // [{address,pubHash}]
+
+    if (addresses.length == 0) {
+        return cb(keyMap, newPubHashes)
+    }
 
     loadNotaries(function(notaryKeys) {
 
@@ -713,7 +755,7 @@ function lookupPublicKeys(addresses, cb) {
 
         for (var i=0; i<addresses.length; i++) {
             var addr = addresses[i]
-            var pubHash = resolveAddressLocally(addr)
+            var pubHash = getPubHashLocally(addr)
             if (pubHash) {
                 var parts = addr.split("@")
                 hashAddresses.push(parts[0]+"#"+pubHash+"@"+parts[1])
@@ -746,27 +788,8 @@ function lookupPublicKeys(addresses, cb) {
                     alert(res.warnings.join("\n\n"))
                     // continue
                 }
-                var addedContacts = false
                 for (var addr in res.pubHashes) {
-                    if (knownHashes[addr] && knownHashes[addr] != res.pubHashes[addr]) {
-                        // knownHashes[addr] should be null.
-                        // Dunno why this would happen except in some elaborate
-                        // hacking scenario.
-                        var error = "SECURITY WARNING! Notary response tried to override known pubHash for "+addr+"!\n"+
-                                    "Known hash: "+knownHashes[addr]+"\n"+
-                                    "New hash: "+res.pubHashes[addr];
-                        console.log(error)
-                        alert(error)
-                        return // halt, do not call cb.
-                    }
                     knownHashes[addr] = res.pubHashes[addr]
-                    viewState.contacts.push({name:"", address:addr, pubHash:res.pubHashes[addr]})
-                    addedContacts = true
-                }
-                if (addedContacts) {
-                    trySaveContacts(viewState.contacts, function() {
-                        console.log("Name resolutions saved to contacts")
-                    })
                 }
             }
 
@@ -775,24 +798,27 @@ function lookupPublicKeys(addresses, cb) {
             for (var addr in publicKeys) {
                 var result = publicKeys[addr]
                 if (result.error) {
-                    // defensive...
-                    publicKeys[addr] = {error:result.error}
+                    keyMap[addr] = {error:result.error}
                     continue
                 }
+                
                 var pubKeyArmor = result.pubKey
                 // check pubKeyArmor against knownHashes.
                 var computedHash = computePublicHash(pubKeyArmor);
                 if (computedHash != knownHashes[addr]) {
                     // this is a serious error. security breach?
                     var error = "SECURITY WARNING! We received an incorrect key for "+addr;
-                    console.log(error)
+                    console.log(error, computedHash, knownHashes[addr])
                     alert(error);
                     return // halt, do not call cb.
+                }
+                if (nameAddresses.indexOf(addr) != -1) {
+                    newPubHashes.push({address:addr, pubHash:computedHash})
                 }
                 // parse publicKey
                 var pka = openpgp.read_publicKey(pubKeyArmor);
                 if (pka.length == 1) {
-                    publicKeys[addr] = {pubKey:pka[0], pubKeyArmor:pubKeyArmor, pubHash:computedHash}
+                    keyMap[addr] = {pubKey:pka[0], pubKeyArmor:pubKeyArmor, pubHash:computedHash}
                 } else {
                     alert("Incorrect number of publicKeys in armor for address "+addr);
                     return // halt, do not call cb.
@@ -802,13 +828,13 @@ function lookupPublicKeys(addresses, cb) {
             // ensure that we have public keys for all the query addresses.
             for (var i=0; i<addresses.length; i++) {
                 var addr = addresses[i]
-                if (publicKeys[addr] == null) {
+                if (keyMap[addr] == null) {
                     console.log("Missing lookup result. Bad server impl?")
-                    publicKeys[addr] = {error:"ERROR: Missing lookup result"}
+                    keyMap[addr] = {error:"ERROR: Missing lookup result"}
                 }
             }
 
-            cb(publicKeys);
+            cb(keyMap, newPubHashes);
         }, "json");
     })
 }
@@ -906,12 +932,11 @@ function bindContactsEvents(){
         var contacts = []
         var needResolution = {} // need to find pubhash before saving
                                 // {address: name}
-
         for(var i = 0; i < rows.length; i++){
             var name = trim($(rows[i]).find(".name").val())
             var address = trim($(rows[i]).find(".address").val())
-            var resolvedPubHash = resolveAddressLocally(address)
-            if (name=="" && address=="") {
+            var resolvedPubHash = getPubHashLocally(address)
+            if (!address) {
                 continue
             } else if (!resolvedPubHash) {
                 needResolution[address] = name
@@ -920,8 +945,18 @@ function bindContactsEvents(){
             contacts.push({name:name, address:address, pubHash:resolvedPubHash})
         }
 
+        contactsErr = validateContacts(contacts)
+        if (contactsErr.errors.length > 0) {
+            alert(contactsErr.errors.join("\n"))
+            return
+        }
+
         lookupPublicKeys(Object.keys(needResolution), function(keyMap) {
             for (var address in needResolution) {
+                if (keyMap[address].error) {
+                    alert("Error resolving email address "+address+":\n"+keyMap[address].error)
+                    return
+                }
                 contacts.push({
                     name:    needResolution[address],
                     address: address,
@@ -944,53 +979,79 @@ function deleteRow(e){
     $(e.target).parent().remove()
 }
 
-function trySaveContacts(contacts, done){
-    // Index the contacts
+// Returns {contacts || errors}
+//     contacts => [{name?,address,pubHash},..]
+//     errors   => [<error>,...}
+function validateContacts(contacts) {
     var errors = []
-    var lnameToContact = {}
-    var addresses = {}
+    var lnames = {}         // unique by lowercased name
+    var addresses = {}      // unique by address
+    var contactsClean = []
+
     for(var i = 0; i < contacts.length; i++){
-        var name = trim(contacts[i].name)
+        var name = contacts[i].name ? trim(contacts[i].name) : undefined
+        var lname = name ? name.toLowerCase() : undefined
         var address = trimToLower(contacts[i].address)
         var addressMatch = address.match(REGEX_EMAIL)
         var pubHash = trimToLower(contacts[i].pubHash)
 
-        if (!name.match(REGEX_CONTACT_NAME)) {
-            errors.push("Invalid contact nick: "+name)
+        if (name && !name.match(REGEX_CONTACT_NAME)) {
+            errors.push("Invalid contact name: "+name)
         }
 
         if (address == "") {
-            errors.push("No address entered for "+name)
+            errors.push("No email address for name: "+name)
         } else if(!addressMatch) {
-            errors.push("The following doesn't look like a valid email address: "+address)
+            errors.push("Invalid email address: "+address)
         } else if (pubHash == "") {
             errors.push("Public key hash unknown for "+address)
         } 
 
-        var lname = name.toLowerCase()
-        
         if(addresses[address]) {
-            errors.push("You entered the same email address more than once: "+address)
+            errors.push("Duplicate email address: "+address)
         } else {
             addresses[address] = true
         }
 
-        if(lnameToContact[lname]){
-            errors.push("You entered the same name more than once: "+lname)
+        if (lname) {
+            if(lnames[lname]){
+                errors.push("Duplicate name: "+lname)
+            } else {
+                lnames[lname] = true
+            }
+        }
+
+        if (name) {
+            contactsClean.push({name:name, address:address, pubHash:pubHash})
         } else {
-            lnameToContact[lname] = {name:name, address:address, pubHash:pubHash}
+            contactsClean.push({address:address, pubHash:pubHash})
         }
     }
 
+    return {contacts:contactsClean, errors:errors}
+}
+
+function trySaveContacts(contacts, done){
+
+    var contactsErr = validateContacts(contacts)
+
     // if there are mistakes, tell the user and bail
-    if(errors.length > 0){
-        alert(errors.join("\n"))
+    if(contactsErr.errors.length > 0){
+        alert(contactsErr.errors.join("\n"))
         return
     } 
 
     // sort the contacts book
-    var lnames = Object.keys(lnameToContact).sort()
-    var contacts = lnames.map(function(lname){ return lnameToContact[lname] })
+    contacts = contactsErr.contacts.sortBy(function(contact) {
+        if (contact.name) {
+            return contact.name
+        } else {
+            return "~"+contact.address // '~' is a high ord character.
+        }
+    })
+
+    // set viewState.contacts now, before posting.
+    // this prevents race conditions.
     viewState.contacts = contacts
 
     // encrypt it
@@ -1006,44 +1067,50 @@ function trySaveContacts(contacts, done){
         })
 }
 
-function tryAddContact(name, address, pubHash){
+// contacts: an array of existing contacts, e.g. viewState.contacts
+// newContacts: new contacts (or a single contact) to merge into contacts
+//   where contact is of the form {name, address, pubHash},
+// Returns new array of contacts
+function addContacts(contacts, newContacts) {
 
-    // if address is already in contact, just set the name.
-    if (name) {
-        for (var i=0; i<viewState.contacts.length; i++) {
-            if (viewState.contacts[i].address == address) {
-                viewState.contacts[i].name = name
+    // convenience
+    if (! (newContacts instanceof Array)) {
+        newContacts = [newContacts]
+    }
+
+    EACH_NEW_CONTACT:
+    for (var i=0; i<newContacts.length; i++) {
+        var newContact = newContacts[i];
+
+        var name = newContact.name
+        var address = newContact.address
+        var pubHash = newContact.pubHash
+
+        if (!address || !pubHash) {
+            throw "addContacts() new contacts require address & pubHash"
+        }
+
+        // if address is already in contacts, just set the name.
+        if (name) {
+            for (var i=0; i<contacts.length; i++) {
+                if (contacts[i].address == address) {
+                    contacts[i].name = name
+                    continue EACH_NEW_CONTACT
+                }
             }
         }
-        trySaveContacts(viewState.contacts, function(){
-            displayStatus("Contact saved")
-        })
-        return
+
+        // otherwise, add new contact
+        var newContact = {
+            name: name ? trim(name) : name,
+            address: trimToLower(address),
+            pubHash: trimToLower(pubHash),
+        }
+
+        contacts = contacts.push(newContact)
     }
 
-    // get pubHash for address.
-    if (pubHash == null) {
-        lookupPublicKeys([address], function(keyMap) {
-            if (keyMap[address].error) {
-                alert(keyMap[address].error)
-                return
-            }
-            return tryAddContact(name, address, keyMap[address].pubHash)
-        })
-        return
-    }
-
-    // save
-    var newContact = {
-        name: trim(name),
-        address: trimToLower(address),
-        pubHash: trimToLower(pubHash),
-    }
-    var newContacts = viewState.contacts.concat([newContact])
-    trySaveContacts(newContacts, function(){
-        displayStatus("Contact saved")
-    })
-
+    return contacts
 }
 
 function contactNameFromAddress(address){
@@ -1106,7 +1173,7 @@ function loadAndDecryptContacts(fn){
 
 // Looks at viewState.contact & look up pubHash
 // returns: a pubHash or null
-function resolveAddressLocally(addr) {
+function getPubHashLocally(addr) {
     for (var i=0; i<viewState.contacts.length; i++) {
         if (viewState.contacts[i].address == addr) {
             return viewState.contacts[i].pubHash
@@ -1115,11 +1182,23 @@ function resolveAddressLocally(addr) {
     return null
 }
 
+// Looks up pubHash.
+// cb: function(pubHash, error)
+function getPubHash(addr, cb) {
+    var pubHash = getPubHashLocally(addr)
+    if (pubHash) {
+        cb(pubHash, null)
+    } else {
+        lookupPublicKeys([addr], function(keyMap) {
+            cb(keyMap[addr].pubHash, keyMap[addr].error)
+        })
+    }
+}
+
 
 //
 // NOTARY
 //
-
 
 function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
 
@@ -1141,6 +1220,12 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
         for (var address in notaryRes.result) {
             var addressRes = notaryRes.result[address]
             addressRes.address = address
+            if (addresses.indexOf(address) == -1) {
+                // This is strange, notary responded with a spurious address.
+                // Handle with care.
+                errors.push("Unsolicited notary response from "+notary+" for "+address)
+                continue
+            }
             if (!verifyNotarySignature(addressRes, notaryPublicKey)) {
                 // This is a serious error in terms of security.
                 // Handle with care.
@@ -1215,7 +1300,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "notary@dev.hashed.im":
+        "notary@www.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+

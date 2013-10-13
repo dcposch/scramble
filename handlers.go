@@ -168,27 +168,25 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// handle pubkey lookup
-			for _, addr := range request.HashAddresses {
+			var pubKeyLookup EmailAddresses = request.HashAddresses
+			for mxHost, addrs := range mxHostNameAddrs {
+				if mxHost == GetConfig().SmtpMxHost {
+					for _, addr := range addrs {
+						pubKeyLookup = append(pubKeyLookup, addr)
+					}
+				}
+			}
+			for _, addr := range pubKeyLookup {
 				pubHash := LoadPubHash(addr.Name)
 				if pubHash == "" {
 					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Unknown name " + addr.Name}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
-				if pubHash == addr.Hash {
+				if addr.Hash == "" || pubHash == addr.Hash {
 					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, ""}
 				} else {
 					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, "Wrong hash for name"}
-				}
-			}
-			// also load pubkeys for name addresses whose mx host is self
-			for mxHost, addrs := range mxHostNameAddrs {
-				if mxHost == GetConfig().SmtpMxHost {
-					for _, addr := range addrs {
-						pubHash := LoadPubHash(addr.Name)
-						pubKey := LoadPubKey(pubHash)
-						res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, ""}
-					}
 				}
 			}
 
