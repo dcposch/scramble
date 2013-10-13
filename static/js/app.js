@@ -242,11 +242,7 @@ function login(token, pass){
             // logged in successfully!
             decryptAndDisplayBox(inbox)
         }, 'json').fail(function(xhr){
-            if(xhr.statusCode == 401) { // unauthorized 
-                alert("Incorrect user or passphrase")
-            } else {
-                alert(xhr.responseText || "Could not reach the server, try again")
-            }
+            alert(xhr.responseText || "Could not reach the server, try again")
         }
     )
 }

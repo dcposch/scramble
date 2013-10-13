@@ -9,17 +9,19 @@ import (
 
 func main() {
 	// Rest API
-	http.HandleFunc("/user/", userHandler)
-	http.HandleFunc("/user/me/contacts", contactsHandler)
-	http.HandleFunc("/user/me/key", privateKeyHandler)
-	http.HandleFunc("/publickeys/query", publicKeysHandler)
-	http.HandleFunc("/publickeys/notary", notaryIdHandler)
-	http.HandleFunc("/email/", emailHandler)
-	http.HandleFunc("/box/", inboxHandler)
-	http.HandleFunc("/nginx_proxy", nginxProxyHandler)
+	http.HandleFunc("/user/", userHandler)                  // create users, look up hash->pubkey
+	http.HandleFunc("/publickeys/notary", notaryIdHandler)  // look up name->pubkey
+	http.HandleFunc("/publickeys/query", publicKeysHandler) // look up
+	http.HandleFunc("/nginx_proxy", nginxProxyHandler)      // needed for nginx smtp tls proxy
+
+	// Private Rest API
+	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts
+	http.HandleFunc("/user/me/key", auth(privateKeyHandler))    // load encrypted privkey
+	http.HandleFunc("/email/", auth(emailHandler))              // load email body
+	http.HandleFunc("/box/", auth(inboxHandler))                // load email headers
 
 	// Resources
-	http.HandleFunc("/", staticHandler)
+	http.HandleFunc("/", staticHandler) // html, js, css
 
 	// SMTP Server
 	go StartSMTPServer()
@@ -29,6 +31,26 @@ func main() {
 	http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux))
 }
 
+// Wraps an HTTP handler, adding cookie authentication.
+//
+// The outer function either sends a HTTP 401 (Unauthorized),
+// or calls the inner function passing in a valid logged-in username.
+func auth(handler func(http.ResponseWriter, *http.Request, *UserID)) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userId, err := authenticate(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		handler(w, r, userId)
+	})
+}
+
+// Wraps an HTTP handler, adding error logging.
+//
+// If the inner function panics, the outer function recovers, logs, sends an
+// HTTP 500 error response.
 func recoverAndLog(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)

@@ -8,9 +8,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -59,12 +59,12 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 //  https://github.com/dcposch/scramble/wiki/Name-Resolution-&-Public-Key-Fetching
 // The server is untrusted, so the client must verify everything.
 func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
+	userId, _ := authenticate(r)
 	timestamp := time.Now().Unix()
 
 	type PubKeyError struct {
-		PubKey  string `json:"pubKey,omitempty"`
-		Error   string `json:"error,omitempty"`
+		PubKey string `json:"pubKey,omitempty"`
+		Error  string `json:"error,omitempty"`
 	}
 
 	type Response struct {
@@ -90,10 +90,10 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	notaries := ParseEmailAddresses(r.FormValue("notaries"))
 	res := Response{}
 	res.NameResolution = map[string]*NotaryResultError{}
-	res.PublicKeys =     map[string]*PubKeyError{}
+	res.PublicKeys = map[string]*PubKeyError{}
 
 	// fail immediately if any address cannot be resolved.
-	if (len(failedHostAddrs) != 0 || len(failedNameAddrs) != 0) {
+	if len(failedHostAddrs) != 0 || len(failedNameAddrs) != 0 {
 		// TODO: better error handling
 		failedHosts := []string{}
 		for failedHost, _ := range failedHostAddrs {
@@ -117,7 +117,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(notaries) > 1 || notaries[0].Host != GetConfig().SmtpMxHost {
-			log.Panicf("Expected 0 or 1 notary address @"+GetConfig().SmtpMxHost+", got ["+notaries.String()+"]")
+			log.Panicf("Expected 0 or 1 notary address @" + GetConfig().SmtpMxHost + ", got [" + notaries.String() + "]")
 		}
 	}
 
@@ -171,7 +171,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			for _, addr := range request.HashAddresses {
 				pubHash := LoadPubHash(addr.Name)
 				if pubHash == "" {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Unknown name "+addr.Name}
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Unknown name " + addr.Name}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
@@ -319,7 +319,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.PublicHash = ComputePublicHash(user.PublicKey)
 	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 	user.EmailHost = computeEmailHost(r.Host)
-	user.EmailAddress = user.Token+"@"+computeEmailHost(r.Host)
+	user.EmailAddress = user.Token + "@" + computeEmailHost(r.Host)
 
 	log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
@@ -334,9 +334,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 // Because the server never knows the plaintext, it is also
 // unable to update individual keys in address book -- whenever
 // the user makes changes, the client encrypts and posts all contacts
-func contactsHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-
+func contactsHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	if r.Method == "GET" {
 		cipherContactsHex := LoadContacts(userId.Token)
 		if cipherContactsHex == nil {
@@ -354,40 +352,13 @@ func contactsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /user/me/key for the logged-in user's encrypted private key
-func privateKeyHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-
+func privateKeyHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	user := LoadUser(userId.Token)
 	if user == nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 	w.Write([]byte(user.CipherPrivateKey))
-}
-
-//
-// AUTHENTICATION
-//
-
-// Checks cookies, returns the logged-in user token or empty string
-func authenticate(r *http.Request) *UserID {
-	token, err := r.Cookie("token")
-	if err != nil {
-		return nil
-	}
-	passHash, err := r.Cookie("passHash")
-	if err != nil {
-		return nil
-	}
-	passHashOld, err := r.Cookie("passHashOld")
-	var passHashOldVal string
-	if err != nil {
-		passHashOldVal = ""
-	} else {
-		passHashOldVal = passHashOld.Value
-	}
-	userId := authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
-	return userId
 }
 
 func computeEmailHost(requestHost string) string {
@@ -406,23 +377,6 @@ func computeEmailHost(requestHost string) string {
 	}
 }
 
-func authenticateUserPass(token string, passHash string, passHashOld string) *UserID {
-	// look up the user
-	userId := LoadUserID(token)
-	if userId == nil {
-		return nil
-	}
-
-	// verify password
-	if passHash == userId.PasswordHash && passHash != "" {
-		return userId
-	}
-	if passHashOld == userId.PasswordHashOld && passHashOld != "" {
-		return userId
-	}
-	return nil
-}
-
 //
 // INBOX ROUTE
 //
@@ -430,25 +384,26 @@ func authenticateUserPass(token string, passHash string, passHashOld string) *Us
 // Takes no arguments, returns all the metadata about a user's inbox.
 // Encrypted subjects are returned, but no message bodies.
 // The caller must have auth cookies set.
-func inboxHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-	if userId == nil {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
+func inboxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	box := r.URL.Path[len("/box/"):]
 	query := r.URL.Query()
 	offset, err := strconv.Atoi(query.Get("offset"))
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	limit, err := strconv.Atoi(query.Get("limit"))
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	var emailHeaders []EmailHeader
 	var total int
 	if box == "inbox" || box == "archive" || box == "sent" {
 		emailHeaders = LoadBox(userId.EmailAddress, box, offset, limit)
 		total, err = CountBox(userId.EmailAddress, box)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		http.Error(w, "Unknown box. "+
 			"Expected 'inbox','sent', etc, got "+box,
@@ -476,24 +431,18 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 // EMAIL ROUTE
 //
 
-func emailHandler(w http.ResponseWriter, r *http.Request) {
+func emailHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	if r.Method == "GET" {
-		emailFetchHandler(w, r)
+		emailFetchHandler(w, r, userId)
 	} else if r.Method == "PUT" {
-		emailBoxHandler(w, r)
+		emailBoxHandler(w, r, userId)
 	} else if r.Method == "POST" {
-		emailSendHandler(w, r)
+		emailSendHandler(w, r, userId)
 	}
 }
 
 // GET /email/id fetches the body
-func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-	if userId == nil {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
-
+func emailFetchHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	id := r.URL.Path[len("/email/"):]
 	validateMessageID(id)
 
@@ -507,13 +456,7 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // PUT /email/id can change things about an email, eg what box it's in
-func emailBoxHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-	if userId == nil {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
-
+func emailBoxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	id := r.URL.Path[len("/email/"):]
 	validateMessageID(id)
 	newBox := validateBox(r.FormValue("box"))
@@ -521,13 +464,7 @@ func emailBoxHandler(w http.ResponseWriter, r *http.Request) {
 	MoveEmail(userId.EmailAddress, id, newBox)
 }
 
-func emailSendHandler(w http.ResponseWriter, r *http.Request) {
-	userId := authenticate(r)
-	if userId == nil {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
-
+func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	email := new(Email)
 	email.MessageID = validateMessageID(r.FormValue("msgId"))
 	email.UnixTime = time.Now().Unix()
@@ -557,7 +494,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request) {
 	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(email.To)
 
 	// fail immediately if any address cannot be resolved.
-	if (len(failedHostAddrs) != 0) {
+	if len(failedHostAddrs) != 0 {
 		// TODO: better error handling
 		failedHosts := []string{}
 		for failedHost, _ := range failedHostAddrs {
@@ -607,16 +544,16 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 //
 
 func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
-
 	resJson, err := json.Marshal(struct {
-			Address string `json:"address"`
-			PubKey  string `json:"pubkey"`
-		}{
-			GetNotaryInfo().Hash+"@"+GetConfig().SmtpMxHost,
-			GetNotaryInfo().PublicKeyArmor,
-		},
+		Address string `json:"address"`
+		PubKey  string `json:"pubkey"`
+	}{
+		GetNotaryInfo().Hash + "@" + GetConfig().SmtpMxHost,
+		GetNotaryInfo().PublicKeyArmor,
+	},
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	w.Write(resJson)
-
 }
