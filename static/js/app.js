@@ -204,6 +204,10 @@ function closeModal(){
 //
 
 function displayLogin(){
+    // not logged in. reset session state.
+    sessionStorage.clear()
+
+    // show the login ui
     $("#wrapper").html(render("login-template"))
     bindLoginEvents()
 }

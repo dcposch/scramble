@@ -212,7 +212,7 @@ list-style-type:none;
 padding:0px;
 margin:0px;
 }
-.box-items ul li {
+.box-items li {
 border-top:1px solid #ddd;
 padding:6px 0;
 white-space:nowrap;
