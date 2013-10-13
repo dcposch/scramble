@@ -133,7 +133,9 @@ func ResolveName(name, host string) string {
 			}
 			// TODO: check notary signature?
 			for _, resErr := range parsed.NameResolution {
-				if resErr.Result != nil && resErr.Result[addr] != nil {
+				if resErr.Result != nil &&
+				   resErr.Result[addr] != nil &&
+				   resErr.Result[addr].PubHash != "" {
 					AddNameResolution(name, host, resErr.Result[addr].PubHash)
 				}
 			}

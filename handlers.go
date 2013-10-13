@@ -252,34 +252,37 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// fill remaining addresses with appropriate error messages
-	// client must still verify that addresses aren't missing
-	for mxHost, addrs := range mxHostNameAddrs {
-		if mxHost == GetConfig().SmtpMxHost {
-			continue // no need to fill error messages, already filled.
-		}
-		for _, addr := range addrs {
-			if res.PublicKeys[addr.StringNoHash()] == nil {
-				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+	// If this request is primary,
+	// Fill remaining addresses with appropriate error messages
+	// Client must still verify that addresses aren't missing
+	if userId != nil {
+		for mxHost, addrs := range mxHostNameAddrs {
+			if mxHost == GetConfig().SmtpMxHost {
+				continue // no need to fill error messages, already filled.
+			}
+			for _, addr := range addrs {
+				if res.PublicKeys[addr.StringNoHash()] == nil {
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+				}
 			}
 		}
-	}
-	for mxHost, addrs := range mxHostHashAddrs {
-		if mxHost == GetConfig().SmtpMxHost {
-			continue // no need to fill error messages, already filled.
-		}
-		for _, addr := range addrs {
-			if res.PublicKeys[addr.StringNoHash()] == nil {
-				res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+		for mxHost, addrs := range mxHostHashAddrs {
+			if mxHost == GetConfig().SmtpMxHost {
+				continue // no need to fill error messages, already filled.
+			}
+			for _, addr := range addrs {
+				if res.PublicKeys[addr.StringNoHash()] == nil {
+					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+				}
 			}
 		}
-	}
-	if len(nameAddrs) > 0 {
-		for _, notary := range notaries {
-			if res.NameResolution[notary.StringNoHash()] == nil {
-				res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
-					nil,
-					fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
+		if len(nameAddrs) > 0 {
+			for _, notary := range notaries {
+				if res.NameResolution[notary.StringNoHash()] == nil {
+					res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
+						nil,
+						fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
+					}
 				}
 			}
 		}

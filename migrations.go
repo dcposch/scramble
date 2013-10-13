@@ -15,6 +15,7 @@ var migrations = []func() error{
 	migrateShortenToken,
 	migrateCreateNameResolution,
 	migrateAddUserEmailAddress,
+	migrateMakeNameResolutionUnique,
 }
 
 func migrateDb() {
@@ -253,5 +254,13 @@ func migrateAddUserEmailAddress() error {
 	_, err := db.Exec(`ALTER TABLE user ADD COLUMN email_host VARCHAR(254) NOT NULL DEFAULT ""`)
 	if err != nil { return err }
 	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
+	return err
+}
+
+func migrateMakeNameResolutionUnique() error {
+	// some MySQL versions will crap out when dropping/adding the same index in one line.
+	_, err := db.Exec(`ALTER TABLE name_resolution DROP INDEX host`)
+	if err != nil { return err }
+	_, err =  db.Exec(`ALTER TABLE name_resolution ADD UNIQUE INDEX (host, name)`)
 	return err
 }
