@@ -13,6 +13,10 @@ static/doc/never-forget.html: doc/never-forget.md
 	mkdir -p static/doc
 	markdown doc/never-forget.md > $@
 
+static/doc/slideshow.html: doc/slideshow.html
+	mkdir -p static/doc
+	cp doc/slideshow.html static/doc/slideshow.html
+
 static/doc/%.html: doc/%.md
 	mkdir -p static/doc
 	cat doc/head.html > $@

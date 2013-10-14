@@ -1,0 +1,667 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <title>Scramble your Email</title>
+  <style type="text/css">
+    body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #222;
+  background-color: #f7f7f7;
+  font-size: 100%;
+}
+
+#wrapper {
+  width: 850px;
+  height: 600px;
+  overflow: hidden;
+  margin: 80px auto 0 auto;
+}
+
+/* styles for print layout */
+#wrapper.nohide {
+  overflow: auto;
+  height: auto;
+  box-shadow: none;
+}
+
+#wrapper.nohide .slide {
+  margin-bottom: 30px;
+}
+/* /styles */
+
+.slide {
+  width: auto;
+  height: 540px;
+  padding: 30px;
+  font-weight: 200;
+  font-size: 200%;
+  line-height: 1.375;
+}
+
+.controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+}
+
+.controls .arrow {
+  width: 0; height: 0;
+  border: 30px solid #333;
+  float: left;
+  margin-right: 30px;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.controls .prev {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+
+  border-left-width: 0;
+  border-right-width: 50px;
+}
+
+.controls .next {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-right-color: transparent;
+
+  border-left-width: 50px;
+  border-right-width: 0;
+}
+
+.controls .prev:hover {
+  border-right-color: #888;
+  cursor: pointer;
+}
+
+.controls .next:hover {
+  border-left-color: #888;
+  cursor: pointer;
+}
+
+.slide h1 {
+  font-size: 300%;
+  line-height: 1.2;
+  text-align: center;
+  margin: 170px 0 0;
+}
+
+.slide h2 {
+  font-size: 100%;
+  line-height: 1.2;
+  margin: 5px 0;
+  text-align: center;
+  font-weight: 200;
+}
+
+.slide h3 {
+  font-size: 140%;
+  line-height: 1.2;
+  border-bottom: 1px solid #aaa;
+  margin: 0;
+  padding-bottom: 15px;
+}
+
+.slide ul {
+  padding: 20px 0 0 60px;
+  font-weight: 200;
+  line-height: 1.375;
+}
+
+.slide .author h1.name {
+  font-size: 170%;
+  font-weight: 200;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.slide .author h3 {
+  font-weight: 100;
+  text-align: center;
+  font-size: 95%;
+  border: none;
+}
+
+a {
+  text-decoration: none;
+  color: #44a4dd;
+}
+
+a:hover {
+  color: #66b5ff;
+}
+
+pre {
+  font-size: 60%;
+  line-height: 1.3;
+}
+
+code {
+  background-color: #e7e7e7;
+}
+
+pre > code {
+  background-color: inherit;
+}
+
+.progress {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 3px;
+  background-color: #b4b4b4;
+
+  -webkit-transition: width 0.1s ease-out;
+  -moz-transition: width 0.1s ease-out;
+  -o-transition: width 0.1s ease-out;
+  transition: width 0.1s ease-out;
+}
+
+@media (max-width: 850px) {
+  #wrapper {
+    width: auto;
+  }
+
+  body {
+    font-size: 70%;
+  }
+
+  img {
+    width: 100%;
+  }
+
+  .slide h1 {
+    margin-top: 120px;
+  }
+
+  .controls .prev, .controls .prev:hover {
+    border-right-color: rgba(135, 135, 135, 0.5);
+  }
+
+  .controls .next, .controls .next:hover {
+    border-left-color: rgba(135, 135, 135, 0.5);
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 50%;
+    overflow: hidden;
+  }
+
+  #wrapper {
+    margin-top: 10px;
+    height: 340px;
+  }
+
+  .slide {
+    padding: 10px;
+    height: 340px;
+  }
+
+  .slide h1 {
+    margin-top: 50px;
+  }
+
+  .slide ul {
+    padding-left: 25px;
+  }
+}
+
+/*
+github.com style (c) Vasily Polovnyov <vast@whiteants.net>
+*/
+
+pre code {
+  display: block; padding: 0.5em;
+  color: #333;
+}
+
+pre .comment,
+pre .template_comment,
+pre .diff .header,
+pre .javadoc {
+  color: #998;
+  font-style: italic
+}
+
+pre .keyword,
+pre .css .rule .keyword,
+pre .winutils,
+pre .javascript .title,
+pre .nginx .title,
+pre .subst,
+pre .request,
+pre .status {
+  color: #333;
+  font-weight: bold
+}
+
+pre .number,
+pre .hexcolor,
+pre .ruby .constant {
+  color: #099;
+}
+
+pre .string,
+pre .tag .value,
+pre .phpdoc,
+pre .tex .formula {
+  color: #d14
+}
+
+pre .title,
+pre .id {
+  color: #900;
+  font-weight: bold
+}
+
+pre .javascript .title,
+pre .lisp .title,
+pre .clojure .title,
+pre .subst {
+  font-weight: normal
+}
+
+pre .class .title,
+pre .haskell .type,
+pre .vhdl .literal,
+pre .tex .command {
+  color: #458;
+  font-weight: bold
+}
+
+pre .tag,
+pre .tag .title,
+pre .rules .property,
+pre .django .tag .keyword {
+  color: #000080;
+  font-weight: normal
+}
+
+pre .attribute,
+pre .variable,
+pre .lisp .body {
+  color: #008080
+}
+
+pre .regexp {
+  color: #009926
+}
+
+pre .class {
+  color: #458;
+  font-weight: bold
+}
+
+pre .symbol,
+pre .ruby .symbol .string,
+pre .lisp .keyword,
+pre .tex .special,
+pre .prompt {
+  color: #990073
+}
+
+pre .built_in,
+pre .lisp .title,
+pre .clojure .built_in {
+  color: #0086b3
+}
+
+pre .preprocessor,
+pre .pi,
+pre .doctype,
+pre .shebang,
+pre .cdata {
+  color: #999;
+  font-weight: bold
+}
+
+pre .deletion {
+  background: #fdd
+}
+
+pre .addition {
+  background: #dfd
+}
+
+pre .diff .change {
+  background: #0086b3
+}
+
+pre .chunk {
+  color: #aaa
+}
+
+
+  </style>
+</head>
+<body>
+    <div class="progress">
+    <div class="progress-bar"></div>
+  </div>
+
+<div id="wrapper">
+    <section class="slide"><h1>Scramble</h1>
+<h2>NSA-proof Secure Webmail</h2>
+</section>
+    <section class="slide"><h3>Email is Insecure</h3>
+<ul>
+<li>HTTPS CAs</li>
+<li>NSA &quot;fibertapping&quot;</li>
+<li>FISA / NSL / govt order</li>
+</ul>
+</section>
+    <section class="slide"><h3>Email is Insecure</h3>
+<h4>HTTPS CAs</h4>
+<ul>
+<li>March 2011 Comodo<br/>
+<code>mail.google.com</code>,<br/>
+<code>login.yahoo.com</code>, ...</li>
+<li>August 2011 Diginotar<br />
+<code>*.google.com</code></li>
+<li>FireFox &amp; CNNIC</li>
+</ul>
+<p>With MITM attacks, HTTPS alone can&#39;t be trusted.</p>
+</section>
+    <section class="slide"><h3>Email is Insecure</h3>
+<h4>NSA &quot;fibertapping&quot;</h4>
+<ul>
+<li>International fibers</li>
+<li>Global Intercept partners</li>
+<li>!(Perfect Forward Secrecy)</li>
+</ul>
+</section>
+    <section class="slide"><h3>Email is Insecure</h3>
+<h4>FISA/NSL/govt order</h4>
+<ul>
+<li>Lavabit (used by Snowden)</li>
+<li>Silent Circle (Zimmerman)</li>
+<li>TorMail (Marques)</li>
+<li>HushMail, complicit</li>
+</ul>
+</section>
+    <section class="slide"><h3>Solution</h3>
+<ul>
+<li>Best crypto primitives</li>
+<li>Webmail w/ untrusted servers</li>
+<li>Open source &amp; federated</li>
+</ul>
+<p>Welcome to Scramble!</p>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Best crypto primitives</h4>
+<ul>
+<li>OpenPGP can be secure</li>
+<li>RSA2048 for signing</li>
+<li>RSA2048 &amp; AES128 for encryption</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Webmail w/ untrusted servers</h4>
+<p>Encrypt all of the things!</p>
+<ul>
+<li>Mail subject &amp; body</li>
+<li>Contacts</li>
+<li>Index blobs (future)</li>
+</ul>
+<p>Also, <code>Scrypt(&lt;PassPhrase&gt;)</code> for KDF<br />
+to encrypt user&#39;s <code>&lt;PrivateKey&gt;</code></p>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Webmail w/ untrusted servers</h4>
+<p>Can&#39;t trust the server,<br/>
+Can&#39;t trust the javascript.</p>
+<ul>
+<li>Browser plugin</li>
+<li>HTML App Cache</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Name Resolution</h4>
+<p>A user is identified by hir <code>&lt;PublicKey&gt;</code></p>
+<pre><code><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="comment">BEGIN</span> <span class="comment">PGP</span> <span class="comment">PUBLIC</span> <span class="comment">KEY</span> <span class="comment">BLOCK</span>-<span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span>
+<span class="comment">xsBNBFI/k</span>+<span class="comment">wBCADO3eL0Beu5Hqeot4aRTO3ijSD1ddkCiEpTfnd1pCG72E72</span>
+<span class="comment">wLxsqMt</span>+<span class="comment">lI3gVNxeje6eqFlc9K6PrP9hAScQKM0f6wp2NCqfdWmGk9NvTyVp</span>
+<span class="comment">3WiXQhDNucm</span>+<span class="comment">c79FgyvYiIUM8Xjt5AfOQNQ8dyqgoSiQR7lwGbbmen/C4aKS</span>
+<span class="comment">ilLIn</span>+<span class="comment">VuSZYR4Xym0BTX0r/gKKMVfNBgRPIxuHhtFBEyisCWwhDxrDsHP/vU</span>
+<span class="comment">I9UqeqYQl67o</span>+<span class="comment">DcVWAcD0NUpCqtp2OH0s8TVn5Wac7g7n6MK7bPGCnschPfR</span>
+<span class="comment">mAadQ/Z453AseIlQEtUGV0cia6AP8hoT30/Lh</span>+<span class="literal">+</span><span class="comment">8TMTB0LMpVzJXqvVjABEB</span>
+<span class="comment">AAHNAMLAXAQQAQIAEAUCUj</span>+<span class="comment">T8AkQS0aTOFk3BcEAAFiwCACjxQo/3bnNOjL4</span>
+<span class="literal">+</span><span class="comment">Q5QwQM</span>+<span class="comment">y8/y2OzrnZAt63RRmmm8AHmO6RrIWhvmb47BcWofaehMGAitrEEz</span>
+<span class="comment">Oc4sn/Nn15P2/Ffch9X929gYqj2Bq9zFIbo9bTDBGvNgQ6mnPY7E/9nD9p6X</span>
+<span class="comment">VZW5lSgoXMgkDuuWf1uG38pqJCu9m4YLHzYgqBeUmfMjy5ZWzfc1Z4DQEzNy</span>
+<span class="comment">T2xaAnhKt8RRIahSl3vqti6Acy5ZHE</span>+<span class="comment">GEXzL89D6yQV8uDJCRbaHdMUNPAc</span>+
+<span class="comment">KyO/vJuje0QPxkloHmy0JKmOIuB</span>+<span class="comment">dPkxYaIQUKubm0xoh6BWWg1I3obE7cCn</span>
+<span class="comment">1IRp6TufNOyBKlkL</span>+<span class="comment">2tCczTHdNP5</span>
+<span class="comment">=o8xa</span>
+<span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="comment">END</span> <span class="comment">PGP</span> <span class="comment">PUBLIC</span> <span class="comment">KEY</span> <span class="comment">BLOCK</span>-<span class="literal">-</span><span class="literal">-</span><span class="literal">-</span><span class="literal">-</span></code></pre>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Name Resolution (cont.)</h4>
+<p>A user is identified by hir <code>Hash(&lt;PublicKey&gt;)</code></p>
+<p><code>9b66b9f17380bfc04abf342f9df077b69713393e</code></p>
+<p>Or just the first 80 bits, in base32:</p>
+<p><code>tntlt4ltqc74asv7</code></p>
+<p>Still hard to remember!</p>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Name Resolution (cont.)</h4>
+<p>How can resolve an address, <code>jaekwon@hashed.im</code><br/>
+  to <code>tntlt4ltqc74asv7</code>?</p>
+<ul>
+<li>NameCoin?</li>
+<li>Public Key servers?</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Name Resolution (cont.)</h4>
+<p>An alternative solution</p>
+<ul>
+<li>1B addresses require &lt; 100Gb to store</li>
+<li>Distributed notary system!</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Name Resolution (cont.)</h4>
+<ul>
+<li>Client has a list of trusted notaries,<br/>
+<code>hashed.im</code> &amp; <code>scramble.io</code></li>
+<li>Client asks server,<br/>
+  &quot;Tell me what <code>hashed.im</code> and <code>scramble.io</code> think <code>jaekwon@hashed.im</code> resolves to&quot;</li>
+<li>Server forwards query to <code>hashed.im</code> &amp; <code>scramble.io</code></li>
+<li>Server aggregates &amp; responds</li>
+<li>Client makes a decision</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble</h3>
+<h4>Open source &amp; federated</h4>
+<ul>
+<li>What if Lavabit had been open source?</li>
+<li>Federation == Shutdown Resistance</li>
+<li>Federation allows for notary name resolution</li>
+</ul>
+</section>
+    <section class="slide"><h3>Scramble + Future</h3>
+<ul>
+<li>Enigmail compatibility</li>
+<li>Search w/ encrypted indices</li>
+<li>Chat?</li>
+<li>FileSharing?</li>
+</ul>
+</section>
+    <section class="slide"><h3>Questions?</h3>
+<p>Sign up! <a href="https://hashed.im">https://hashed.im</a></p>
+<p>github: dcposch/scramble<br/>
+my fork: jaekwon/scramble</p>
+</section>
+    <section class="slide"><div class="author">
+  <h1 class="name">Jae Kwon</h1>
+  <h3 class="twitter">
+    <a href="http://twitter.com/" tabindex="-1"></a>
+  </h3>
+  <h3 class="url">
+    <a href="hashed.im" tabindex="-1">hashed.im</a>
+  </h3>
+</div>
+</section>
+</div>
+  <div class="controls">
+    <div class="arrow prev"></div>
+    <div class="arrow next"></div>
+  </div>
+
+<script type="text/javascript">
+  /**
+ * Takes the last slide and places it at the front.
+ */
+function goBack() {
+  var wrapper = document.querySelector('#wrapper');
+  var lastSlide = wrapper.lastChild;
+  while (lastSlide != null && lastSlide.nodeType !== 1) {
+    lastSlide = lastSlide.previousSibling;
+  }
+
+  wrapper.removeChild(lastSlide);
+  wrapper.insertBefore(lastSlide, wrapper.firstChild);
+
+  setCurrentProgress();
+  updateURL();
+}
+
+/**
+ * Takes the first slide and places it at the end.
+ */
+function goForward() {
+  var wrapper = document.querySelector('#wrapper');
+  var firstSlide = wrapper.firstChild;
+  while (firstSlide != null && firstSlide.nodeType !== 1) {
+    firstSlide = firstSlide.nextSibling;
+  }
+
+  wrapper.removeChild(firstSlide);
+  wrapper.appendChild(firstSlide);
+
+  setCurrentProgress();
+  updateURL();
+}
+
+/**
+ * Updates the current URL to include a hashtag of the current page number.
+ */
+function updateURL() {
+  window.history.replaceState({} , null, '#' + currentPage());
+}
+
+/**
+ * Returns the current page number of the presentation.
+ */
+function currentPage() {
+  return document.querySelector('#wrapper .slide').dataset.page;
+}
+
+/**
+ * Returns a NodeList of each .slide element.
+ */
+function allSlides() {
+  return document.querySelectorAll('#wrapper .slide');
+}
+
+/**
+ * Give each slide a "page" data attribute.
+ */
+function setPageNumbers() {
+  var wrapper = document.querySelector('#wrapper');
+  var pages   = wrapper.querySelectorAll('section');
+  var page;
+
+  for (var i = 0; i < pages.length; ++i) {
+    page = pages[i];
+    page.dataset.page = i;
+  }
+}
+
+/**
+ * Set the current progress indicator.
+ */
+function setCurrentProgress() {
+  var wrapper = document.querySelector('#wrapper');
+  var progressBar = document.querySelector('.progress-bar');
+
+  if (progressBar !== null) {
+    var pagesNumber    = wrapper.querySelectorAll('section').length;
+    var currentNumber  = parseInt(currentPage());
+    var currentPercent = pagesNumber === 1 ? 100 : 100 * currentNumber / (pagesNumber - 1);
+    progressBar.style.width = currentPercent.toString() + '%';
+  }
+}
+
+/**
+ * Go to the specified page of content.
+ */
+function goToPage(page) {
+  // Try to find the target slide.
+  var targetSlide = document.querySelector('#wrapper .slide[data-page="' + page + '"]');
+
+  // If it actually exists, go forward until we find it.
+  if (targetSlide) {
+    var numSlides = allSlides().length;
+
+    for (var i = 0; currentPage() != page && i < numSlides; i++) {
+      goForward();
+    }
+  }
+}
+
+window.onload = function () {
+
+  // Give each slide a "page" data attribute.
+  setPageNumbers();
+
+  // If the location hash specifies a page number, go to it.
+  var page = window.location.hash.slice(1);
+  if (page) goToPage(page);
+
+  document.onkeydown = function (e) {
+    var kc = e.keyCode;
+
+    // left, down, H, J, backspace - BACK
+    // up, right, K, L, space, enter - FORWARD
+    if (kc == 37 || kc == 40 || kc == 8 || kc == 72 || kc == 74) {
+      goBack();
+    } else if (kc == 38 || kc == 39 || kc == 13 || kc == 32 || kc == 75 || kc == 76) {
+      goForward();
+    }
+  }
+
+  if (document.querySelector('.next') && document.querySelector('.prev')) {
+    document.querySelector('.next').onclick = function (e) {
+      e.preventDefault();
+      goForward();
+    }
+
+    document.querySelector('.prev').onclick = function (e) {
+      e.preventDefault();
+      goBack();
+    }
+  }
+
+}
+
+</script>
+
+</body>
+</html>
