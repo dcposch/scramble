@@ -983,6 +983,11 @@ function deleteRow(e){
 //     contacts => [{name?,address,pubHash},..]
 //     errors   => [<error>,...}
 function validateContacts(contacts) {
+
+    if (!(contacts instanceof Array)) {
+        throw "Invalid input to validateContacts"
+    }
+
     var errors = []
     var lnames = {}         // unique by lowercased name
     var addresses = {}      // unique by address
@@ -1107,7 +1112,7 @@ function addContacts(contacts, newContacts) {
             pubHash: trimToLower(pubHash),
         }
 
-        contacts = contacts.push(newContact)
+        contacts.push(newContact)
     }
 
     return contacts
