@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"encoding/json"
+	"strings"
 	//"crypto/tls"
 )
 
@@ -75,13 +76,13 @@ type NotaryResultError struct {
 	Error  string    `json:"error,omitempty"`
 }
 
-// returns the hash if known, otherwise queues to fetch later.
+// Returns the hash if known, otherwise queues to fetch later.
 func ResolveName(name, host string) string {
 	addr := name+"@"+host
 	hash := GetNameResolution(name, host)
 	if hash == "" {
-		// for now let's just defer a request immediately
-		defer func(){
+		// for now let's just run a request immediately
+		go func(){
 			mxHost, err := smtpLookUp(host)
 			if err != nil {
 				return
@@ -108,16 +109,15 @@ func ResolveName(name, host string) string {
 				log.Printf("Secondary notary query failed for %s:\n%s", mxHost, err.Error())
 				return
 			}
-			respBody, err := ioutil.ReadAll(resp.Body)
 			defer resp.Body.Close()
+			respBody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				log.Printf("Failed to retrieve hash for %s", addr)
 				return
 			}
 
 			type Response struct {
-				NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"` // defined in notary.go
-				// ignore publicKeys, we don't need it.
+				NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"`
 				//PublicKeys     map[string]*PubKeyError       `json:"publicKeys,omitempty"`
 			}
 
@@ -148,4 +148,33 @@ func ResolveName(name, host string) string {
 func SignNotaryResponse(name, host, pubHash string, timestamp int64) string {
 	toSign := name+"@"+host+"="+pubHash+"@"+strconv.FormatInt(timestamp, 10)
 	return SignText(notaryInfo.Entity, toSign)
+}
+
+// New accounts need to get their token & pubHash seeded.
+func SeedUserToNotaries(user *User) {
+	notaries := ParseEmailAddresses(strings.Join(GetConfig().SeedNotaries, ","))
+	for _, notary := range notaries {
+		if notary.Host == GetConfig().SmtpMxHost {
+			continue
+		}
+		log.Println("Seeding new user "+user.EmailAddress+" to "+notary.String())
+		// Maybe batch in the future, for now just run immediately.
+		// This /publickeys/query call will cause the remote notary host to call 'ResolveName',
+		// which in turn makes a /publickeys/query call back here.
+		go func(notary EmailAddress, userEmailAddress string) {
+			u := url.URL{}
+			u.Scheme = "https"
+			u.Host = notary.Host
+			u.Path = "/publickeys/query"
+			body := url.Values{}
+			body.Set("nameAddresses", userEmailAddress)
+			body.Set("notaries", notary.String())
+			resp, err := http.PostForm(u.String(), body)
+			if err != nil {
+				log.Printf("Notary seeding failed for %s:\n%s", notary.String(), err.Error())
+				return
+			}
+			resp.Body.Close()
+		}(notary, user.EmailAddress)
+	}
 }

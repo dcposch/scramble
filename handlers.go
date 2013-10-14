@@ -219,8 +219,8 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Error in /publickeys/query dispatch request: %s", mxHostRespErr.Err.Error())
 				continue
 			}
-			respBody, err := ioutil.ReadAll(mxHostRespErr.Resp.Body)
 			defer mxHostRespErr.Resp.Body.Close()
+			respBody, err := ioutil.ReadAll(mxHostRespErr.Resp.Body)
 			log.Println("Dispatch response: ", string(respBody))
 			if err != nil {
 				log.Printf("Error in /publickeys/query dispatch request body read: %s", err.Error())
@@ -315,6 +315,10 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	user := new(User)
 	user.Token = validateToken(r.FormValue("token"))
+	if GetConfig().IsReservedName(user.Token) {
+		http.Error(w, "That username is reserved", http.StatusBadRequest)
+		return
+	}
 	user.PasswordHash = validatePassHash(r.FormValue("passHash"))
 	user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
 	user.PublicHash = ComputePublicHash(user.PublicKey)
@@ -326,7 +330,11 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !SaveUser(user) {
 		http.Error(w, "That username is taken", http.StatusBadRequest)
+		return
 	}
+
+	// Seed user token & hash to notaries.
+	SeedUserToNotaries(user)
 }
 
 // GET /user/me/contacts for the logged-in user's encrypted address book

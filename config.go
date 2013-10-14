@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"fmt"
+	"strings"
 )
 
 type Config struct {
@@ -15,9 +16,13 @@ type Config struct {
 	DbCatalog  string
 
 	SmtpMxHost string
-	SmtpPort   int // internal, nginx handles TLS and forwards
+	SmtpPort   int         // internal, nginx handles TLS and forwards
 
-	HttpPort int // internal, nginx handles SSL and forwards
+	HttpPort   int         // internal, nginx handles SSL and forwards
+
+	SeedNotaries []string  // for seeding new accounts
+
+	ReservedNames []string // reserved usernames
 }
 
 func GetConfig() *Config {
@@ -34,6 +39,12 @@ var defaultConfig = Config{
 	8825,
 
 	8888,
+
+	[]string{"notary@hashed.im", "notary@dev.hashed.im"},
+
+	[]string{"notary", "admin", "administrator", "root", "support", "help", "spam",
+			 "info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
+			 "mailer", "daemon", "postmaster"},
 }
 
 var config Config
@@ -67,4 +78,13 @@ func writeDefaultConfig(configFile string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (cfg *Config) IsReservedName(name string) bool {
+	for _, n := range cfg.ReservedNames {
+		if strings.ToLower(n) == strings.ToLower(name) {
+			return true
+		}
+	}
+	return false
 }
