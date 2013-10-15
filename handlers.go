@@ -87,7 +87,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	nameAddrs := ParseEmailAddresses(r.FormValue("nameAddresses"))
 	mxHostNameAddrs, failedNameAddrs := GroupAddrsByMxHost(r.FormValue("nameAddresses"))
 	mxHostHashAddrs, failedHostAddrs := GroupAddrsByMxHost(r.FormValue("hashAddresses"))
-	notaries := ParseEmailAddresses(r.FormValue("notaries"))
+	notaries := strings.Split(r.FormValue("notaries"), ",")
+	for _, notary := range notaries { validateHost(notary) }
+
 	res := Response{}
 	res.NameResolution = map[string]*NotaryResultError{}
 	res.PublicKeys = map[string]*PubKeyError{}
@@ -116,8 +118,8 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				log.Panicf("Invalid host for server-to-server /publickeys/query request. Expected %v, got %v", ourMxHost, host)
 			}
 		}
-		if len(notaries) > 1 || notaries[0].Host != GetConfig().SmtpMxHost {
-			log.Panicf("Expected 0 or 1 notary address @" + GetConfig().SmtpMxHost + ", got [" + notaries.String() + "]")
+		if len(notaries) > 1 || notaries[0] != GetConfig().SmtpMxHost {
+			log.Panicf("Expected 0 or 1 notary @" + GetConfig().SmtpMxHost + ", got [" + strings.Join(notaries, ",") + "]")
 		}
 	}
 
@@ -128,10 +130,10 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(nameAddrs) > 0 {
 		for _, notary := range notaries {
-			if allRequests[notary.Host] == nil {
-				allRequests[notary.Host] = &PerMxHostRequest{nameAddrs, nil}
+			if allRequests[notary] == nil {
+				allRequests[notary] = &PerMxHostRequest{nameAddrs, nil}
 			} else {
-				allRequests[notary.Host].NameAddresses = nameAddrs
+				allRequests[notary].NameAddresses = nameAddrs
 			}
 		}
 	}
@@ -164,7 +166,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				res.NameResolution["notary@"+mxHost] = thisResult
+				res.NameResolution[mxHost] = thisResult
 			}
 
 			// handle pubkey lookup
@@ -201,7 +203,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				body := url.Values{}
 				body.Set("nameAddresses", request.NameAddresses.String())
 				body.Set("hashAddresses", request.HashAddresses.String())
-				body.Set("notaries", "notary@"+mxHost)
+				body.Set("notaries", mxHost)
 				resp, err := http.PostForm(u.String(), body)
 				ch <- &MxHostRespErr{mxHost, resp, err}
 			}(mxHost, request)
@@ -233,8 +235,8 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// aggregate notary responses
-			res.NameResolution["notary@"+mxHostRespErr.MxHost] =
-				parsed.NameResolution["notary@"+mxHostRespErr.MxHost]
+			res.NameResolution[mxHostRespErr.MxHost] =
+				parsed.NameResolution[mxHostRespErr.MxHost]
 			// merge pubkeys
 			for addr, pubKeyErr := range parsed.PublicKeys {
 				// The client still verifies the hash, but
@@ -278,10 +280,10 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(nameAddrs) > 0 {
 			for _, notary := range notaries {
-				if res.NameResolution[notary.StringNoHash()] == nil {
-					res.NameResolution[notary.StringNoHash()] = &NotaryResultError{
+				if res.NameResolution[notary] == nil {
+					res.NameResolution[notary] = &NotaryResultError{
 						nil,
-						fmt.Sprintf("Failed to retrieve notary response from %s", notary.String()),
+						fmt.Sprintf("Failed to retrieve notary response from %s", notary),
 					}
 				}
 			}
@@ -554,10 +556,10 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
 	resJson, err := json.Marshal(struct {
-		Address string `json:"address"`
+		Host    string `json:"host"`
 		PubKey  string `json:"pubkey"`
 	}{
-		GetNotaryInfo().Hash + "@" + GetConfig().SmtpMxHost,
+		GetConfig().SmtpMxHost,
 		GetNotaryInfo().PublicKeyArmor,
 	},
 	)

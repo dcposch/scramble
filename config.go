@@ -40,9 +40,9 @@ var defaultConfig = Config{
 
 	8888,
 
-	[]string{"notary@hashed.im", "notary@dev.hashed.im"},
+	[]string{"hashed.im", "dev.hashed.im"},
 
-	[]string{"notary", "admin", "administrator", "root", "support", "help", "spam",
+	[]string{"admin", "administrator", "root", "support", "help", "spam",
 			 "info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 			 "mailer", "daemon", "postmaster"},
 }

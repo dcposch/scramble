@@ -1270,10 +1270,10 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
 // TODO Currently just hardcoded, will change in the future.
 // TODO Needs to be overridden for local testing.
 // TODO Load public keys by querying /notary/id & saving it maybe.
-// cb: function(notaries), notaries: {notary@<host>:<publicKey>, ...}
+// cb: function(notaries), notaries: {<host>:<publicKey>, ...}
 function loadNotaries(cb) {
     cb({
-        "notary@hashed.im": // 4gjgpocrvdx4cqnb
+        "hashed.im": // 4gjgpocrvdx4cqnb
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1305,7 +1305,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "notary@dev.hashed.im":
+        "dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
