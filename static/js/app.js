@@ -1309,6 +1309,39 @@ function loadNotaries(cb) {
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
+                "xsBNBFJc8kEBCADAcboo0fUDW7oyF18TxSA2sROfJrg186xdHkp/enYjHzHRs2vw\n"+
+                "+Bs65Pp6Zug+0+BgoJHbpt7fNlkYchYvaySyAAmGzR6MtPrGR3VBhvslEkbHGW9J\n"+
+                "uy0jKs5o1EcrYi9aviUsispz7tsOJszcfNLDCpIf3zbmXV3RNJ5G+tHIuaG1D+Mz\n"+
+                "MkF6UO1sgwzG6ES36yaCBedFzzEwBi7At7CSTAGNV0r1ocAi/zkUDvGgpKvvf4lA\n"+
+                "Le9kuAuT7ozDPGJGwnPvFpjNxt53OPAegDKHPLVB9ZNaY/Mr9ee5ov3Pl5J7z1JT\n"+
+                "qc9RG6Mtlz15UQD1wEzZoEJRJJ+RwUTt8p4PABEBAAHNT05vdGFyeSAoTm90YXJ5\n"+
+                "IGZvciB0ZXN0LnNjcmFtYmxlLmlvIFNjcmFtYmxlIFNlcnZlcikgPHN1cHBvcnRA\n"+
+                "dGVzdC5zY3JhbWJsZS5pbz7CwGIEEwEIABYFAlJc8kEJEH2a1kplMK9TAhsDAhkB\n"+
+                "AADmkggAmGa9aWfHkiRWx3xixJNYDmqzVtfiYs46n2tseiVT6SPaythVsbYNTw2w\n"+
+                "M2711CF42IpJZpTUSUQ45zIrQQsNRwbwKjh8g5dCkngRfcDykDRdjMbUmF17/LLp\n"+
+                "aCccv70QVPaok/TgLr5QPPYr4OdR2pgyNezjGuHOrlrSQoViXhyD/h91vATh7d2G\n"+
+                "m6QkrAt0dI7QNWegVpSfuk9yXTKnBign2mrHc+HM107RYE0WK/oqy70Fa/GeqHE5\n"+
+                "5KwS3kLWu38qYnAYw5bpwNdOtl98BM89M6Unp3wq2I4dHj9NKskLNwkCF0cA9vaI\n"+
+                "bIw9faDwd9WW5ou1GAT0f/xMEKXbjs7ATQRSXPJBAQgAxk2m0pXwCifo2vKQnnyg\n"+
+                "LBt86B91TN2G1yfbigLmRmW15Z+fNuL5AuIz4eYZz6M0hxSQ0lhgEzGjDgIUaUAi\n"+
+                "6oCoqf+aTT978KkVEExZR+p/v3hqxwjtDc6q9OAjWCrXpXcPsIfDYGKCDt1Mx802\n"+
+                "Gqzw8dBkoy4PnQ6OMqUYnL1vQFui2nrksfrQCtTIlmsICW16frwLI2nPDrwY+GUi\n"+
+                "n3UoKGoT5JCXVPQ4sdDbgzJoqGJwe1JMls/+vfPaz1r0jOF/a3Ovau8vOvWSdodk\n"+
+                "L2db8HxfIbaMj+zBb6Hume/KdWKiJZ+Xv9ZnqnmjVl+TIz1ncqnfJWpJ5j/cSGsk\n"+
+                "CwARAQABwsBfBBgBCAATBQJSXPJBCRB9mtZKZTCvUwIbDAAAJKMIAFhG3a6upAxC\n"+
+                "PjCFOKV1L+z8F3N6HEQJBmwuwmWaIj6RhvnWdqBMkjmcxclAvuM9rzYZhrE0XjqK\n"+
+                "kZUrJhnCRCmLfWtA6SZE/C65FdCdIZPB04BmIW6MLEOL3+HleB5LD0v6Exx4KvFN\n"+
+                "e0clu0m0H+HxvrtnhdDaAEh2cdPZTiOlrbJ3oXwk9B1j/N1AJIqE5RSrrrOXrdl/\n"+
+                "3g3j/nGEf0hqhjPmB7kafR7ZbP78ipV1ENraoafk3RtKNKuZI5+2mdzvYYIiRTcH\n"+
+                "YE6g+T3KLPalnjqp3RppJ48pCH8bs/ZzeEGVrjDPcSscC5+96FmFvm064fOdSz7m\n"+
+                "/YAMYP4dUiE=                                                    \n"+
+                "=Mt/n                                                           \n"+
+                "-----END PGP PUBLIC KEY BLOCK-----"
+            ),
+        "dev.hashed.im":
+            openpgp.read_publicKey(
+                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
+                "\n"+
                 "xsBNBFJM2MQBCAC+6XtfSNnub2S3OAUPCPVkQ+5FHQ1BKBft1R1rFlhsBYnBFp9O\n"+
                 "9mOG945gkq6tF3cW5IEOrHbTkyB3aHzunoU90AIE5r6FT/9d6BrSU68SdDGimYmd\n"+
                 "32UnIZpAYEBxOkVxKH1/qD1SBjqqFjCEfUNVfb+Yrtmpu+X7ZIOPsQvVG49Fm9jz\n"+
