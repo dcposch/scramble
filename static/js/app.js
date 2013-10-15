@@ -1083,6 +1083,15 @@ function addContacts(contacts, newContacts) {
         newContacts = [newContacts]
     }
 
+    // create a new array, don't modify the old one.
+    var allContacts = []
+    for (var i=0; i<contacts.length; i++) {
+        var c = contacts[i]
+        allContacts.push({name:c.name, pubHash:c.pubHash, address:c.address})
+    }
+    // defensively delete reference to original contacts.
+    contacts = null
+
     EACH_NEW_CONTACT:
     for (var i=0; i<newContacts.length; i++) {
         var newContact = newContacts[i];
@@ -1097,9 +1106,9 @@ function addContacts(contacts, newContacts) {
 
         // if address is already in contacts, just set the name.
         if (name) {
-            for (var i=0; i<contacts.length; i++) {
-                if (contacts[i].address == address) {
-                    contacts[i].name = name
+            for (var i=0; i<allContacts.length; i++) {
+                if (allContacts[i].address == address) {
+                    allContacts[i].name = name
                     continue EACH_NEW_CONTACT
                 }
             }
@@ -1112,10 +1121,10 @@ function addContacts(contacts, newContacts) {
             pubHash: trimToLower(pubHash),
         }
 
-        contacts.push(newContact)
+        allContacts.push(newContact)
     }
 
-    return contacts
+    return allContacts
 }
 
 function contactNameFromAddress(address){

@@ -20,6 +20,98 @@ tests.key = function() {
     assertEquals(bin2hex(key), "9c2a7d2518c5bc0b7ebdba72b8d7c71e")
 }
 
+tests.addContacts = function() {
+
+    // normal add
+    (function() {
+        var contacts = [
+            {name:"joe", address:"joe@hashed.im", pubHash:"1111111111111111"},
+            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
+        var merged = addContacts(contacts, [{name:"bob", address:"bob@hashed.im", pubHash:"3333333333333333"}])
+        assertEquals(contacts.map("name").sort().join(" "), "alice joe") // original contacts should be untouched.
+        assertEquals(  merged.map("name").sort().join(" "), "alice bob joe")
+    })();
+
+    // set name on existing
+    (function() {
+        var contacts = [
+            {name:undefined, address:"joe@hashed.im",  pubHash:"1111111111111111"},
+            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
+        var merged = addContacts(contacts, [{name:"joe", address:"joe@hashed.im", pubHash:"1111111111111111"}])
+        assertEquals(contacts.map("name").sort().join(" "), "alice ") // original contacts should be untouched.
+        assertEquals(  merged.map("name").sort().join(" "), "alice joe")
+    })();
+
+    // invalid add
+    (function() {
+        var contacts = [
+            {name:"joe",     address:"joe@hashed.im",  pubHash:"1111111111111111"},
+            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
+        assertThrows(function(){
+            // should fail because pubHash is missing
+            addContacts(contacts, [{name:"bob", address:"bob@hashed.im"}])
+        })
+        assertThrows(function(){
+            // should fail because address is missing
+            addContacts(contacts, [{name:"bob", pubHash:"1111111111111111"}])
+        })
+    })();
+
+}
+
+tests.validateContacts = function() {
+
+    // not even contacts...
+    (function() {
+        assertThrows(function(){
+            validateContacts(null)
+        })
+        assertThrows(function(){
+            validateContacts(0)
+        })
+        assertThrows(function(){
+            validateContacts("blah")
+        })
+    })();
+
+    // basic contacts
+    (function() {
+        var res;
+
+        res = validateContacts([{name:"bob", address:"bob@hashed.im", pubHash:"1111111111111111"}])
+        assertEquals(res.errors.length, 0)
+        assertEquals(res.contacts.length, 1)
+    })();
+
+    // falsey names -> removed
+    (function() {
+        var res;
+
+        res = validateContacts([{name:undefined, address:"bob@hashed.im", pubHash:"1111111111111111"}])
+        assertEquals(res.errors.length, 0)
+        assertEquals(res.contacts.length, 1)
+        assertEquals(res.contacts[0].name, undefined)
+        assertEquals(res.contacts[0].hasOwnProperty("name"), false)
+    })();
+}
+
+$(function(){
+    var tests = []
+    for(var name in window){
+        if(typeof(window[name])==="function" && name.indexOf("test")==0){
+            tests.push(name)
+        }
+    }
+    tests.sort()
+    var i = 0;
+    var runNext = function(){
+        run(tests[i++])
+        if(i < tests.length) {
+            setTimeout(runNext, 10)
+        }
+    }
+    runNext()
+})
 
 
 //
@@ -45,15 +137,24 @@ function run(name){
     var startMs = new Date().getTime()
     console.log("Running "+name)
     var success = true
-    try {
+    //try {
         tests[name]()
-    } catch (e){
-        success = false
-        console.log("    FAILED! "+e)
-    }
+    //} catch (e){
+    //    success = false
+    //    console.log("    FAILED! "+e)
+    //}
     var elapsedMs = new Date().getTime() - startMs
     console.log("    Took "+elapsedMs+" ms")
     return success
+}
+
+function assertThrows(fn) {
+    try {
+        fn()
+    } catch (err) {
+        return
+    }
+    throw "Expected error to be thrown, but nothing happened."
 }
 
 function assertEquals(actual, expected){
@@ -67,4 +168,3 @@ function assert(cond, msg){
         throw msg || "Assertion failed"
     }
 }
-
