@@ -2,6 +2,7 @@ run: build
 	$(GOPATH)/bin/scramble
 
 build: doc
+	go get .
 	go install .
 	cp $(GOPATH)/bin/scramble static/bin/scramble
 
