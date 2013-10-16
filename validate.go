@@ -6,13 +6,16 @@ import (
 	"errors"
 )
 
-var regexHex = regexp.MustCompile("(?i)[a-f0-9]+")
-var regexPassHash = regexp.MustCompile("(?i)[a-f0-9]{40}")
-var regexHash = regexp.MustCompile("(?i)[a-f0-9]{40}|[a-z2-7]{16}")
-var regexToken = regexp.MustCompile("(?i)[a-z0-9]{3}[a-z0-9]*")
-var regexAddress = regexp.MustCompile(`(?i)([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})`)
-var regexHashAddress = regexp.MustCompile(`(?i)([A-Z0-9._%+-]+)(?:#([A-Z2-7]{16}))?@([A-Z0-9.-]+\.[A-Z]{2,4})`)
-var regexHost = regexp.MustCompile(`(?i)([A-Z0-9.-]+\.[A-Z]{2,4})`)
+var regexHex = regexp.MustCompile("^(?i)[a-f0-9]+$")
+var regexPassHash = regexp.MustCompile("^(?i)[a-f0-9]{40}$")
+var regexHash = regexp.MustCompile("^(?i)[a-f0-9]{40}|[a-z2-7]{16}$")
+var regexToken = regexp.MustCompile("^(?i)[a-z0-9]{3}[a-z0-9]*$")
+var regexAddress = regexp.MustCompile(`^(?i)([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$`)
+var regexHashAddress = regexp.MustCompile(`^(?i)([A-Z0-9._%+-]+)(?:#([A-Z2-7]{16}))?@([A-Z0-9.-]+\.[A-Z]{2,4})$`)
+var regexHost = regexp.MustCompile(`^(?i)([A-Z0-9.-]+\.[A-Z]{2,4})$`)
+var regexPublicKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----`)
+var regexPrivateKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----`)
+var regexMessageArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
 
 
 func validatePassHash(str string) string {
@@ -45,12 +48,6 @@ func validateToken(str string) string {
 	}
 	return str
 }
-func validatePublicKey(str string) string {
-	if str == "" {
-		log.Panicf("Invalid public key:\n%s", str)
-	}
-	return str
-}
 func validateBox(str string) string {
 	if str != "inbox" && str != "sent" && str != "archive" {
 		log.Panicf("Expected 'inbox' or 'sent', got %s", str)
@@ -66,6 +63,24 @@ func validateAddressSafe(str string) (err error) {
 func validateHost(str string) string {
 	if !regexHost.MatchString(str) {
 		log.Panicf("Invalid host %s", str)
+	}
+	return str
+}
+func validatePublicKeyArmor(str string) string {
+	if !regexPublicKeyArmor.MatchString(str) {
+		log.Panicf("Invalid public key:\n%s", str)
+	}
+	return str
+}
+func validatePrivateKeyArmor(str string) string {
+	if !regexPrivateKeyArmor.MatchString(str) {
+		log.Panicf("Invalid public key:\n%s", str)
+	}
+	return str
+}
+func validateMessageArmor(str string) string {
+	if !regexMessageArmor.MatchString(str) {
+		log.Panicf("Invalid public key:\n%s", str)
 	}
 	return str
 }

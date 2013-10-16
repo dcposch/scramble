@@ -95,24 +95,6 @@ tests.validateContacts = function() {
     })();
 }
 
-$(function(){
-    var tests = []
-    for(var name in window){
-        if(typeof(window[name])==="function" && name.indexOf("test")==0){
-            tests.push(name)
-        }
-    }
-    tests.sort()
-    var i = 0;
-    var runNext = function(){
-        run(tests[i++])
-        if(i < tests.length) {
-            setTimeout(runNext, 10)
-        }
-    }
-    runNext()
-})
-
 
 //
 // UNIT TEST RUNNER
@@ -137,12 +119,12 @@ function run(name){
     var startMs = new Date().getTime()
     console.log("Running "+name)
     var success = true
-    //try {
+    try {
         tests[name]()
-    //} catch (e){
-    //    success = false
-    //    console.log("    FAILED! "+e)
-    //}
+    } catch (e){
+        success = false
+        console.log("    FAILED! "+e)
+    }
     var elapsedMs = new Date().getTime() - startMs
     console.log("    Took "+elapsedMs+" ms")
     return success

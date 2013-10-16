@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+	"encoding/json"
 	"testing"
 	"time"
 	"log"
@@ -13,19 +15,20 @@ func init() {
 	ensureTestUser()
 }
 
-func ensureTestUser() {
+func ensureTestUser() *User {
 	user := LoadUser("test")
 	if user != nil {
 		if user.PublicHash != "x6urvahzhylq5swe" {
 			panic("test user with token 'test' had unexpected public hash")
 		}
-		return
+		return user
 	}
 	user = &User{
 		UserID:UserID {
 			Token:        "test",
 			PasswordHash: "5026f031ceea00023da878da2be4660ae85040e8", // 'test test test test'
 			PublicHash:   "x6urvahzhylq5swe",
+			EmailHost:    GetConfig().SmtpMxHost,
 		},
 		PublicKey:    `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: OpenPGP.js v.1.20130306
@@ -50,6 +53,7 @@ OewXcIuOdtHovjU05JwUjYcg30lZ
 		// vim syntax highlite fix `
 		}
 	SaveUser(user)
+	return user
 }
 
 func requestLoggedIn(handler http.HandlerFunc, method string, path string, form url.Values) *httptest.ResponseRecorder {
@@ -69,44 +73,45 @@ func requestLoggedIn(handler http.HandlerFunc, method string, path string, form 
 }
 
 func TestPublicKeysHandler(t *testing.T) {
+	var tUser = ensureTestUser()
+
 	record := requestLoggedIn(
 		publicKeysHandler,
-		"POST", "publickeys/",
+		"POST", "publickeys/query",
 		url.Values{
-		  "addresses": {"x6urvahzhylq5swe@hashed.im,y7a4hsiyklzptjqf@hashed.im"},
+			"nameAddresses": {tUser.EmailAddress},
+			"hashAddresses": {"doesnotexist#2222222222222222@"+GetConfig().SmtpMxHost},
+			"notaries":      {GetConfig().SmtpMxHost},
 		},
 	)
 	log.Println(record.Code, record.Body.String())
 
-	// TODO: this test doesn't actually test much,
-	// since there are no test hosts to dispatch to.
-	// We could set up some test servers.
-}
+	parsed := PublicKeysResponse{}
+	err := json.Unmarshal(record.Body.Bytes(), &parsed)
+	if err != nil {
+		log.Fatal("Failed to parse response from publickeys/query: "+err.Error())
+	}
 
-func TestNotaryQueryHandler(t *testing.T) {
-	record := requestLoggedIn(
-		notaryQueryHandler,
-		"POST", "notary/query",
-		url.Values{
-			"addresses": {"test@dev.hashed.im"},
-			"notaries": {"dontcare@dev.hashed.im,dontcare@dev2.hashed.im"},
-		},
-	)
-	log.Println(record.Code, record.Body.String())
+	// assertions on parsed
+	var notaryRes = parsed.NameResolution[GetConfig().SmtpMxHost].Result[tUser.EmailAddress]
+	if notaryRes.PubHash != tUser.PublicHash {
+		log.Fatal("Name resolution should have returned pubHash")
+	}
+	if notaryRes.Timestamp < 1380000000 || 9999999999 <= notaryRes.Timestamp {
+		log.Fatal("Timestamp out of range")
+	}
+	if strings.Index(notaryRes.Signature, "-----BEGIN PGP SIGNATURE-----") != 0 {
+		log.Fatal("Signature doesn't start with armor")
+	}
 
-	// TODO: parse the response and ensure that
-	// pubHash, timestamp, and signature are present.
-	/* Sample:
-		{
-		  "dontcare@dev.hashed.im": {
-			"result": {
-			  "test@dev.hashed.im": {
-				"pubHash": "x6urvahzhylq5swe",
-				"timestamp": 1380432121,
-				"signature": "-----BEGIN PGP SIGNATURE----- ..."
-			  }
-			}
-		  }
-		}
-	*/
+	var dneRes = parsed.PublicKeys["doesnotexist@"+GetConfig().SmtpMxHost]
+	if dneRes.Error != "Unknown name doesnotexist" {
+		log.Fatal("Unexpected error message for name that does not exist")
+	}
+
+	var tUserRes = parsed.PublicKeys[tUser.EmailAddress]
+	if strings.Index(tUserRes.PubKey, "-----BEGIN PGP PUBLIC KEY BLOCK-----") != 0 {
+		log.Fatal("Invalid public key response for test user")
+	}
+
 }

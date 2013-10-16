@@ -58,19 +58,20 @@ func publicKeyHandler(w http.ResponseWriter, r *http.Request) {
 // Read more here:
 //  https://github.com/dcposch/scramble/wiki/Name-Resolution-&-Public-Key-Fetching
 // The server is untrusted, so the client must verify everything.
+
+type PublicKeysPubKeyError struct {
+	PubKey string `json:"pubKey,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+type PublicKeysResponse struct {
+	NameResolution map[string]*NotaryResultError      `json:"nameResolution,omitempty"` // defined in notary.go
+	PublicKeys     map[string]*PublicKeysPubKeyError  `json:"publicKeys,omitempty"`
+}
+
 func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	userId, _ := authenticate(r)
 	timestamp := time.Now().Unix()
-
-	type PubKeyError struct {
-		PubKey string `json:"pubKey,omitempty"`
-		Error  string `json:"error,omitempty"`
-	}
-
-	type Response struct {
-		NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"` // defined in notary.go
-		PublicKeys     map[string]*PubKeyError       `json:"publicKeys,omitempty"`
-	}
 
 	type MxHostRespErr struct {
 		MxHost string
@@ -90,9 +91,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	notaries := strings.Split(r.FormValue("notaries"), ",")
 	for _, notary := range notaries { validateHost(notary) }
 
-	res := Response{}
+	res := PublicKeysResponse{}
 	res.NameResolution = map[string]*NotaryResultError{}
-	res.PublicKeys = map[string]*PubKeyError{}
+	res.PublicKeys = map[string]*PublicKeysPubKeyError{}
 
 	// fail immediately if any address cannot be resolved.
 	if len(failedHostAddrs) != 0 || len(failedNameAddrs) != 0 {
@@ -181,14 +182,14 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			for _, addr := range pubKeyLookup {
 				pubHash := LoadPubHash(addr.Name)
 				if pubHash == "" {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Unknown name " + addr.Name}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{"", "Unknown name " + addr.Name}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
 				if addr.Hash == "" || pubHash == addr.Hash {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, ""}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{pubKey, ""}
 				} else {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{pubKey, "Wrong hash for name"}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{pubKey, "Wrong hash for name"}
 				}
 			}
 
@@ -228,7 +229,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Error in /publickeys/query dispatch request body read: %s", err.Error())
 				continue
 			}
-			parsed := Response{}
+			parsed := PublicKeysResponse{}
 			err = json.Unmarshal(respBody, &parsed)
 			if err != nil {
 				log.Println("Error in /publickeys/query json parse: %s", err.Error())
@@ -264,7 +265,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, addr := range addrs {
 				if res.PublicKeys[addr.StringNoHash()] == nil {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{"", "Failed to retrieve public key"}
 				}
 			}
 		}
@@ -274,7 +275,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, addr := range addrs {
 				if res.PublicKeys[addr.StringNoHash()] == nil {
-					res.PublicKeys[addr.StringNoHash()] = &PubKeyError{"", "Failed to retrieve public key"}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{"", "Failed to retrieve public key"}
 				}
 			}
 		}
@@ -322,9 +323,9 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.PasswordHash = validatePassHash(r.FormValue("passHash"))
-	user.PublicKey = validatePublicKey(r.FormValue("publicKey"))
+	user.PublicKey = validatePublicKeyArmor(r.FormValue("publicKey"))
 	user.PublicHash = ComputePublicHash(user.PublicKey)
-	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
+	user.CipherPrivateKey = validatePrivateKeyArmor(r.FormValue("cipherPrivateKey"))
 	user.EmailHost = computeEmailHost(r.Host)
 	user.EmailAddress = user.Token + "@" + computeEmailHost(r.Host)
 
@@ -487,8 +488,9 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		email.CipherSubject = r.FormValue("subject")
 		email.CipherBody = r.FormValue("body")
 	} else { // encrypted
-		email.CipherSubject = validateHex(r.FormValue("cipherSubject"))
-		email.CipherBody = validateHex(r.FormValue("cipherBody"))
+		log.Println("<<<<"+r.FormValue("cipherSubject")+">>>>")
+		email.CipherSubject = validateMessageArmor(r.FormValue("cipherSubject"))
+		email.CipherBody = validateMessageArmor(r.FormValue("cipherBody"))
 	}
 
 	// TODO: consider if transactions are required.
