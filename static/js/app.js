@@ -94,7 +94,8 @@ var keyMap = {
     "r":emailReply,
     "a":emailReplyAll,
     "f":emailForward,
-    "y":function(){moveEmail("archive")},
+    "y":function(){emailMove("archive")},
+    "d":emailDelete,
     27:closeModal // esc key
 }
 
@@ -462,30 +463,6 @@ function readPrevEmail(){
     }
 }
 
-function moveEmail(box){
-    if(!viewState.email) return
-    var msgId = viewState.email.id
-    $.ajax({
-        url: '/email/'+msgId,
-        type: 'PUT',
-        data: {
-            'box':box
-        },
-    }).done(function(){
-        var newSelection = $(".box .current").next()
-        if(newSelection.length == 0){
-            newSelection = $(".box .current").prev()
-        }
-        $(".box .current").remove()
-        displayEmail(newSelection)
-
-        displayStatus("Moved to "+box)
-    }).fail(function(xhr){
-        alert("Move to "+box+" failed: "+xhr.responseText)
-    })
-}
-
-
 
 //
 // SINGLE EMAIL
@@ -495,9 +472,10 @@ function bindEmailEvents() {
     $("#replyButton").click(emailReply)
     $("#replyAllButton").click(emailReplyAll)
     $("#forwardButton").click(emailForward)
+    $("#deleteButton").click(emailDelete)
 
-    $("#archiveButton").click(function(){moveEmail("archive")})
-    $("#moveToInboxButton").click(function(){moveEmail("inbox")})
+    $("#archiveButton").click(function(){emailMove("archive")})
+    $("#moveToInboxButton").click(function(){emailMove("inbox")})
 
     $("#enterFromNameButton").click(function(){
         var addr = viewState.email.from
@@ -516,8 +494,6 @@ function bindEmailEvents() {
                     displayStatus("Contact saved")
                 })
             })
-            // XXX was is this here?
-            // displayEmail($(".box li.current"))
         }
     })
 }
@@ -617,7 +593,48 @@ function emailForward(){
     displayCompose("", email.subject, email.body)
 }
 
+function emailDelete(){
+    if(!viewState.email) return;
+    if(!confirm("Are you sure you want to delete this email?")) return;
+    var msgId = viewState.email.id
+    $.ajax({
+        url: '/email/'+msgId,
+        type: 'DELETE',
+    }).done(function(){
+        var newSelection = $(".box .current").next()
+        if(newSelection.length == 0){
+            newSelection = $(".box .current").prev()
+        }
+        $(".box .current").remove()
+        displayEmail(newSelection)
+        displayStatus("Deleted")
+    }).fail(function(xhr){
+        alert("Deleting failed: "+xhr.responseText)
+    })
+}
 
+function emailMove(box){
+    if(!viewState.email) return
+    var msgId = viewState.email.id
+    $.ajax({
+        url: '/email/'+msgId,
+        type: 'PUT',
+        data: {
+            'box':box
+        },
+    }).done(function(){
+        var newSelection = $(".box .current").next()
+        if(newSelection.length == 0){
+            newSelection = $(".box .current").prev()
+        }
+        $(".box .current").remove()
+        displayEmail(newSelection)
+
+        displayStatus("Moved to "+box)
+    }).fail(function(xhr){
+        alert("Move to "+box+" failed: "+xhr.responseText)
+    })
+}
 
 
 //

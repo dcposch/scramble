@@ -452,6 +452,8 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		emailBoxHandler(w, r, userId)
 	} else if r.Method == "POST" {
 		emailSendHandler(w, r, userId)
+	} else if r.Method == "DELETE" {
+		emailDeleteHandler(w, r, userId)
 	}
 }
 
@@ -476,6 +478,13 @@ func emailBoxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	newBox := validateBox(r.FormValue("box"))
 
 	MoveEmail(userId.EmailAddress, id, newBox)
+}
+
+// DELETE /email/id deletes an email from all of a user's boxes
+func emailDeleteHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+	id := r.URL.Path[len("/email/"):]
+	validateMessageID(id)
+	DeleteFromBoxes(userId.EmailAddress, id)
 }
 
 func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {

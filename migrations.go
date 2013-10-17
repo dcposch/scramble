@@ -16,6 +16,7 @@ var migrations = []func() error{
 	migrateCreateNameResolution,
 	migrateAddUserEmailAddress,
 	migrateMakeNameResolutionUnique,
+	migrateBoxAddForeignKey,
 }
 
 func migrateDb() {
@@ -262,5 +263,10 @@ func migrateMakeNameResolutionUnique() error {
 	_, err := db.Exec(`ALTER TABLE name_resolution DROP INDEX host`)
 	if err != nil { return err }
 	_, err =  db.Exec(`ALTER TABLE name_resolution ADD UNIQUE INDEX (host, name)`)
+	return err
+}
+
+func migrateBoxAddForeignKey() error {
+	_, err := db.Exec(`ALTER TABLE box ADD FOREIGN KEY (message_id) REFERENCES email(message_id)`)
 	return err
 }

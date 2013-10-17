@@ -290,6 +290,22 @@ func AddMessageToBox(e *Email, address string, box string) {
 	}
 }
 
+// Deletes a message from any of a user's box.
+// If the email is no longer referenced, it gets deleted
+//  from the email table as well.
+func DeleteFromBoxes(address string, id string) {
+	res, err := db.Exec("DELETE FROM box "+
+		"WHERE address=? AND message_id=?",
+		address, id)
+	count, err := res.RowsAffected()
+	if err != nil || count == 0 {
+		log.Panicf("Could not delete message %s for %s: %v",
+			id, address, err)
+	}
+	// protected by foreign key constraints
+	db.Exec("DELETE FROM email WHERE message_id=?", id)
+}
+
 // See which boxes message belongs in for user.
 // e.g. ["inbox", "sent"]
 func BoxesForMessage(address string, id string) []string {
