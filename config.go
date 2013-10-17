@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"fmt"
 	"strings"
 )
 
@@ -16,11 +16,11 @@ type Config struct {
 	DbCatalog  string
 
 	SmtpMxHost string
-	SmtpPort   int         // internal, nginx handles TLS and forwards
+	SmtpPort   int // internal, nginx handles TLS and forwards
 
-	HttpPort   int         // internal, nginx handles SSL and forwards
+	HttpPort int // internal, nginx handles SSL and forwards
 
-	SeedNotaries []string  // for seeding new accounts
+	SeedNotaries []string // for seeding new accounts
 
 	ReservedNames []string // reserved usernames
 }
@@ -43,14 +43,15 @@ var defaultConfig = Config{
 	[]string{"hashed.im", "dev.hashed.im"},
 
 	[]string{"admin", "administrator", "root", "support", "help", "spam",
-			 "info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
-			 "mailer", "daemon", "postmaster"},
+		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
+		"mailer", "daemon", "postmaster"},
 }
 
 var config Config
 
 func init() {
 	configFile := os.Getenv("HOME") + "/.scramble/config.json"
+	log.Printf("Reading " + configFile)
 
 	// try to read configuration. if missing, write default
 	configBytes, err := ioutil.ReadFile(configFile)
@@ -62,6 +63,7 @@ func init() {
 	}
 
 	// try to parse configuration. on error, die
+	config = defaultConfig
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
 		log.Panicf("Invalid configuration file %s: %v", configFile, err)

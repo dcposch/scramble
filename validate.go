@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"regexp"
-	"errors"
 )
 
 var regexHex = regexp.MustCompile("^(?i)[a-f0-9]+$")
@@ -14,9 +14,7 @@ var regexAddress = regexp.MustCompile(`^(?i)([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]
 var regexHashAddress = regexp.MustCompile(`^(?i)([A-Z0-9._%+-]+)(?:#([A-Z2-7]{16}))?@([A-Z0-9.-]+\.[A-Z]{2,4})$`)
 var regexHost = regexp.MustCompile(`^(?i)([A-Z0-9.-]+\.[A-Z]{2,4})$`)
 var regexPublicKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----`)
-var regexPrivateKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----`)
 var regexMessageArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
-
 
 func validatePassHash(str string) string {
 	if !regexPassHash.MatchString(str) {
@@ -56,7 +54,7 @@ func validateBox(str string) string {
 }
 func validateAddressSafe(str string) (err error) {
 	if !regexAddress.MatchString(str) {
-		err = errors.New("Invalid email address "+str)
+		err = errors.New("Invalid email address " + str)
 	}
 	return
 }
@@ -68,12 +66,6 @@ func validateHost(str string) string {
 }
 func validatePublicKeyArmor(str string) string {
 	if !regexPublicKeyArmor.MatchString(str) {
-		log.Panicf("Invalid public key:\n%s", str)
-	}
-	return str
-}
-func validatePrivateKeyArmor(str string) string {
-	if !regexPrivateKeyArmor.MatchString(str) {
 		log.Panicf("Invalid public key:\n%s", str)
 	}
 	return str

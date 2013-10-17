@@ -25,36 +25,36 @@ tests.addContacts = function() {
     // normal add
     (function() {
         var contacts = [
-            {name:"joe", address:"joe@hashed.im", pubHash:"1111111111111111"},
-            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
-        var merged = addContacts(contacts, [{name:"bob", address:"bob@hashed.im", pubHash:"3333333333333333"}])
-        assertEquals(contacts.map("name").sort().join(" "), "alice joe") // original contacts should be untouched.
-        assertEquals(  merged.map("name").sort().join(" "), "alice bob joe")
+            {name:"joe",   address:"joe@hashed.im",  pubHash:"1111111111111111"},
+            {name:"alice", address:"alice@hashd.im", pubHash:"2222222222222222"}];
+        var merged = addContacts(contacts, [{name:"bob", address:"bob@hashed.im", pubHash:"3333333333333333"}]);
+        assertEquals(contacts.map("name").sort().join(" "), "alice joe"); // original contacts should be untouched.
+        assertEquals(  merged.map("name").sort().join(" "), "alice bob joe");
     })();
 
     // set name on existing
     (function() {
         var contacts = [
             {name:undefined, address:"joe@hashed.im",  pubHash:"1111111111111111"},
-            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
-        var merged = addContacts(contacts, [{name:"joe", address:"joe@hashed.im", pubHash:"1111111111111111"}])
-        assertEquals(contacts.map("name").sort().join(" "), "alice ") // original contacts should be untouched.
-        assertEquals(  merged.map("name").sort().join(" "), "alice joe")
+            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"}];
+        var merged = addContacts(contacts, [{name:"joe", address:"joe@hashed.im", pubHash:"1111111111111111"}]);
+        assertEquals(contacts.map("name").sort().join(" "), "alice "); // original contacts should be untouched.
+        assertEquals(  merged.map("name").sort().join(" "), "alice joe");
     })();
 
     // invalid add
     (function() {
         var contacts = [
             {name:"joe",     address:"joe@hashed.im",  pubHash:"1111111111111111"},
-            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"},]
+            {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"}];
         assertThrows(function(){
             // should fail because pubHash is missing
-            addContacts(contacts, [{name:"bob", address:"bob@hashed.im"}])
-        })
+            addContacts(contacts, [{name:"bob", address:"bob@hashed.im"}]);
+        });
         assertThrows(function(){
             // should fail because address is missing
-            addContacts(contacts, [{name:"bob", pubHash:"1111111111111111"}])
-        })
+            addContacts(contacts, [{name:"bob", pubHash:"1111111111111111"}]);
+        });
     })();
 
 }
@@ -112,7 +112,12 @@ function main() {
     for(var i in testNames){
         success &= run(testNames[i])
     }
-    console.log(success ? "All succeeded!" : "TESTS FAILED")
+    if(success){
+        console.log("All succeeded!")
+    } else {
+        console.log("TESTS FAILED")
+        process.exit(1)
+    }
 }
 
 function run(name){

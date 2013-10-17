@@ -6,6 +6,10 @@ build: doc
 	go install .
 	cp $(GOPATH)/bin/scramble static/bin/scramble
 
+test:
+	go test
+	cat static/js/stubs.js static/js/sugar.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
+
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)
 doc: $(HTML) static/doc/index.html

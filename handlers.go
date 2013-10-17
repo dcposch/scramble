@@ -65,8 +65,8 @@ type PublicKeysPubKeyError struct {
 }
 
 type PublicKeysResponse struct {
-	NameResolution map[string]*NotaryResultError      `json:"nameResolution,omitempty"` // defined in notary.go
-	PublicKeys     map[string]*PublicKeysPubKeyError  `json:"publicKeys,omitempty"`
+	NameResolution map[string]*NotaryResultError     `json:"nameResolution,omitempty"` // defined in notary.go
+	PublicKeys     map[string]*PublicKeysPubKeyError `json:"publicKeys,omitempty"`
 }
 
 func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	mxHostNameAddrs, failedNameAddrs := GroupAddrsByMxHost(r.FormValue("nameAddresses"))
 	mxHostHashAddrs, failedHostAddrs := GroupAddrsByMxHost(r.FormValue("hashAddresses"))
 	notaries := strings.Split(r.FormValue("notaries"), ",")
-	for _, notary := range notaries { validateHost(notary) }
+	for _, notary := range notaries {
+		validateHost(notary)
+	}
 
 	res := PublicKeysResponse{}
 	res.NameResolution = map[string]*NotaryResultError{}
@@ -325,7 +327,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.PasswordHash = validatePassHash(r.FormValue("passHash"))
 	user.PublicKey = validatePublicKeyArmor(r.FormValue("publicKey"))
 	user.PublicHash = ComputePublicHash(user.PublicKey)
-	user.CipherPrivateKey = validatePrivateKeyArmor(r.FormValue("cipherPrivateKey"))
+	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 	user.EmailHost = computeEmailHost(r.Host)
 	user.EmailAddress = user.Token + "@" + computeEmailHost(r.Host)
 
@@ -488,7 +490,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		email.CipherSubject = r.FormValue("subject")
 		email.CipherBody = r.FormValue("body")
 	} else { // encrypted
-		log.Println("<<<<"+r.FormValue("cipherSubject")+">>>>")
+		log.Println("<<<<" + r.FormValue("cipherSubject") + ">>>>")
 		email.CipherSubject = validateMessageArmor(r.FormValue("cipherSubject"))
 		email.CipherBody = validateMessageArmor(r.FormValue("cipherBody"))
 	}
@@ -558,8 +560,8 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
 	resJson, err := json.Marshal(struct {
-		Host    string `json:"host"`
-		PubKey  string `json:"pubkey"`
+		Host   string `json:"host"`
+		PubKey string `json:"pubkey"`
 	}{
 		GetConfig().SmtpMxHost,
 		GetNotaryInfo().PublicKeyArmor,

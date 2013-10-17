@@ -69,6 +69,17 @@ func SaveUser(user *User) bool {
 	return nrows == 1
 }
 
+func DeleteUser(token string) {
+	res, err := db.Exec("delete from user where token=?", token)
+	if err == nil {
+		return
+	}
+	count, err := res.RowsAffected()
+	if err != nil || count != 1 {
+		log.Panicf("Could not delete user %s: %v", token, err)
+	}
+}
+
 func LoadUser(token string) *User {
 	var user User
 	user.Token = token
@@ -81,7 +92,7 @@ func LoadUser(token string) *User {
 		&user.PublicKey,
 		&user.CipherPrivateKey,
 		&user.EmailHost)
-	user.EmailAddress = user.Token+"@"+user.EmailHost
+	user.EmailAddress = user.Token + "@" + user.EmailHost
 	if err == sql.ErrNoRows {
 		return nil
 	}
@@ -101,7 +112,7 @@ func LoadUserID(token string) *UserID {
 		&user.PasswordHashOld,
 		&user.PublicHash,
 		&user.EmailHost)
-	user.EmailAddress = user.Token+"@"+user.EmailHost
+	user.EmailAddress = user.Token + "@" + user.EmailHost
 	if err == sql.ErrNoRows {
 		return nil
 	}
@@ -391,16 +402,22 @@ func AddNameResolution(name, host, hash string) {
 		name,
 		host,
 		hash)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 }
 
 func GetNameResolution(name, host string) (hash string) {
 	err := db.QueryRow("SELECT "+
-		"hash FROM name_resolution WHERE " +
+		"hash FROM name_resolution WHERE "+
 		"name=? AND host=?",
 		name, host).Scan(
 		&hash)
-	if err == sql.ErrNoRows { return "" }
-	if err != nil { panic(err) }
+	if err == sql.ErrNoRows {
+		return ""
+	}
+	if err != nil {
+		panic(err)
+	}
 	return
 }
