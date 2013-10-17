@@ -490,7 +490,6 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		email.CipherSubject = r.FormValue("subject")
 		email.CipherBody = r.FormValue("body")
 	} else { // encrypted
-		log.Println("<<<<" + r.FormValue("cipherSubject") + ">>>>")
 		email.CipherSubject = validateMessageArmor(r.FormValue("cipherSubject"))
 		email.CipherBody = validateMessageArmor(r.FormValue("cipherBody"))
 	}

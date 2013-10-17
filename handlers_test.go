@@ -79,7 +79,7 @@ func TestPublicKeysHandler(t *testing.T) {
 			"notaries":      {GetConfig().SmtpMxHost},
 		},
 	)
-	log.Println(record.Code, record.Body.String())
+	//log.Println(record.Code, record.Body.String())
 
 	parsed := PublicKeysResponse{}
 	err := json.Unmarshal(record.Body.Bytes(), &parsed)

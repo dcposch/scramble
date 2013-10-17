@@ -1581,13 +1581,13 @@ function decodePgp(armoredText, privateKey, publicKey){
     }
     if (publicKey) {
         var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}])
-        if (!res.signatureValid) {
+        if (!res[0].signatureValid) {
             // old messages will pop this error modal.
             alert("Error. The signature is invalid!");
         }
-        var text = res.text;
+        var text = res[0].text;
     } else {
-        var text = msg.decryptWithoutVerification(keymat, sessionKey)
+        var text = msg.decryptWithoutVerification(keymat, sessionKey)[0]
     }
     return text
 }
@@ -1609,7 +1609,9 @@ function initPGP(){
 }
 
 // openpgp really wants this function.
-function showMessages() {}
+function showMessages(msg) {
+    console.log(msg)
+}
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
 function render(templateId, data) {
