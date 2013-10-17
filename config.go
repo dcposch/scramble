@@ -35,7 +35,7 @@ var defaultConfig = Config{
 	"scramble",
 	"scramble",
 
-	"dev.scramble.io",
+	"local.scramble.io",
 	8825,
 
 	8888,

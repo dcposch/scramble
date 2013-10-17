@@ -3,15 +3,15 @@
 package main
 
 import (
-	"regexp"
-	"os"
-	"io/ioutil"
 	"code.google.com/p/go.crypto/openpgp"
+	"encoding/json"
+	"io/ioutil"
 	"log"
-	"strconv"
 	"net/http"
 	"net/url"
-	"encoding/json"
+	"os"
+	"regexp"
+	"strconv"
 	//"crypto/tls"
 )
 
@@ -19,9 +19,9 @@ var regexKeyFile *regexp.Regexp = regexp.MustCompile(`(?s)(-----BEGIN PGP PRIVAT
 (-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----)`)
 
 type NotaryInfo struct {
-	Entity *openpgp.Entity
+	Entity         *openpgp.Entity
 	PublicKeyArmor string
-	Hash string
+	Hash           string
 }
 
 var notaryInfo *NotaryInfo
@@ -45,7 +45,9 @@ func init() {
 			nil)
 		privKeyArmor, pubKeyArmor, err = SerializeKeys(entity)
 		err = ioutil.WriteFile(keyFile, []byte(privKeyArmor+"\n"+pubKeyArmor), 0600)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 		hash := ComputePublicHash(pubKeyArmor)
 		notaryInfo = &NotaryInfo{entity, pubKeyArmor, hash}
 	} else {
@@ -56,7 +58,9 @@ func init() {
 		privKeyArmor = parts[1]
 		pubKeyArmor = parts[2]
 		entity, err := ReadEntity(privKeyArmor)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 		hash := ComputePublicHash(pubKeyArmor)
 		notaryInfo = &NotaryInfo{entity, pubKeyArmor, hash}
 	}
@@ -72,16 +76,21 @@ type NotarySignedResult struct {
 
 type NotaryResultError struct {
 	Result map[string]*NotarySignedResult `json:"result,omitempty"`
-	Error  string    `json:"error,omitempty"`
+	Error  string                         `json:"error,omitempty"`
 }
 
 // Returns the hash if known, otherwise queues to fetch later.
 func ResolveName(name, host string) string {
-	addr := name+"@"+host
+	addr := name + "@" + host
 	hash := GetNameResolution(name, host)
+
+	// TODO: notary should just send an empty response here
+	// We should have a separate endpoint (eg POST /publickeys)
+	// for saving new (name, key) pairs to the notary, and that
+	// endpoint should respond with NotarySign((name,key)) to confirm
 	if hash == "" {
 		// for now let's just run a request immediately
-		go func(){
+		go func() {
 			mxHost, err := smtpLookUp(host)
 			if err != nil {
 				return
@@ -94,14 +103,6 @@ func ResolveName(name, host string) string {
 			body.Set("nameAddresses", addr)
 			body.Set("notaries", mxHost)
 
-			// Alternatively, use the following snippet to ignore bad certs.
-			/*
-				tr := &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				}
-				client := &http.Client{Transport: tr}
-				resp, err := client.PostForm(u.String(), body)
-			*/
 			resp, err := http.PostForm(u.String(), body)
 
 			if err != nil {
@@ -115,12 +116,7 @@ func ResolveName(name, host string) string {
 				return
 			}
 
-			type Response struct {
-				NameResolution map[string]*NotaryResultError `json:"nameResolution,omitempty"`
-				//PublicKeys     map[string]*PubKeyError       `json:"publicKeys,omitempty"`
-			}
-
-			parsed := Response{}
+			parsed := PublicKeysResponse{}
 			err = json.Unmarshal(respBody, &parsed)
 			if err != nil {
 				log.Printf("Failed to parse response for %s:\n\n%s\n\n%s", addr, respBody, err.Error())
@@ -130,22 +126,20 @@ func ResolveName(name, host string) string {
 				log.Printf("Unexpected number of responses for %s", addr)
 				return
 			}
-			// TODO: check notary signature?
 			for _, resErr := range parsed.NameResolution {
 				if resErr.Result != nil &&
-				   resErr.Result[addr] != nil &&
-				   resErr.Result[addr].PubHash != "" {
+					resErr.Result[addr] != nil &&
+					resErr.Result[addr].PubHash != "" {
 					AddNameResolution(name, host, resErr.Result[addr].PubHash)
 				}
 			}
-
 		}()
 	}
 	return hash
 }
 
 func SignNotaryResponse(name, host, pubHash string, timestamp int64) string {
-	toSign := name+"@"+host+"="+pubHash+"@"+strconv.FormatInt(timestamp, 10)
+	toSign := name + "@" + host + "=" + pubHash + "@" + strconv.FormatInt(timestamp, 10)
 	return SignText(notaryInfo.Entity, toSign)
 }
 
@@ -156,7 +150,7 @@ func SeedUserToNotaries(user *User) {
 		if notary == GetConfig().SmtpMxHost {
 			continue
 		}
-		log.Println("Seeding new user "+user.EmailAddress+" to "+notary)
+		log.Println("Seeding new user " + user.EmailAddress + " to " + notary)
 		// Maybe batch in the future, for now just run immediately.
 		// This /publickeys/query call will cause the remote notary host to call 'ResolveName',
 		// which in turn makes a /publickeys/query call back here.

@@ -709,11 +709,13 @@ function sendEmail(to,subject,body){
         }
 
         // Verify all recipient public keys from keyMap
+        var missingHashes = [];
         for (var i = 0; i < toAddresses.length; i++) {
             var toAddr = toAddresses[i];
             var result = keyMap[toAddr];
             if (result.error) {
-                errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
+                //errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
+                missingHashes.push(toAddr);
                 continue;
             }
             pubKeys[toAddr] = result.pubKey;
@@ -725,7 +727,14 @@ function sendEmail(to,subject,body){
             return;
         }
 
-        sendEmailEncrypted(pubKeys, subject, body);
+        if(missingHashes.length > 0){
+            if(confirm("Could not find public keys for: "+missingHashes.join(", ")
+                +" \nSend unencrypted to all recipients?")){
+                sendEmailUnencrypted(to, subject, body);
+            }
+        } else {
+            sendEmailEncrypted(pubKeys, subject, body);
+        }
     })
 
     return false
@@ -1279,17 +1288,21 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
         }
     }
 
-    // For now, make sure that all notaries were successfull.
+    // For now, make sure that all notaries were successful.
     // In the future we'll be more flexible with occasional errors,
     //  especially when we have more notaries serving.
+    var missingHashes = []
     for (var i=0; i<addresses.length; i++) {
         var address = addresses[i];
-        if (!notarized[address] || notarized[address].length != notaries.length) {
-            errors.push("Error: Could not resolve address: "+address)
+        if (!notarized[address]){
+            missingHashes.push(address)
+        } else if(notarized[address].length != notaries.length) {
+            errors.push("Error: missing notaries, could not resolve "+address
+                + ". Only heard from: "+notarized[address].join(", "))
         }
     }
 
-    return {warnings:warnings, errors:errors, pubHashes:pubHashes}
+    return {warnings:warnings, errors:errors, pubHashes:pubHashes, missingHashes:missingHashes}
 }
 
 // Load list of notaries.
@@ -1331,7 +1344,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "test.scramble.io":
+        /*"test.scramble.io":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1363,7 +1376,7 @@ function loadNotaries(cb) {
                 "/YAMYP4dUiE=                                                    \n"+
                 "=Mt/n                                                           \n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
+            ),*/
         "dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+

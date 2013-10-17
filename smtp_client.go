@@ -6,8 +6,8 @@ import (
 	"log"
 	"net"
 	"net/smtp"
-	"time"
 	"strings"
+	"time"
 )
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
@@ -44,7 +44,7 @@ func smtpLookUp(host string) (string, error) {
 	if strings.HasSuffix(bestServer, ".") {
 		bestServer = bestServer[:len(bestServer)-1]
 	} else {
-		bestServer = bestServer+"."+host
+		bestServer = bestServer + "." + host
 	}
 
 	mxCache[host] = bestServer
