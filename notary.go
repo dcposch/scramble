@@ -96,7 +96,11 @@ func ResolveName(name, host string) string {
 				return
 			}
 			u := url.URL{}
-			u.Scheme = "https"
+			if mxHost == LOCAL_MX_HOST {
+				u.Scheme = "http"
+			} else {
+				u.Scheme = "https"
+			}
 			u.Host = mxHost
 			u.Path = "/publickeys/query"
 			body := url.Values{}
@@ -156,7 +160,11 @@ func SeedUserToNotaries(user *User) {
 		// which in turn makes a /publickeys/query call back here.
 		go func(notary, userEmailAddress string) {
 			u := url.URL{}
-			u.Scheme = "https"
+			if notary == LOCAL_MX_HOST {
+				u.Scheme = "http"
+			} else {
+				u.Scheme = "https"
+			}
 			u.Host = notary
 			u.Path = "/publickeys/query"
 			body := url.Values{}

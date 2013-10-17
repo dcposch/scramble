@@ -204,7 +204,11 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			counter += 1
 			go func(mxHost string, request *PerMxHostRequest) {
 				u := url.URL{}
-				u.Scheme = "https"
+				if mxHost == LOCAL_MX_HOST {
+					u.Scheme = "http"
+				} else {
+					u.Scheme = "https"
+				}
 				u.Host = mxHost
 				u.Path = "/publickeys/query"
 				body := url.Values{}

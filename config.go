@@ -31,13 +31,15 @@ func GetConfig() *Config {
 	return &config
 }
 
+const LOCAL_MX_HOST = "scramble.io"
+
 var defaultConfig = Config{
 	"127.0.0.1",
 	"scramble",
 	"scramble",
 	"scramble",
 
-	"local.scramble.io",
+	LOCAL_MX_HOST,
 	8825,
 
 	8888,
