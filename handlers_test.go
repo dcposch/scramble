@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 )
 
 func init() {
@@ -59,10 +58,9 @@ func requestLoggedIn(handler http.HandlerFunc, method string, path string, form 
 		Header: map[string][]string{},
 		Form:   form,
 	}
-	expires := time.Now().AddDate(0, 0, 1)
-	req.AddCookie(&http.Cookie{Name: "token", Value: "test", Expires: expires})
-	req.AddCookie(&http.Cookie{Name: "passHash", Value: "5026f031ceea00023da878da2be4660ae85040e8", Expires: expires})
-	req.AddCookie(&http.Cookie{Name: "passHashOld", Value: "909b45492bad2efe39489d2d0878ea574ea9a6d4", Expires: expires})
+	req.Header.Add("token", "test")
+	req.Header.Add("passHash", "5026f031ceea00023da878da2be4660ae85040e8")
+	req.Header.Add("passHashOld", "909b45492bad2efe39489d2d0878ea574ea9a6d4")
 	handler(record, req)
 	return record
 }

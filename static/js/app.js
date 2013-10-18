@@ -34,6 +34,10 @@ var SCRYPT_PARAMS = {
 //
 // SESSION VARIABLES
 //
+// sessionStorage["token"] is the username
+// sessionStorage["passHash"] is the auth key
+// sessionStorage["passHashOld"] is for backwards compatibility
+//
 // These are never seen by the server, and never go in cookies or localStorage
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
 // sessionStorage["privateKeyArmored"] is the plaintext private key, PGP ascii armored
@@ -68,8 +72,7 @@ function main(){
     bindKeyboardShortcuts()
 
     // are we logged in?
-    var token = $.cookie("token")
-    if(!token || !sessionStorage["passKey"]) {
+    if(!sessionStorage["token"] || !sessionStorage["passKey"]) {
         displayLogin()
     } else {
         loadDecryptAndDisplayBox()
@@ -155,10 +158,8 @@ function bindSidebarEvents() {
         displayContacts()
     })
     
-    // Log out: click a link, deletes cookies and refreshes the page
+    // Log out: click a link, deletes sessionStorage and refreshes the page
     $("#link-logout").click(function(){
-        $.removeCookie("token")
-        $.removeCookie("passHash")
         sessionStorage.clear()
     })
 
@@ -232,9 +233,9 @@ function login(token, pass){
     sessionStorage["passKeyOld"] = computeAesKeyOld(token, pass)
 
     // ...the other one authenticates us. the server sees it.
-    setCookie("token", token)
-    setCookie("passHash", computeAuth(token, pass))
-    setCookie("passHashOld", computeAuthOld(token, pass))
+    sessionStorage["token"] = token
+    sessionStorage["passHash"] = computeAuth(token, pass)
+    sessionStorage["passHashOld"] = computeAuthOld(token, pass)
 
     // try fetching the inbox
     $.get("/box/inbox",
@@ -247,15 +248,6 @@ function login(token, pass){
         }
     )
 }
-
-function setCookie(name, value){
-    if(document.location.protocol.toLowerCase().substring(0,5)=="https"){
-        $.cookie(name, value, {"secure":true})
-    } else {
-        $.cookie(name, value)
-    }
-}
-
 
 
 //
@@ -308,6 +300,8 @@ function createAccount(keys){
     var aesKey = computeAesKey(token, pass)
     var passHash = computeAuth(token, pass)
 
+    sessionStorage["token"] = token
+    sessionStorage["passHash"] = passHash
     // save for this session only, never in a cookie or localStorage
     sessionStorage["passKey"] = aesKey
     sessionStorage["privateKeyArmored"] = keys.privateKeyArmored
@@ -323,9 +317,6 @@ function createAccount(keys){
         cipherPrivateKey:bin2hex(cipherPrivateKey)
     }
     $.post("/user/", data, function(){
-        // set cookies, try loading the inbox
-        setCookie("token", token)
-        setCookie("passHash", passHash)
         $.get("/box/inbox",
             { offset: 0, limit: BOX_PAGE_SIZE },
             function(inbox){
@@ -409,7 +400,7 @@ function decryptAndDisplayBox(inboxSummary, box){
         getContacts(function(){
             decryptSubjects(inboxSummary.EmailHeaders, privateKey)
             var data = {
-                token:        $.cookie("token"),
+                token:        sessionStorage["token"],
                 emailAddress: inboxSummary.EmailAddress,
                 pubHash:      inboxSummary.PublicHash,
                 box:          inboxSummary.Box,
@@ -1680,7 +1671,7 @@ Handlebars.registerPartial("box-pagination", $('#box-pagination-partial').html()
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail(){
-    return $.cookie("token")+"@"+window.location.hostname
+    return sessionStorage["token"]+"@"+window.location.hostname
 }
 
 // Appends an element to an array, if it's not already in the array
@@ -1701,4 +1692,18 @@ function trim(str){
 }
 function trimToLower(str){
     return trim(str).toLowerCase()
+}
+
+// Code that must run in the browser goes in here, so we can run tests in console.
+// For example, code that require jQuery.
+if (typeof window != "undefined") {
+    // Adds cookie-like headers for every request...
+    $.ajaxSetup({
+        // http://stackoverflow.com/questions/7686827/how-can-i-add-a-custom-http-header-to-ajax-request-with-js-or-jquery
+        beforeSend: function(xhr) {
+            xhr.setRequestHeader('x-scramble-token', sessionStorage["token"]);
+            xhr.setRequestHeader('x-scramble-passHash', sessionStorage["passHash"]);
+            xhr.setRequestHeader('x-scramble-passHashOld', sessionStorage["passHashOld"]);
+        }
+    });
 }

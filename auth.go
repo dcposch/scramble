@@ -9,22 +9,13 @@ import (
 //
 // Returns nil and a descriptive error if authentication fails
 func authenticate(r *http.Request) (*UserID, error) {
-	token, err := r.Cookie("token")
-	if err != nil {
+	token := r.Header.Get("x-scramble-token")
+	if token == "" {
 		return nil, errors.New("Not logged in")
 	}
-	passHash, err := r.Cookie("passHash")
-	if err != nil {
-		return nil, errors.New("Not logged in")
-	}
-	passHashOld, err := r.Cookie("passHashOld")
-	var passHashOldVal string
-	if err != nil {
-		passHashOldVal = ""
-	} else {
-		passHashOldVal = passHashOld.Value
-	}
-	return authenticateUserPass(token.Value, passHash.Value, passHashOldVal)
+	passHash := r.Header.Get("x-scramble-passHash")
+	passHashOld := r.Header.Get("x-scramble-passHashOld")
+	return authenticateUserPass(token, passHash, passHashOld)
 }
 
 // Checks given username nad passphrase hash, returns the logged-in user
