@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"strings"
 )
 
 var migrations = []func() error{
@@ -267,6 +268,61 @@ func migrateCreateNameResolution() error {
 		hash           CHAR(16),
 		index (host, name)
     )`)
+	if err != nil { return err }
+
+	// Convert hash addresses in the database to name addresses
+	rows, err := db.Query(`SELECT token, email_host, public_hash FROM user`)
+	if err != nil { return err }
+	convertMap := map[string]string{} // hashAddress -> nameAddress
+	for rows.Next() {
+		var token, emailHost, pubHash string
+		err := rows.Scan(&token, &emailHost, &pubHash)
+		if err != nil { return err }
+		convertMap[pubHash+"@"+emailHost] = token+"@"+emailHost
+	}
+	// Convert all address rows in box
+	rows, err = db.Query(`SELECT id, address FROM box`)
+	if err != nil { return err }
+	for rows.Next() {
+		var id, address string
+		err := rows.Scan(&id, &address)
+		if err != nil { return err }
+		var newAddress = convertMap[address]
+		if newAddress == "" {
+			log.Printf("Could not translate address in box: %s %s", id, address)
+			continue
+		}
+		_ ,err = db.Exec(`UPDATE TABLE box SET address=? WHERE id=?`,
+			newAddress, id)
+		if err != nil { return err }
+	}
+	// Convert all address rows in email
+	rows, err = db.Query(`SELECT message_id, from_email, to_email FROM email`)
+	if err != nil { return err }
+	for rows.Next() {
+		var id, fromEmail, toEmail string
+		err := rows.Scan(&id, &fromEmail, toEmail)
+		if err != nil { return err }
+		var newFromEmail = convertMap[fromEmail]
+		if newFromEmail == "" {
+			log.Printf("Could not translate from address in email: %s %s", id, fromEmail)
+			continue
+		}
+		var newToEmailArray []string
+		for _, toEmail := range strings.Split(toEmail, ",") {
+			var newToEmail = convertMap[toEmail]
+			if newToEmail == "" {
+				log.Printf("Could not translate to address in email: %s %s", id, toEmail)
+				continue
+			}
+			newToEmailArray = append(newToEmailArray, newToEmail)
+		}
+		var newToEmail = strings.Join(newToEmailArray, ",")
+		_ ,err = db.Exec(`UPDATE TABLE email SET from_email=?, to_email=? WHERE message_id=?`,
+			newFromEmail, newToEmail, id)
+		if err != nil { return err }
+	}
+
 	return err
 }
 
