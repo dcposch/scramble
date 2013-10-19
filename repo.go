@@ -141,8 +141,8 @@ func LoadPubHash(token string) string {
 // The client then verifies that the key is correct
 func LoadPubKey(publicHash string) string {
 	var publicKey string
-	err := db.QueryRow("select public_key"+
-		" from user where public_hash=?",
+	err := db.QueryRow("SELECT public_key "+
+		"FROM user WHERE public_hash=?",
 		publicHash).Scan(&publicKey)
 	if err == sql.ErrNoRows {
 		return ""
@@ -153,12 +153,28 @@ func LoadPubKey(publicHash string) string {
 	return publicKey
 }
 
+// Loads an address from a user's pubHash.
+// This exists to upgrade legacy contacts.
+func LoadAddressFromPubHash(publicHash string) string {
+	var token, emailHost string
+	err := db.QueryRow("SELECT token, email_host "+
+		"FROM user WHERE public_hash=?",
+		publicHash).Scan(&token, &emailHost)
+	if err == sql.ErrNoRows {
+		return ""
+	}
+	if err != nil {
+		panic(err)
+	}
+	return token+"@"+emailHost
+}
+
 // Loads a user's contacts, or nil if the user doesn't exist
 // Returns an encrypted blob for which only they have the key
 func LoadContacts(token string) *string {
 	var cipherContacts *string
-	err := db.QueryRow("select cipher_contacts"+
-		" from user where token=?", token).Scan(
+	err := db.QueryRow("SELECT cipher_contacts "+
+		"FROM user WHERE token=?", token).Scan(
 		&cipherContacts)
 	if err == sql.ErrNoRows {
 		return nil
@@ -170,8 +186,8 @@ func LoadContacts(token string) *string {
 }
 
 func SaveContacts(token string, cipherContacts string) {
-	_, err := db.Exec("update user "+
-		" set cipher_contacts=? where token=?",
+	_, err := db.Exec("UPDATE user "+
+		"SET cipher_contacts=? WHERE token=?",
 		cipherContacts, token)
 	if err != nil {
 		panic(err)

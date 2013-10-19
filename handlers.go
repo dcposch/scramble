@@ -314,6 +314,23 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// POST /publickeys/reverse to lookup name from pubhash
+// This exists to upgrade legacy contacts lists.
+func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+	pubHashes := r.FormValue("pubHashes")
+	res := map[string]string{}
+	for _, pubHash := range strings.Split(pubHashes, ",") {
+		if pubHash == "" { continue }
+		address := LoadAddressFromPubHash(pubHash)
+		res[pubHash] = address
+	}
+	resJson, err := json.Marshal(res)
+	if err != nil {
+		panic(err)
+	}
+	w.Write(resJson)
+}
+
 // POST /user to create a new account
 // Remember that public and private key generation happens
 // on the client. Public key, encrypted private key posted here.

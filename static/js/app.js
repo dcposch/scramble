@@ -1190,41 +1190,48 @@ function getContacts(fn){
 
 function loadAndDecryptContacts(fn){
     if(!sessionStorage["passKey"]){
-        alert("Missing passphrase. Please log out and back in.")
-        return
+        alert("Missing passphrase. Please log out and back in.");
+        return;
     }
 
     $.get("/user/me/contacts", function(cipherContactsHex){
-        var cipherContacts = hex2bin(cipherContactsHex)
-        var jsonContacts = passphraseDecrypt(cipherContacts)
+        var cipherContacts = hex2bin(cipherContactsHex);
+        var jsonContacts = passphraseDecrypt(cipherContacts);
         if(!jsonContacts) {
-            return
+            return;
         }
-        viewState.contacts = JSON.parse(jsonContacts)
-        fn(viewState.contacts)
+        var parsed = JSON.parse(jsonContacts);
+        // maybe migrate from legacy contacts
+        migrateContactsReverseLookup(parsed, function(contacts) {
+            viewState.contacts = contacts;
+            fn(contacts);
+        });
     }, "text").fail(function(xhr){
         if(xhr.status == 404){
             viewState.contacts = [{
                 name: "me",
                 address: getUserEmail(),
                 pubHash: sessionStorage["pubHash"],
-            }]
-            fn(viewState.contacts)
+            }];
+            fn(viewState.contacts);
         } else {
-            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText)
+            alert("Failed to retrieve our own encrypted contacts: "+xhr.responseText);
         }
-    })
+    });
 }
 
 // Looks at viewState.contact & look up pubHash
 // returns: a pubHash or null
 function getPubHashLocally(addr) {
+    if (viewState.contacts == null) {
+        return null;
+    }
     for (var i=0; i<viewState.contacts.length; i++) {
         if (viewState.contacts[i].address == addr) {
-            return viewState.contacts[i].pubHash
+            return viewState.contacts[i].pubHash;
         }
     }
-    return null
+    return null;
 }
 
 // Looks up pubHash.
@@ -1237,6 +1244,54 @@ function getPubHash(addr, cb) {
         lookupPublicKeys([addr], function(keyMap) {
             cb(keyMap[addr].pubHash, keyMap[addr].error)
         })
+    }
+}
+
+// If contacts is legacy version (where address is <pubHash>@<host> format
+//  and pubHash key is missing) then convert it via reverse lookup.
+function migrateContactsReverseLookup(contacts, fn) {
+    var lookup = [];
+    var pubHashToName = {};
+    for (var i=0; i<contacts.length; i++) {
+        var contact = contacts[i];
+        if (contact.pubHash == undefined) {
+            var pubHash = contact.address.split("@")[0];
+            if (pubHash.length != 16 && pubHash.length != 40) {
+                alert("Error: expected legacy contacts list to have hash address: "+contact.address)
+                return;
+            }
+            lookup.push(pubHash);
+            pubHashToName[pubHash] = contact.name;
+        } else {
+            if (lookup.length > 0) {
+                alert("Error: expected legacy contact format but found one with pubHash already");
+                return;
+            }
+        }
+    }
+    if (lookup.length > 0) {
+        var params = {pubHashes:lookup.join(",")};
+        $.post("/publickeys/reverse", params, function(data) {
+            // we have pubHash -> address.
+            // now let's resolve these addresses.
+            lookupPublicKeys(Object.values(data), function(keyMap) {
+                var newContacts = [];
+                for (var address in keyMap) {
+                    var pubHash = keyMap[address].pubHash;
+                    newContacts.push({name:pubHashToName[pubHash], pubHash:pubHash, address:address});
+                }
+                var remaining = lookup.subtract(newContacts.map("pubHash"));
+                if (remaining.length > 0) {
+                    alert("Error: contacts migration failed for address(es): "+remaining.join(","));
+                    return;
+                }
+                trySaveContacts(newContacts, function() {
+                    fn(newContacts);
+                });
+            })
+        }, "json");
+    } else {
+        fn(contacts); // nothing to upgrade
     }
 }
 

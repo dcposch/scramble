@@ -9,10 +9,11 @@ import (
 
 func main() {
 	// Rest API
-	http.HandleFunc("/user/", userHandler)                  // create users, look up hash->pubkey
-	http.HandleFunc("/publickeys/notary", notaryIdHandler)  // look up name->pubkey
-	http.HandleFunc("/publickeys/query", publicKeysHandler) // look up
-	http.HandleFunc("/nginx_proxy", nginxProxyHandler)      // needed for nginx smtp tls proxy
+	http.HandleFunc("/user/", userHandler)                      // create users, look up hash->pubkey
+	http.HandleFunc("/publickeys/notary", notaryIdHandler)      // notary pubkey
+	http.HandleFunc("/publickeys/query", publicKeysHandler)     // look up name->pubhash&pubkey
+	http.HandleFunc("/publickeys/reverse", auth(reverseQueryHandler)) // look up pubhash->name_address
+	http.HandleFunc("/nginx_proxy", nginxProxyHandler)          // needed for nginx smtp tls proxy
 
 	// Private Rest API
 	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts
