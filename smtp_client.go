@@ -62,11 +62,9 @@ func smtpSendLoop() {
 				addrs := ParseEmailAddresses(msg.To).FilterByHost(msg.Address)
 				err := smtpSendTo(&msg.Email, msg.Address, addrs)
 				if err != nil {
-					// TODO: better error handling.
-					// mail servers & internet connectivity go down regularly,
-					// so maybe create an "outbox-error" box
-					// MarkOutboxAs([]BoxedEmail{msg}, "outbox-error")
-					panic(err)
+					// Failed to send. Tell the user everything we know...
+					errMsg := err.Error()
+					MarkSendError(&msg, &errMsg)
 				}
 				MarkOutboxAs([]BoxedEmail{msg}, "outbox-sent")
 			}(msg)

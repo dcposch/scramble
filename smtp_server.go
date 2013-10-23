@@ -327,7 +327,7 @@ func saveMail() {
 	//  receives values from the channel repeatedly until it is closed.
 	for {
 		client := <-SaveMailChan
-		log.Println("Mail from "+client.mailFrom+" to "+strings.Join(client.rcptTo, ","))
+		log.Println("Mail from " + client.mailFrom + " to " + strings.Join(client.rcptTo, ","))
 		// check mailFrom and rcptTo, etc.
 		if client_err := validateEmailData(client); client_err != nil {
 			log.Println(client_err)
@@ -391,10 +391,13 @@ func deliverMailLocally(client *Client) error {
 	}
 
 	bodyBytes, err := ioutil.ReadAll(parsed.Body)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	cipherPackets := regexSMTPTemplatep.FindAllString(string(bodyBytes), -1)
 	if len(cipherPackets) != 2 {
-		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body). Found %v", len(cipherPackets)))
+		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body)."+
+			"Found %v", len(cipherPackets)))
 	}
 
 	email := new(Email)

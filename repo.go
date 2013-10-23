@@ -387,7 +387,7 @@ func CheckoutOutbox(limit int) []BoxedEmail {
 	return boxedEmails
 }
 
-// Mark box items as "outbox-sent" or "outbox-processing"
+// Mark box items as "outbox-sent" or "outbox-processing", etc
 func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
 	if newBox != "outbox-sent" && newBox != "outbox-processing" {
 		panic("MarkOutboxAs() cannot move emails to " + newBox)
@@ -401,6 +401,18 @@ func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
 		newBox,
 		time.Now().Unix(),
 		strings.Join(boxedIds, ","),
+	)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Sets the error message on an email we were unable to send,
+// or clears the error message if err is null
+func MarkSendError(boxedEmail *BoxedEmail, errorMessage *string) {
+	_, err := db.Exec("UPDATE box SET error=? WHERE id=?",
+		errorMessage,
+		boxedEmail.Id,
 	)
 	if err != nil {
 		panic(err)

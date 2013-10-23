@@ -17,6 +17,7 @@ var migrations = []func() error{
 	migrateAddUserEmailAddress,
 	migrateMakeNameResolutionUnique,
 	migrateBoxAddForeignKey,
+	migrateBoxAddError,
 }
 
 func migrateDb() {
@@ -109,9 +110,9 @@ func migrateEmailRefactor() error {
 	// Load everything onto memory, wipe table, then reinsert.
 	type OldEmailRow struct {
 		// Columns from the old email table
-		UnixTime int64
+		UnixTime                                            int64
 		MessageID, From, To, CipherSubject, CipherBody, Box string
-		PubHashTo, PubHashFrom string
+		PubHashTo, PubHashFrom                              string
 
 		// Convenience. Aggregate {<pub_hash> -> [<box1>,<box2>]} here
 		Boxes map[string][]string
@@ -121,7 +122,9 @@ func migrateEmailRefactor() error {
         m.cipher_subject, m.cipher_body, m.box,
         m.pub_hash_to, m.pub_hash_from
 		FROM email as m`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	oldEmails := map[string]*OldEmailRow{}
 	for rows.Next() {
 		oldEmail := &OldEmailRow{}
@@ -136,7 +139,9 @@ func migrateEmailRefactor() error {
 			&oldEmail.PubHashTo,
 			&oldEmail.PubHashFrom,
 		)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		if oldEmails[oldEmail.MessageID] == nil {
 			oldEmails[oldEmail.MessageID] = oldEmail
 			oldEmail.Boxes = map[string][]string{}
@@ -159,7 +164,9 @@ func migrateEmailRefactor() error {
 
         primary key (message_id)
     )`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS box (
         id         BIGINT NOT NULL AUTO_INCREMENT,
@@ -172,7 +179,9 @@ func migrateEmailRefactor() error {
         INDEX (address, box, unix_time),
         INDEX (address, message_id)
     )`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Reinsert everything from oldEmails
 	for _, oldEmail := range oldEmails {
@@ -187,11 +196,13 @@ func migrateEmailRefactor() error {
 			oldEmail.CipherSubject,
 			oldEmail.CipherBody,
 		)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		// insert row(s) into box
 		var sentToSelf bool = false
 		for pubHashTo, boxes := range oldEmail.Boxes {
-			addressTo := pubHashTo+"@scramble.io"
+			addressTo := pubHashTo + "@scramble.io"
 			if oldEmail.PubHashFrom == pubHashTo && len(boxes) == 1 && boxes[0] != "sent" {
 				sentToSelf = true
 			}
@@ -204,7 +215,9 @@ func migrateEmailRefactor() error {
 					box,
 					oldEmail.UnixTime,
 				)
-				if err != nil { return err }
+				if err != nil {
+					return err
+				}
 			}
 		}
 		// if sender also sent to self, there was no
@@ -218,15 +231,21 @@ func migrateEmailRefactor() error {
 				"sent",
 				oldEmail.UnixTime,
 			)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	_, err = db.Exec(`DROP TABLE email`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = db.Exec(`RENAME TABLE new_email to email`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	return err
 }
@@ -253,7 +272,9 @@ func migrateCreateNameResolution() error {
 
 func migrateAddUserEmailAddress() error {
 	_, err := db.Exec(`ALTER TABLE user ADD COLUMN email_host VARCHAR(254) NOT NULL DEFAULT ""`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
 	return err
 }
@@ -261,12 +282,19 @@ func migrateAddUserEmailAddress() error {
 func migrateMakeNameResolutionUnique() error {
 	// some MySQL versions will crap out when dropping/adding the same index in one line.
 	_, err := db.Exec(`ALTER TABLE name_resolution DROP INDEX host`)
-	if err != nil { return err }
-	_, err =  db.Exec(`ALTER TABLE name_resolution ADD UNIQUE INDEX (host, name)`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`ALTER TABLE name_resolution ADD UNIQUE INDEX (host, name)`)
 	return err
 }
 
 func migrateBoxAddForeignKey() error {
 	_, err := db.Exec(`ALTER TABLE box ADD FOREIGN KEY (message_id) REFERENCES email(message_id)`)
+	return err
+}
+
+func migrateBoxAddError() error {
+	_, err := db.Exec(`ALTER TABLE box ADD COLUMN error TEXT`)
 	return err
 }
