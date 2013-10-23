@@ -98,29 +98,48 @@ func smtpSend(msg *BoxedEmail) error {
 	}
 }
 
-const smtpTemplate = `Message-ID: <%s@%s>
+const smtpTemplate = `Message-ID: <%s>%s
 From: <%s>
 To: %s
 Subject: %s
 
 %s%s`
 
+const threadHeadersTemplate = `
+In-Reply-To: <%s>
+X-Scramble-Thread-ID: <%s>
+References: %s`
+
 func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error {
-	var plainSubject, cipherSubject string
+	var plainSubject, prependToBody string
 	if IsArmored(email.CipherSubject) {
 		plainSubject = "Encrypted subject"
-		cipherSubject = email.CipherSubject + "\n"
+		prependToBody = email.CipherSubject + "\n"
 	} else {
 		//TODO: fix naming conventions
 		plainSubject = email.CipherSubject
-		cipherSubject = ""
+		prependToBody = ""
 	}
+
+	// Construct In-Reply-To/References/X-Scramble-Thread-ID headers
+	var threadHeaders = ""
+	var ancestorIDs = ParseAngledEmailAddresses(email.AncestorIDs, ",")
+	if len(ancestorIDs) > 0 {
+		threadHeaders = fmt.Sprintf(threadHeadersTemplate,
+			ancestorIDs[len(ancestorIDs)-1],
+			email.ThreadID,
+			email.AncestorIDs,
+		)
+	}
+	// Fill in smtpTemplate
 	msg := fmt.Sprintf(smtpTemplate,
-		email.MessageID, GetConfig().SmtpMxHost,
+		email.MessageID,
+		threadHeaders,
 		email.From,
-		ParseEmailAddresses(email.To).AngledString(),
+		ParseEmailAddresses(email.To).AngledString(","),
 		plainSubject,
-		cipherSubject,
+		prependToBody,
+		email.CipherSubject,
 		email.CipherBody)
 	log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg)
 

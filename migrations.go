@@ -14,9 +14,10 @@ var migrations = []func() error{
 	migrateEmailRefactor,
 	migrateLengthenSubject,
 	migrateShortenToken,
-	migrateCreateNameResolution,
 	migrateAddUserEmailAddress,
+	migrateCreateNameResolution,
 	migrateMakeNameResolutionUnique,
+	migrateEmailThreading,
 	migrateBoxAddForeignKey,
 	migrateBoxAddError,
 }
@@ -261,6 +262,15 @@ func migrateShortenToken() error {
 	return err
 }
 
+func migrateAddUserEmailAddress() error {
+	_, err := db.Exec(`ALTER TABLE user ADD COLUMN email_host VARCHAR(254) NOT NULL DEFAULT ""`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
+	return err
+}
+
 func migrateCreateNameResolution() error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS name_resolution (
 		name           VARCHAR(64),
@@ -292,7 +302,7 @@ func migrateCreateNameResolution() error {
 			log.Printf("Could not translate address in box: %s %s", id, address)
 			continue
 		}
-		_ ,err = db.Exec(`UPDATE TABLE box SET address=? WHERE id=?`,
+		_ ,err = db.Exec(`UPDATE box SET address=? WHERE id=?`,
 			newAddress, id)
 		if err != nil { return err }
 	}
@@ -318,20 +328,11 @@ func migrateCreateNameResolution() error {
 			newToEmailArray = append(newToEmailArray, newToEmail)
 		}
 		var newToEmail = strings.Join(newToEmailArray, ",")
-		_ ,err = db.Exec(`UPDATE TABLE email SET from_email=?, to_email=? WHERE message_id=?`,
+		_ ,err = db.Exec(`UPDATE email SET from_email=?, to_email=? WHERE message_id=?`,
 			newFromEmail, newToEmail, id)
 		if err != nil { return err }
 	}
 
-	return err
-}
-
-func migrateAddUserEmailAddress() error {
-	_, err := db.Exec(`ALTER TABLE user ADD COLUMN email_host VARCHAR(254) NOT NULL DEFAULT ""`)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
 	return err
 }
 
@@ -342,6 +343,33 @@ func migrateMakeNameResolutionUnique() error {
 		return err
 	}
 	_, err = db.Exec(`ALTER TABLE name_resolution ADD UNIQUE INDEX (host, name)`)
+	return err
+}
+
+func migrateEmailThreading() error {
+	_, err := db.Exec(`ALTER TABLE email `+
+		`MODIFY message_id VARCHAR(255) NOT NULL, `+
+		`ADD COLUMN ancestor_ids VARCHAR(10240), `+
+		`ADD COLUMN thread_id VARCHAR(255) NOT NULL`)
+	if err != nil { return err }
+	_ ,err = db.Exec(`UPDATE email `+
+		`SET message_id = CONCAT(message_id, "@", ?)`,
+		GetConfig().SmtpMxHost)
+	if err != nil { return err }
+	_ ,err = db.Exec(`UPDATE email SET thread_id = message_id`)
+	if err != nil { return err }
+	_, err = db.Exec(`ALTER TABLE box `+
+		`MODIFY message_id VARCHAR(255) NOT NULL, `+
+		`ADD COLUMN thread_id VARCHAR(255) NOT NULL`)
+	if err != nil { return err }
+	_ ,err = db.Exec(`UPDATE box `+
+		`SET message_id = CONCAT(message_id, "@", ?)`,
+		GetConfig().SmtpMxHost)
+	if err != nil { return err }
+	_, err = db.Exec(`UPDATE box SET thread_id = message_id`)
+	if err != nil { return err }
+	_, err = db.Exec(`ALTER TABLE box `+
+		`ADD INDEX (address, box, thread_id, unix_time)`)
 	return err
 }
 

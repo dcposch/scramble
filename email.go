@@ -7,29 +7,45 @@ import (
 
 type EmailAddress struct {
 	Name string
-	Hash string
 	Host string
 }
 
 func (addr *EmailAddress) String() string {
-	if addr.Hash == "" {
-		return addr.Name + "@" + addr.Host
+	return addr.Name + "@" + addr.Host
+}
+
+// Return this address but with everything after '#' stripped from Name.
+func (addr *EmailAddress) StringNoHash() string {
+	if hashIdx := strings.Index(addr.Name, "#"); hashIdx != -1 {
+		return addr.Name[:hashIdx] + "@" + addr.Host
 	} else {
-		return addr.Name + "#" + addr.Hash + "@" + addr.Host
+		return addr.Name + "@" + addr.Host
 	}
 }
 
-func (addr *EmailAddress) StringNoHash() string {
-	return addr.Name + "@" + addr.Host
+// Splits the Name into what precedes the first '#' and what follows
+func (addr *EmailAddress) NameAndHash() (string, string) {
+	if hashIdx := strings.Index(addr.Name, "#"); hashIdx != -1 {
+		return addr.Name[:hashIdx], addr.Name[hashIdx+1:]
+	}
+	return addr.Name, ""
 }
 
 // "foo@bar.com" -> EmailAddress
 func ParseEmailAddress(addr string) EmailAddress {
-	match := regexHashAddress.FindStringSubmatch(addr)
-	if match == nil {
+	parsed, ok := ParseEmailAddressSafe(addr)
+	if !ok {
 		log.Panicf("Invalid email address %s", addr)
 	}
-	return EmailAddress{match[1], match[2], match[3]}
+	return parsed
+}
+
+func ParseEmailAddressSafe(addr string) (EmailAddress, bool) {
+	match := regexAddress.FindStringSubmatch(addr)
+	if match == nil {
+		return EmailAddress{}, false
+	}
+	return EmailAddress{match[1], match[2]}, true
 }
 
 // "foo@bar.com,baz@boo.com" -> []EmailAddress
@@ -40,6 +56,24 @@ func ParseEmailAddresses(addrList string) EmailAddresses {
 	addrParts := strings.Split(addrList, ",")
 	addrs := make([]EmailAddress, 0)
 	for _, addrPart := range addrParts {
+		addrs = append(addrs, ParseEmailAddress(addrPart))
+	}
+	return addrs
+}
+
+// Parses a string list of email addresses (eg To or CC)
+// "<foo@bar.com>,<baz@boo.com>" -> []EmailAddress
+func ParseAngledEmailAddresses(addrList string, delim string) EmailAddresses {
+	if addrList == "" {
+		return nil
+	}
+	addrParts := strings.Split(addrList, delim)
+	addrs := make([]EmailAddress, 0)
+	for _, addrPart := range addrParts {
+		if addrPart[0:1] != "<" || addrPart[len(addrPart)-1:] != ">" {
+			log.Panicf("Invalid angled email address %s", addrPart)
+		}
+		addrPart = addrPart[1 : len(addrPart)-1]
 		addrs = append(addrs, ParseEmailAddress(addrPart))
 	}
 	return addrs
@@ -99,11 +133,30 @@ func (addrs EmailAddresses) String() string {
 }
 
 // -> "<foo@bar.com>,<baz@boo.com>"
-func (addrs EmailAddresses) AngledString() string {
+func (addrs EmailAddresses) AngledString(delim string) string {
 	if len(addrs) == 0 {
 		return ""
 	}
-	return "<" + strings.Join(addrs.Strings(), ">,<") + ">"
+	return "<" + strings.Join(addrs.Strings(), ">"+delim+"<") + ">"
+}
+
+// Like AngledString(), but drops the leftmost items such that
+// the result is less than or equal to `limit` bytes.
+// This is for storing email>ancestor_ids, for the References header.
+func (addrs EmailAddresses) AngledStringCappedToBytes(delim string, limit int) string {
+	if len(addrs) == 0 {
+		return ""
+	}
+	res := []byte("<" + strings.Join(addrs.Strings(), ">"+delim+"<") + ">")
+	if len(res) <= limit {
+		return string(res)
+	}
+	resPart := string(res[len(res)-limit:])
+	addrStart := strings.Index(resPart, "<")
+	if addrStart == -1 {
+		return ""
+	}
+	return resPart[addrStart:]
 }
 
 // -> ["foo@bar.com","baz@boo.com"]

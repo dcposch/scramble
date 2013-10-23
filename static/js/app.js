@@ -30,11 +30,15 @@ var SCRYPT_PARAMS = {
     p:1
 }
 
+var DEFAULT_SIGNATURE = "\n\n--\n"+
+    "Encrypted with https://scramble.io";
+
 
 //
 // SESSION VARIABLES
 //
 // sessionStorage["token"] is the username
+// sessionStorage["emailAddress"] is <token>@<host>
 // sessionStorage["passHash"] is the auth key
 // sessionStorage["passHashOld"] is for backwards compatibility
 //
@@ -57,7 +61,6 @@ var SCRYPT_PARAMS = {
 //
 
 var viewState = {}
-viewState.email = null // plaintext subject, body, etc of the currently opened email
 viewState.contacts = null // plaintext address book, must *always* be good data.
 
 
@@ -94,11 +97,11 @@ var keyMap = {
         "s":function(){loadDecryptAndDisplayBox("sent")},
         "a":function(){loadDecryptAndDisplayBox("archive")}
     },
-    "r":emailReply,
-    "a":emailReplyAll,
-    "f":emailForward,
-    "y":function(){emailMove("archive")},
-    "d":emailDelete,
+    "r":function(){emailReply(viewState.email)},
+    "a":function(){emailReplyAll(viewState.email)},
+    "f":function(){emailForward(viewState.email)},
+    "y":function(){emailMove(viewState.email, "archive", true)},
+    "d":function(){emailMove(viewState.email, "trash", true)},
     27:closeModal // esc key
 }
 
@@ -393,8 +396,9 @@ function loadDecryptAndDisplayBox(box, page){
 }
 
 function decryptAndDisplayBox(inboxSummary, box){
-    box = box || "inbox"
-    sessionStorage["pubHash"] = inboxSummary.PublicHash
+    box = box || "inbox";
+    sessionStorage["pubHash"] = inboxSummary.PublicHash;
+    sessionStorage["emailAddress"] = inboxSummary.EmailAddress;
 
     getPrivateKey(function(privateKey){
         getContacts(function(){
@@ -438,126 +442,203 @@ function decryptSubjects(headers, privateKey){
 }
 
 function readNextEmail(){
-    var msg
-    if($(".current").length == 0){
-        msg = $("li").first()
+    var msg;
+    if ($(".current").length == 0) {
+        msg = $("li").first();
     } else {
-        msg = $(".current").next()
+        msg = $(".current").next();
     }
-    displayEmail(msg)
+    if (msg.length > 0) {
+        displayEmail(msg);
+    }
 }
 
 function readPrevEmail(){
-    var msg = $(".current").prev()
-    if(msg.length > 0){
-        displayEmail(msg)
+    var msg = $(".current").prev();
+    if (msg.length > 0){
+        displayEmail(msg);
     }
 }
-
 
 //
 // SINGLE EMAIL
 //
 
+// Binds events for all emails in the current thread.
 function bindEmailEvents() {
-    $("#replyButton").click(emailReply)
-    $("#replyAllButton").click(emailReplyAll)
-    $("#forwardButton").click(emailForward)
-    $("#deleteButton").click(emailDelete)
+    // This is a helper that gets the relevant email data
+    //  by finding the enclosed div.email
+    var withEmail = function(cb) {
+        return function() {
+            var emailDiv = $(this).closest(".email");
+            cb(emailDiv.data("email"));
+        };
+    };
 
-    $("#archiveButton").click(function(){emailMove("archive")})
-    $("#moveToInboxButton").click(function(){emailMove("inbox")})
-
-    $("#enterFromNameButton").click(function(){
-        var addr = viewState.email.from
-        var name = prompt("Contact name for "+addr)
+    $(".emailControl .replyButton").click(withEmail(emailReply))
+    $(".emailControl .replyAllButton").click(withEmail(emailReplyAll))
+    $(".emailControl .forwardButton").click(withEmail(emailForward))
+    $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}))
+    $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}))
+    $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}))
+    $(".emailControl .enterFromNameButton").click(withEmail(function(email){
+        var name = prompt("Contact name for "+email.from);
         if(name){
-            getPubHash(viewState.email.from, function(pubHash, error) {
+            getPubHash(email.from, function(pubHash, error) {
                 if (error) {
-                    alert(error)
-                    return
+                    alert(error);
+                    return;
                 }
                 var contacts = addContacts(
                     viewState.contacts,
-                    {name:name, address:addr, pubHash:pubHash}
-                )
+                    {name:name, address:email.from, pubHash:pubHash}
+                );
                 trySaveContacts(contacts, function() {
                     displayStatus("Contact saved")
-                })
-            })
+                });
+            });
         }
+    }));
+
+    var withLastEmail = function(cb) {
+        return function() {
+            cb(viewState.email);
+        };
+    };
+
+    $(".threadControl .replyButton").click(withLastEmail(emailReply))
+    $(".threadControl .replyAllButton").click(withLastEmail(emailReplyAll))
+    $(".threadControl .forwardButton").click(withLastEmail(emailForward))
+    $(".threadControl .archiveButton").click(withLastEmail(function(email){emailMove(email, "archive", true)}))
+    $(".threadControl .moveToInboxButton").click(withLastEmail(function(email){emailMove(email, "inbox", true)}))
+    $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}))
+}
+
+/**
+    Takes an email header, selects its box-item, shows the thread.
+    For convenience, you can pass in the li.box-item jquery element,
+     which has the relevant .data() attributes.
+
+    emailHeader => {
+        msgId
+        threadId
+        box         // This tells the server what box we're in. Server behavior:
+                    // If box is 'inbox', shows everything in 'inbox', 'sent'
+                    // If box is 'sent',  shows everything in 'inbox', 'sent'
+                    // If box is 'archive', shows everything in 'archive'.
+                    // 'trash' is not implemented.
+    }
+*/
+function displayEmail(emailHeader){
+
+    if (emailHeader instanceof jQuery) {
+        emailHeader = {
+            msgId:     emailHeader.data("msgId"),
+            threadId:  emailHeader.data("threadId"),
+            box:       emailHeader.data("box"),
+        };
+    }
+
+    var msgId    = emailHeader.msgId;
+    var threadId = emailHeader.threadId;
+    var box      = emailHeader.box;
+
+    $("#content").empty();
+    $("li.box-item.current").removeClass("current");
+    $("li.box-item[data-thread-id='"+threadId+"']").addClass("current");
+
+    getPrivateKey(function(privateKey) {
+
+        var params = {
+            msgId:    msgId,
+            threadId: threadId,
+            box:      box,
+        };
+
+        $.get("/email/", params, function(emailDatas){
+            var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
+            lookupPublicKeys(fromAddrs, function(keyMap, newPubHashes) {
+                // First, save new pubHashes to contacts so future lookups are faster.
+                if (newPubHashes.length > 0) {
+                    trySaveContacts(addContacts(viewState.contacts, newPubHashes))
+                }
+
+                // Construct array of email objects.
+                var emails = emailDatas.map(function(emailData){
+                    decryptAndVerifyEmail(emailData, privateKey, keyMap);
+                    return createEmailViewModel(emailData, box);
+                });
+
+                // Construct thread element, insert emails
+                showEmailThread(emails) 
+
+                // Update view state
+                bindEmailEvents();
+                viewState.email = emails[emails.length-1]; // for keyboard shortcuts & thread control
+            })
+        }, "json")
     })
 }
 
-// Takes a subject-line <li>, selects it, shows the full email
-function displayEmail(target){
-    if(target == null || target.size()==0) {
-        $("#content").attr("class", "").empty()
-        return
+// Decrypts an email. Checks the signature, if there is one.
+// Expects data.CipherBody, sets data.plaintextBody
+function decryptAndVerifyEmail(data, privateKey, keyMap){
+    var from = trimToLower(data.From);
+    var fromKey = keyMap[from].pubKey;
+    if (!fromKey) {
+        // TODO: color code to show that the email is unverified
+        console.log("No key found for "+from+". This email is unverifiable "+
+            "regardless of whether it has a signature.");
     }
-    $("li.current").removeClass("current")
-    target.addClass("current")
+    data.plaintextBody = tryDecodePgp(data.CipherBody, privateKey, fromKey);
+}
 
-    var from = target.data("from")
-    var subject = target.text()
+function createEmailViewModel(data, box) {
+    // Parse From, To, etc
+    var from = trimToLower(data.From);
+    var fromName = contactNameFromAddress(from);
+    var toAddresses = data.To.split(",").map(function(addr){
+        addr = trimToLower(addr);
+        return {
+            address: addr,
+            name: contactNameFromAddress(addr),
+        };
+    });
 
-    lookupPublicKeys([from], function(keyMap, newPubHashes) {
-        var fromKey = keyMap[from].pubKey
-        var fromHash = keyMap[from].pubHash
-        if (!fromKey) {
-            // TODO: color code to show that the email is unverified
-            console.log("No key found for "+from+". This email is unverifiable "+
-                "regardless of whether it has a signature.");
-        }
-        if (newPubHashes.length > 0) {
-            trySaveContacts(addContacts(viewState.contacts, newPubHashes))
-        }
-        $.get("/email/"+target.data("id"), function(cipherBody){
-            getPrivateKey(function(privateKey){
-                var plaintextBody = tryDecodePgp(cipherBody, privateKey, fromKey)
-                // extract subject on the first line
-                var parts = REGEX_BODY.exec(plaintextBody)
-                if (parts == null) {
-                    // TODO: add a better way to tell the difference    
-                    console.log("The decrypted email body is not Scramble format. "+
-                        "It does not start with a subject line. Subject unverified.");
-                } else {
-                    if (parts[1] != subject) {
-                        // TODO better message
-                        alert("Warning: Subject verification failed!")
-                    } else {
-                        plaintextBody = parts[2]
-                    }
-                }
+    // Parse Body
+    var parsedBody = parseBody(data.plaintextBody);
 
-                var fromName = contactNameFromAddress(from)
-                var toAddresses = target.data("to").split(",").map(function(addr){
-                    addr = trimToLower(addr)
-                    return {
-                        address: addr,
-                        name: contactNameFromAddress(addr)
-                    }
-                })
-                viewState.email = {
-                    id:          target.data("id"),
-                    time:        new Date(target.data("time")*1000),
+    // The model for rendering the email template
+    return {
+        msgId:       data.MessageID,
+        ancestorIds: data.AncestorIDs,
+        threadId:    data.ThreadID,
+        time:        new Date(data.UnixTime*1000),
+        unixTime:    data.UnixTime,
+        from:        from,
+        fromName:    fromName,
+        to:          data.To,
+        toAddresses: toAddresses,
+        subject:     parsedBody.subject,
+        htmlBody:    createHyperlinks(parsedBody.body),
+        box:         box,
+    };
+}
 
-                    from:        trimToLower(target.data("from")),
-                    fromName:    fromName,
-                    to:          target.data("to"),
-                    toAddresses: toAddresses,
+function showEmailThread(emails){
+    var thread = {
+        threadId:    emails[emails.length-1].threadId,
+        subject:     emails[emails.length-1].subject,
+        box:         emails[emails.length-1].box,
+    };
+    var elThread = $(render("thread-template", thread)).data("thread", thread);
+    for (var i=0; i<emails.length; i++) {
+        var email = emails[i];
+        var elEmail = $(render("email-template", email)).data("email", email);
+        elThread.find("#thread-emails").append(elEmail);
+    }
 
-                    subject:     subject,
-                    htmlBody:    createHyperlinks(plaintextBody),
-
-                    box:         target.data("box")
-                }
-                var html = render("email-template", viewState.email)
-                $("#content").attr("class", "email").html(html)
-                bindEmailEvents()
-            })
-        }, "text")
-    })
+    $("#content").empty().append(elThread);
 }
 
 var linkRegex = new RegExp("^http(s)?://[a-z0-9-]+(.[a-z0-9-]+)*(:[0-9]+)?(\/.*)?$", "ig")
@@ -570,75 +651,90 @@ function createHyperlinks(text) {
     return safeText.replace(exp,"<a href='$1'>$1</a>"); 
 }
 
-function emailReply(){
-    var email = viewState.email
+function emailReply(email){
     if(!email) return
-    displayCompose(email.from, email.subject, "")
+    displayComposeInline(email, email.from, email.subject, "")
 }
 
-function emailReplyAll(){
-    var email = viewState.email
+function emailReplyAll(email){
     if(!email) return
     var allRecipientsExceptMe = email.toAddresses
         .filter(function(addr){
             // email starts with our pubHash -> don't reply to our self
-            return addr.address.indexOf(sessionStorage["pubHash"]) != 0
+            return addr.address != sessionStorage["emailAddress"];
         })
         .map(function(addr){
-            // use nickname for addresses in the contacts book
-            return addr.name ? addr.name : addr.address
+            return addr.address.toLowerCase();
         })
         .concat([email.from])
-    displayCompose(allRecipientsExceptMe.join(","), email.subject, "")
+    displayComposeInline(email, allRecipientsExceptMe.join(","), email.subject, "")
 }
 
-function emailForward(){
-    var email = viewState.email
+function emailForward(email){
     if(!email) return
-    displayCompose("", email.subject, email.body)
+    displayComposeInline(email, "", email.subject, email.body)
 }
 
-function emailDelete(){
-    if(!viewState.email) return;
-    if(!confirm("Are you sure you want to delete this email?")) return;
-    var msgId = viewState.email.id
-    $.ajax({
-        url: '/email/'+msgId,
-        type: 'DELETE',
-    }).done(function(){
-        var newSelection = $(".box .current").next()
-        if(newSelection.length == 0){
-            newSelection = $(".box .current").prev()
+// email: the email object
+// moveThread: if true, moves all emails in box for thread up to email.unixTime.
+//  (that way, server doesn't move new emails that the user hasn't seen)
+function emailMove(email, box, moveThread){
+    if (box == "trash") {
+        if (moveThread) {
+            if(!confirm("Are you sure you want to delete this thread?")) return;
+        } else {
+            if(!confirm("Are you sure you want to delete this email?")) return;
         }
-        $(".box .current").remove()
-        displayEmail(newSelection)
-        displayStatus("Deleted")
-    }).fail(function(xhr){
-        alert("Deleting failed: "+xhr.responseText)
-    })
-}
-
-function emailMove(box){
-    if(!viewState.email) return
-    var msgId = viewState.email.id
+    }
+    var params = {
+        box: box,
+        moveThread: (moveThread || false)
+    };
     $.ajax({
-        url: '/email/'+msgId,
+        url: '/email/'+email.msgId,
         type: 'PUT',
-        data: {
-            'box':box
-        },
+        data: params,
     }).done(function(){
-        var newSelection = $(".box .current").next()
-        if(newSelection.length == 0){
-            newSelection = $(".box .current").prev()
+        if (moveThread) {
+            $("#thread").remove();
+            showNextThread();
+        } else {
+            removeEmailFromThread(email);
         }
-        $(".box .current").remove()
-        displayEmail(newSelection)
-
         displayStatus("Moved to "+box)
     }).fail(function(xhr){
         alert("Move to "+box+" failed: "+xhr.responseText)
     })
+}
+
+function getEmailElement(msgId) {
+    var elEmail = $(".email[data-msg-id='"+msgId+"']");
+    if (elEmail.length != 1) {
+        console.log("Failed to find exactly 1 email element with msgId:"+msgId);
+        return;
+    }
+    return elEmail;
+}
+
+// Remove the email from the thread.
+// If thread is empty, show the next thread.
+function removeEmailFromThread(email) {
+    var elEmail = getEmailElement(email.msgId);
+    var elThread = elEmail.closest("#thread");
+    elEmail.remove();
+    // If this thread has no emails left, then show the next thread.
+    if (elThread.find("#thread-emails .email").length == 0) {
+        showNextThread();
+    }
+}
+
+function showNextThread() {
+    var newSelection = $(".box .current").next();
+    if(newSelection.length == 0) {
+        newSelection = $(".box .current").prev();
+    }
+    $(".box .current").remove();
+    displayEmail(newSelection);
 }
 
 
@@ -646,33 +742,71 @@ function emailMove(box){
 // COMPOSE
 //
 
-function bindComposeEvents() {
-    $("#sendButton").click(function(){
-        var subject = $("#subject").val()
-        var to = $("#to").val()
-        var body = $("#body").val()
-
-        sendEmail(to, subject, body)
-    })
+// cb: function(emailData), emailData has plaintext components including
+//  msgId, threadId, ancestorIds, subject, to, body...
+function bindComposeEvents(elCompose, cb) {
+    elCompose.find(".sendButton").click(function(){
+        // generate 160-bit (20 byte) message id
+        // secure random generator, so it will be unique
+        var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
+        var threadId    = elCompose.find("[name='threadId']").val() || msgId;
+        var ancestorIds = elCompose.find("[name='ancestorIds']").val() || "";
+        var subject     = elCompose.find("[name='subject']").val();
+        var to          = elCompose.find("[name='to']").val();
+        var body        = elCompose.find("[name='body']").val();
+        sendEmail(msgId, threadId, ancestorIds, to, subject, body, function(){
+            cb({
+                msgId:       msgId,
+                threadId:    threadId,
+                ancestorIds: ancestorIds,
+                subject:     subject,
+                to:          to,
+                body:        body,
+            });
+        });
+    });
 }
 
 function displayCompose(to, subject, body){
     // clean up 
-    $(".box").html("")
-    viewState.email = null
-    setSelectedTab($("#tab-compose"))
-
-    // render compose form into #content
-    var html = render("compose-template", {
-        to:to,
-        subject:subject,
-        body:body
-    })
-    $("#content").attr("class", "compose").html(html)
-    bindComposeEvents()
+    $(".box").html("");
+    viewState.email = null;
+    setSelectedTab($("#tab-compose"));
+    var elCompose = $(render("compose-template", {
+        to:      to,
+        subject: subject,
+        body:    body || DEFAULT_SIGNATURE,
+    }));
+    $("#content").empty().append(elCompose);
+    bindComposeEvents(elCompose, function(emailData) {
+        displayStatus("Sent");
+        displayCompose();
+    });
 }
 
-function sendEmail(to,subject,body){
+function displayComposeInline(email, to, subject, body) {
+    var elEmail = getEmailElement(email.msgId);
+    var newAncestorIds = email.ancestorIds ?
+        email.ancestorIds+" <"+email.msgId+">" :
+        "<"+email.msgId+">";
+    var elCompose = $(render("compose-template", {
+        inline:      true,
+        threadId:    email.threadId,
+        ancestorIds: newAncestorIds,
+        to:          to,
+        subject:     subject,
+        body:        body || DEFAULT_SIGNATURE,
+    }));
+    elEmail.find(".email-compose").empty().append(elCompose);
+    bindComposeEvents(elCompose, function(emailData) {
+        displayStatus("Sent");
+        emailData.box = email.box;
+        displayEmail(emailData);
+    });
+
+}
+
+function sendEmail(msgId, threadId, ancestorIds, to, subject, body, cb){
     // validate email addresses
     var toAddresses = to.split(",").map(trimToLower)
     if (toAddresses.length == 0) {
@@ -735,10 +869,10 @@ function sendEmail(to,subject,body){
         if(missingHashes.length > 0){
             if(confirm("Could not find public keys for: "+missingHashes.join(", ")
                 +" \nSend unencrypted to all recipients?")){
-                sendEmailUnencrypted(to, subject, body);
+                sendEmailUnencrypted(msgId, threadId, ancestorIds, toAddresses.join(","), subject, body, cb);
             }
         } else {
-            sendEmailEncrypted(pubKeys, subject, body);
+            sendEmailEncrypted(msgId, threadId, ancestorIds, pubKeys, subject, body, cb);
         }
     })
 
@@ -871,12 +1005,7 @@ function lookupPublicKeys(addresses, cb) {
 }
 
 // addrPubKeys: {toAddress: <pubKey>}
-function sendEmailEncrypted(addrPubKeys,subject,body){
-    // generate 160-bit (20 byte) message id
-    // secure random generator, so it will be unique
-    // TODO: Maybe we should hash the encrypted message bytes so that it is deterministic.
-    var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
-
+function sendEmailEncrypted(msgId, threadId, ancestorIds, addrPubKeys, subject, body, cb) {
     // Get the private key so we can sign the encrypted message
     getPrivateKey(function(privateKey) {
         // Get the public key so we can also read it in the sent box
@@ -894,48 +1023,55 @@ function sendEmailEncrypted(addrPubKeys,subject,body){
 
             // send our message
             var data = {
-                msgId:msgId,
-                // box: box, TODO should always send to recipient "inbox" & sender "sent" box.
-                // pubHashTo: pubHash,
-                to: Object.keys(addrPubKeys).join(","),
+                msgId:         msgId,
+                threadId:      threadId,
+                ancestorIds:   ancestorIds,
+                to:            Object.keys(addrPubKeys).join(","),
                 cipherSubject: cipherSubject,
-                cipherBody: cipherBody
+                cipherBody:    cipherBody
             }
-            $.post("/email/", data, function(){
-                displayStatus("Sent")
-                displayCompose()
-            }).fail(function(xhr){
-                alert("Sending failed: "+xhr.responseText)
-            })
+            sendEmailPost(data, cb);
         })
     })
 }
 
-function sendEmailUnencrypted(to, subject, body){
-    // generate 160-bit (20 byte) message id
-    // secure random generator, so it will be unique
-    // TODO: Maybe we should hash the encrypted message bytes so that it is deterministic.
-    var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))
-
+function sendEmailUnencrypted(msgId, threadId, ancestorIds, to, subject, body, cb) {
     // send our message
     var data = {
-        msgId:msgId,
-        to: to,
-        subject: subject,
-        body: body
-    }
-    sendEmailPost(data)
+        msgId:         msgId,
+        threadId:      threadId,
+        ancestorIds:   ancestorIds,
+        to:            to,
+        subject:       subject,
+        body:          body
+    };
+    sendEmailPost(data, cb);
 }
 
-function sendEmailPost(data) {
+function sendEmailPost(data, cb) {
     $.post("/email/", data, function(){
-        displayStatus("Sent")
-        displayCompose()
+        cb();
     }).fail(function(xhr){
-        alert("Sending failed: "+xhr.responseText)
+        alert("Sending failed: "+xhr.responseText);
     })
 }
 
+// plaintextBody is of the form:
+// ```
+// Subject: <subject line>
+//
+// <body lines...>
+// ```
+//
+// Returns {subject:<subject line>, body:<body...>, ok:<boolean>}
+function parseBody(plaintextBody) {
+    var parts = REGEX_BODY.exec(plaintextBody);
+    if (parts == null) {
+        return {body:plaintextBody, ok:false};
+    } else {
+        return {subject:parts[1], body:parts[2], ok:true};
+    }
+}
 
 //
 // CONTACTS
@@ -950,15 +1086,15 @@ function displayContacts(){
 
         // render compose form into #content
         var html = render("contacts-template", contacts)
-        $("#content").attr("class", "contacts").html(html)
+        $("#content").html(html)
         bindContactsEvents()
     })
 }
 
 function bindContactsEvents(){
     $(".contacts li .deleteButton").click(deleteRow)
-    $("#addContactButton").click(newRow)
-    $("#saveContactsButton").click(function(){
+    $(".addContactButton").click(newRow)
+    $(".saveContactsButton").click(function(){
         var rows = $(".contacts li")
         var contacts = []
         var needResolution = {} // need to find pubhash before saving
@@ -1371,6 +1507,7 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
 // TODO Load public keys by querying /notary/id & saving it maybe.
 // cb: function(notaries), notaries: {<host>:<publicKey>, ...}
 function loadNotaries(cb) {
+    
     cb({
         "hashed.im": // 4gjgpocrvdx4cqnb
             openpgp.read_publicKey(
@@ -1404,7 +1541,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        /*"test.scramble.io":
+        "test.scramble.io":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1436,7 +1573,7 @@ function loadNotaries(cb) {
                 "/YAMYP4dUiE=                                                    \n"+
                 "=Mt/n                                                           \n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
-            ),*/
+            ),
         "dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+

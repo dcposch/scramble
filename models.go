@@ -22,6 +22,7 @@ type UserID struct {
 // Represents an email header with encrypted subject. No body.
 type EmailHeader struct {
 	MessageID     string
+	ThreadID      string
 	UnixTime      int64
 	From          string
 	To            string
@@ -31,7 +32,8 @@ type EmailHeader struct {
 // Represents a full email, header and body PGP encrypted.
 type Email struct {
 	EmailHeader
-	CipherBody string
+	CipherBody   string
+	AncestorIDs  string
 }
 
 type BoxSummary struct {

@@ -23,6 +23,8 @@ type Config struct {
 	SeedNotaries []string // for seeding new accounts
 
 	ReservedNames []string // reserved usernames
+
+	AncestorIDsMaxBytes int // should match the VARCHAR() limit of email > ancestor_ids
 }
 
 func GetConfig() *Config {
@@ -45,6 +47,8 @@ var defaultConfig = Config{
 	[]string{"admin", "administrator", "root", "support", "help", "spam",
 		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 		"mailer", "daemon", "postmaster"},
+
+	10240,
 }
 
 var config Config

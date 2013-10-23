@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -118,11 +119,13 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	if userId == nil {
 		for host, _ := range mxHostHashAddrs {
 			if host != ourMxHost {
-				log.Panicf("Invalid host for server-to-server /publickeys/query request. Expected %v, got %v", ourMxHost, host)
+				log.Panicf("Invalid host for server-to-server /publickeys/query request."+
+					"Expected %v, got %v", ourMxHost, host)
 			}
 		}
 		if len(notaries) > 1 || notaries[0] != GetConfig().SmtpMxHost {
-			log.Panicf("Expected 0 or 1 notary @" + GetConfig().SmtpMxHost + ", got [" + strings.Join(notaries, ",") + "]")
+			log.Panicf("Expected 0 or 1 notary @" + GetConfig().SmtpMxHost +
+				", got [" + strings.Join(notaries, ",") + "]")
 		}
 	}
 
@@ -182,13 +185,14 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			for _, addr := range pubKeyLookup {
-				pubHash := LoadPubHash(addr.Name)
+				name, hash := addr.NameAndHash()
+				pubHash := LoadPubHash(name)
 				if pubHash == "" {
-					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{"", "Unknown name " + addr.Name}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{"", "Unknown name " + name}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
-				if addr.Hash == "" || pubHash == addr.Hash {
+				if hash == "" || pubHash == hash {
 					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{pubKey, ""}
 				} else {
 					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{pubKey, "Wrong hash for name"}
@@ -320,7 +324,9 @@ func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userId *UserID)
 	pubHashes := r.FormValue("pubHashes")
 	res := map[string]string{}
 	for _, pubHash := range strings.Split(pubHashes, ",") {
-		if pubHash == "" { continue }
+		if pubHash == "" {
+			continue
+		}
 		address := LoadAddressFromPubHash(pubHash)
 		res[pubHash] = address
 	}
@@ -430,7 +436,7 @@ func inboxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	var emailHeaders []EmailHeader
 	var total int
 	if box == "inbox" || box == "archive" || box == "sent" {
-		emailHeaders = LoadBox(userId.EmailAddress, box, offset, limit)
+		emailHeaders = LoadBoxByThread(userId.EmailAddress, box, offset, limit)
 		total, err = CountBox(userId.EmailAddress, box)
 		if err != nil {
 			panic(err)
@@ -469,44 +475,69 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		emailBoxHandler(w, r, userId)
 	} else if r.Method == "POST" {
 		emailSendHandler(w, r, userId)
-	} else if r.Method == "DELETE" {
-		emailDeleteHandler(w, r, userId)
 	}
 }
 
-// GET /email/id fetches the body
-func emailFetchHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	id := r.URL.Path[len("/email/"):]
-	validateMessageID(id)
+var boxMapping = map[string][]interface{}{
+	"inbox":   []interface{}{"inbox", "sent"},
+	"sent":    []interface{}{"inbox", "sent"},
+	"archive": []interface{}{"archive"},
+}
 
-	if len(BoxesForMessage(userId.EmailAddress, id)) > 0 {
-		message := LoadMessage(id)
-		w.Write([]byte(message.CipherBody))
-	} else {
-		http.Error(w, "Invalid message", http.StatusUnauthorized)
+// GET /email/ fetches an email & all messages
+//  in the given box for the given threadID
+func emailFetchHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+	// Not used:
+	// msgId := valudateMessageID(r.FormValue("msgId"))
+	threadID := validateMessageID(r.FormValue("threadId"))
+	box := validateBox(r.FormValue("box"))
+	boxes := boxMapping[box]
+	if boxes == nil {
+		panic(errors.New("Dunno how to handle box " + box))
+	}
+
+	// TODO XXX: offset, limit
+	threadEmails := LoadThreadFromBoxes(userId.EmailAddress, threadID, boxes, 0, 100)
+	if len(threadEmails) == 0 {
+		http.Error(w, "Not fount or unauthorized", http.StatusUnauthorized)
 		return
 	}
+	resJson, err := json.Marshal(threadEmails)
+	if err != nil {
+		panic(err)
+	}
+	w.Write(resJson)
 }
 
 // PUT /email/id can change things about an email, eg what box it's in
 func emailBoxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	id := r.URL.Path[len("/email/"):]
-	validateMessageID(id)
+	id := validateMessageID(r.URL.Path[len("/email/"):])
 	newBox := validateBox(r.FormValue("box"))
+	moveThread := (r.FormValue("moveThread") == "true")
 
-	MoveEmail(userId.EmailAddress, id, newBox)
+	// For now just delete emails instead of moving to "trash".
+	if newBox == "trash" {
+		if moveThread {
+			DeleteThreadFromBoxes(userId.EmailAddress, id)
+		} else {
+			DeleteFromBoxes(userId.EmailAddress, id)
+		}
+	} else {
+		if moveThread {
+			MoveThread(userId.EmailAddress, id, newBox)
+		} else {
+			MoveEmail(userId.EmailAddress, id, newBox)
+		}
+	}
 }
 
-// DELETE /email/id deletes an email from all of a user's boxes
-func emailDeleteHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	id := r.URL.Path[len("/email/"):]
-	validateMessageID(id)
-	DeleteFromBoxes(userId.EmailAddress, id)
-}
-
+// POST /email/ creates a new email from auth user
 func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	email := new(Email)
 	email.MessageID = validateMessageID(r.FormValue("msgId"))
+	email.ThreadID = validateMessageID(r.FormValue("threadId"))
+	email.AncestorIDs = ParseAngledEmailAddresses(r.FormValue("ancestorIds"), " ").
+		AngledStringCappedToBytes(" ", GetConfig().AncestorIDsMaxBytes)
 	email.UnixTime = time.Now().Unix()
 	email.From = userId.EmailAddress
 	email.To = r.FormValue("to")

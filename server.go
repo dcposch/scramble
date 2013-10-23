@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"runtime/debug"
+	"time"
 )
 
 func main() {
@@ -56,18 +57,36 @@ func auth(handler func(http.ResponseWriter, *http.Request, *UserID)) http.Handle
 // HTTP 500 error response.
 func recoverAndLog(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		// Wrap the ResponseWriter to remember the status
+		rww := &ResponseWriterWrapper{-1, w}
+		begin := time.Now()
 
-		// Send a 500 error if a panic happens during a handler.
-		// Without this, Chrome & Firefox were retrying aborted ajax requests,
-		// at least to my localhost.
+		handler.ServeHTTP(rww, r)
+
 		defer func() {
+			// Send a 500 error if a panic happens during a handler.
+			// Without this, Chrome & Firefox were retrying aborted ajax requests,
+			// at least to my localhost.
 			if e := recover(); e != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error"))
+				rww.WriteHeader(http.StatusInternalServerError)
+				rww.Write([]byte("Internal Server Error"))
 				log.Printf("%s: %s", e, debug.Stack())
 			}
+
+			// Finally, log.
+			durationMS := time.Since(begin).Nanoseconds() / 1000000
+			if rww.Status == -1 { rww.Status = 200 }
+			log.Printf("%s %s %v %v %s", r.RemoteAddr, r.Method, rww.Status, durationMS, r.URL)
 		}()
-		handler.ServeHTTP(w, r)
 	})
+}
+
+// Remember the status for logging
+type ResponseWriterWrapper struct {
+	Status int
+	http.ResponseWriter
+}
+func (w *ResponseWriterWrapper) WriteHeader(status int) {
+	w.Status = status
+	w.ResponseWriter.WriteHeader(status)
 }

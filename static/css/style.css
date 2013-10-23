@@ -1,6 +1,7 @@
 /* EVERYWHERE */
 body {
 font-family: "Arial",sans-serif;
+overflow: hidden;
 }
 h1,h2,h3 {
 font-weight:bold;
@@ -23,15 +24,18 @@ text-decoration:none;
 }
 #statusBar {
 position:absolute;
-top:12px;
-left:320px;
+top:10px;
+height:20px;
+left:322px;
+right:0px;
 color:#03a;
 }
 #content {
 position:absolute;
 left:312px;
-top:20px;
+top:30px;
 right:0px;
+bottom:0px;
 padding:8px;
 }
 #wrapper {
@@ -189,7 +193,7 @@ color:red;
 margin:8px 0;
 font-weight:bold;
 }
-#sidebar .email, #sidebar .pubHash {
+#sidebar .address, #sidebar .pubHash {
 font:9px monospace;
 margin:8px 0;
 }
@@ -229,43 +233,96 @@ font-size: 0.8em;
 text-align: center;
 }
 
+/* THREAD */
+
+#thread {
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+}
+
+#thread-subject {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    height: 70px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+#thread-emails {
+    position: absolute;
+    top: 90px;
+    bottom: 0px;
+    left: 10px;
+    right: 10px;
+    overflow-x: auto;
+    overflow-y: auto;
+    padding-top: 10px;
+    padding-bottom: 50px;
+}
+
+.controlButtons .archiveButton,
+.controlButtons .moveToInboxButton,
+.controlButtons .deleteButton {
+    margin:0 0 0 10px;
+}
 
 /* SINGLE EMAIL */
-#content.email .to {
+.email {
+margin-bottom: 10px;
+}
+.email .received {
+float: right;
+color: #888;
+}
+.email .from {
+font-weight:bold;
+}
+.email .to {
 vertical-align:text-top;
 display:inline-block;
+color: #888;
 }
-#content.email .body {
-margin:10px 0;
+.email .to-address:not(:last-child):after {
+content: ", ";
+}
+.email .to label {
+display:inline;
+}
+.email .body {
+padding:10px 0;
 white-space:pre-wrap;
+border-bottom: 1px solid #eee;
 font:11px monospace;
 }
-#content.email .replyForwardButtons {
-margin:10px 0;
-}
-#archiveButton,#moveToInboxButton {
-margin:0 10px;
-}
-
 
 
 /* COMPOSE */
-#content.compose {
+.compose {
+padding-top: 10px;
 bottom:0px;
 }
-#content.compose label {
-width:100px;
+.compose label {
+width: 80px;
 }
-#content.compose .prompt input {
+.compose.inline label {
+width: 40px; /* no subject */
+}
+.compose .prompt input {
 width:400px;
 }
-#content.compose textarea {
+.compose textarea {
 width:600px;
 height:400px;
 margin:8px;
 background:#f8f8f8;
 }
-#sendButton {
+.compose .sendButton {
 display:block;
 margin:8px;
 }
@@ -273,17 +330,17 @@ margin:8px;
 
 
 /* CONTACTS */
-#content.contacts ul {
+.contacts ul {
 list-style-type:none;
 padding:0px;
 margin:6px 0;
 width:600px;
 }
-#content.contacts li {
+.contacts li {
 cursor:pointer;
 height:30px;
 }
-#content.contacts li input {
+.contacts li input {
 display:inline-block;
 font-family:monospace;
 width:250px;
@@ -291,11 +348,11 @@ margin:3px 3px 3px 0;
 padding:3px;
 }
 
-#content.contacts li input.name {
+.contacts li input.name {
 width:120px;
 }
 
-#content.contacts li .pubHash {
+.contacts li .pubHash {
 display: inline-block;
 width: 140px;
 color: #888;

@@ -1,3 +1,4 @@
 .*.swp
 static/doc/*.html
 scramble
+scramble.sql

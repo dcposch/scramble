@@ -61,13 +61,16 @@ func deliverMailLocally(msg *SmtpMessage) error {
 	}
 
 	email := new(Email)
-	email.MessageID = msg.data.messageID
+	email.MessageID = msg.data.messageID.String()
 	email.UnixTime = msg.time
 	email.From = msg.mailFrom
 	// TODO: separate To and CC, add BCC
 	email.To = joinAddresses(append(msg.data.toList, msg.data.ccList...))
 	email.CipherSubject = cipherSubject
 	email.CipherBody = cipherBody
+	email.ThreadID = msg.data.threadID.String()
+	email.AncestorIDs = msg.data.ancestorIDs.AngledStringCappedToBytes(
+        " ", GetConfig().AncestorIDsMaxBytes)
 
 	// TODO: consider if transactions are required.
 	// TODO: saveMessage may fail if messageId is not unique.

@@ -104,6 +104,7 @@ func TestPublicKeysHandler(t *testing.T) {
 		log.Fatal("Signature doesn't start with armor")
 	}
 
+	log.Printf("%v \n", parsed)
 	var dneRes = parsed.PublicKeys["doesnotexist@"+GetConfig().SmtpMxHost]
 	if dneRes.Error != "Unknown name doesnotexist" {
 		log.Fatal("Unexpected error message for name that does not exist")

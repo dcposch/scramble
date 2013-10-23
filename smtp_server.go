@@ -57,7 +57,10 @@ type SmtpMessage struct {
 }
 
 type SmtpMessageData struct {
-	messageID string
+	messageID   EmailAddress
+    threadID    EmailAddress
+    ancestorIDs EmailAddresses
+
 	from      *mail.Address
 	toList    []*mail.Address
 	ccList    []*mail.Address
@@ -189,7 +192,7 @@ func handleClient(client *client) {
 					client.helo = input[5:]
 				}
 				responseAdd(client, "250-"+serverName+
-					" Hello "+client.helo+"["+client.remoteAddr+"]"+"\r\n"+
+					" Sup "+client.helo+"["+client.remoteAddr+"]"+"\r\n"+
 					"250-SIZE "+strconv.Itoa(maxSize)+"\r\n"+
 					advertiseTls+"250 HELP")
 			case strings.Index(cmd, "MAIL FROM:") == 0:
@@ -322,18 +325,31 @@ func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
 	}
 
 	// parse message id
-	data := new(SmtpMessageData)
-	data.messageID = parsed.Header.Get("Message-ID")
-	if data.messageID == "" { // generate a message id
+	messageIDStr := strings.Trim(parsed.Header.Get("Message-ID"), "<>")
+	messageID, ok := ParseEmailAddressSafe(messageIDStr)
+	if !ok {
+		// generate a message id
 		bytes := &[20]byte{}
 		rand.Read(bytes[:])
-		data.messageID = hex.EncodeToString(bytes[:])
-	} else {
-		re, _ := regexp.Compile(`<(.+?)>`)
-		if matched := re.FindStringSubmatch(data.messageID); len(matched) > 1 {
-			data.messageID = strings.Trim(matched[1], " ")
-		}
+		messageID = EmailAddress{hex.EncodeToString(bytes[:]), GetConfig().SmtpMxHost}
 	}
+
+	// [<thread_id>?,...,<grandparent_message_id>,<parent_message_id>]
+	// Should start with the thread id, but it may have been truncated away.
+	// See: http://www.jwz.org/doc/threading.html
+	ancestorIDs := sanitizeAncestorIDs(parsed.Header)
+
+	// If from another Scramble server, get threadID
+	threadIDStr := strings.Trim(parsed.Header.Get("X-Scramble-Thread-ID"), "<>")
+	threadID, ok := ParseEmailAddressSafe(threadIDStr)
+	if !ok {
+		threadID = computeThreadID(messageID, ancestorIDs)
+	}
+
+	data := new(SmtpMessageData)
+	data.messageID = messageID
+    data.threadID = threadID
+    data.ancestorIDs = ancestorIDs
 
 	// parse from, to and cc
 	data.from, err = mail.ParseAddress(parsed.Header.Get("From"))
@@ -513,8 +529,7 @@ func extractEmail(str string) string {
 	} else {
 		email = strings.Trim(str, " ")
 	}
-	err := validateAddressSafe(email)
-	if err != nil {
+	if ok := validateAddressSafe(email); !ok {
 		return ""
 	}
 
@@ -622,4 +637,34 @@ func md5hex(str string) string {
 	h.Write([]byte(str))
 	sum := h.Sum([]byte{})
 	return hex.EncodeToString(sum)
+}
+
+func sanitizeAncestorIDs(headers mail.Header) EmailAddresses {
+	inReplyToStr := headers.Get("In-Reply-To")
+	referencesStr := headers.Get("References")
+	inReplyTo := ParseAngledEmailAddresses(inReplyToStr, " ")
+	references := ParseAngledEmailAddresses(referencesStr, " ")
+	if len(inReplyTo) > 0 && (len(references) == 0 || references[len(references)-1] != inReplyTo[0]) {
+		references = append(references, inReplyTo[0])
+	}
+	return references
+}
+
+// Generally the ancestorIDs[0], we do a lookup in our db
+//  to see if we can find an older ancestor.
+func computeThreadID(messageID EmailAddress, ancestorIDs EmailAddresses) EmailAddress {
+	if len(ancestorIDs) > 0 {
+		var ancestors []interface{}
+		for _, messageID := range ancestorIDs {
+			ancestors = append(ancestors, messageID.String())
+		}
+		threadIDs := LoadThreadIDsForMessageIDs(ancestors)
+		// This algo isn't perfect, but might be good enough.
+		for _, threadID := range threadIDs {
+			if threadID != "" {
+				return ParseEmailAddress(threadID)
+			}
+		}
+	}
+	return messageID
 }
