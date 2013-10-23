@@ -26,6 +26,12 @@ func main() {
 	// SMTP Server
 	go StartSMTPServer()
 
+	// DEBUG
+	var addrs []string
+	addrs = append(addrs, "dcposch@test.scramble.io")
+	cipher := encryptForUsers("big bad wolf", addrs)
+	log.Println("Cipher: " + cipher)
+
 	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HttpPort)
 	log.Printf("Listening on http://%s\n", address)
 	http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux))

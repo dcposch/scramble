@@ -21,6 +21,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"code.google.com/p/go.crypto/openpgp"
+	"code.google.com/p/go.crypto/openpgp/armor"
+	_ "code.google.com/p/go.crypto/ripemd160"
 	"compress/zlib"
 	"crypto/md5"
 	"crypto/rand"
@@ -390,14 +393,29 @@ func deliverMailLocally(client *Client) error {
 		toStrList = append(toStrList, to.Address)
 	}
 
+	// Subject will be "Encrypted message" for all Scramble mail,
+	// where the real subject is the first PGP message block
+	subject := parsed.Header.Get("Subject")
+	if subject == "" {
+		subject = "(No subject)"
+	}
+
+	// Read the body. If it's unencrypted, encrypt it now
+	// and store it for the user.
 	bodyBytes, err := ioutil.ReadAll(parsed.Body)
 	if err != nil {
 		return err
 	}
-	cipherPackets := regexSMTPTemplatep.FindAllString(string(bodyBytes), -1)
-	if len(cipherPackets) != 2 {
-		return errors.New(fmt.Sprintf("Expected 2 cipher packets (subject & body)."+
-			"Found %v", len(cipherPackets)))
+	body := string(bodyBytes)
+	var cipherSubject, cipherBody string
+	cipherPackets := regexSMTPTemplatep.FindAllString(body, -1)
+	// TODO: better way to distinguish between encrypted and unencrypted mail
+	if len(cipherPackets) == 2 {
+		cipherSubject = cipherPackets[0]
+		cipherBody = cipherPackets[1]
+	} else {
+		cipherSubject = encryptForUsers(subject, client.rcptTo)
+		cipherBody = encryptForUsers(body, client.rcptTo)
 	}
 
 	email := new(Email)
@@ -405,8 +423,8 @@ func deliverMailLocally(client *Client) error {
 	email.UnixTime = client.time
 	email.From = client.mailFrom
 	email.To = strings.Join(toStrList, ",")
-	email.CipherSubject = cipherPackets[0]
-	email.CipherBody = cipherPackets[1]
+	email.CipherSubject = cipherSubject
+	email.CipherBody = cipherBody
 
 	// TODO: consider if transactions are required.
 	// TODO: saveMessage may fail if messageId is not unique.
@@ -420,6 +438,40 @@ func deliverMailLocally(client *Client) error {
 	}
 
 	return nil
+}
+
+func encryptForUsers(plaintext string, addrs []string) string {
+	// TODO: no notaries, just a local get
+	keys := make([]*openpgp.Entity, 0)
+	for _, addr := range addrs {
+		token := strings.Split(addr, "@")[0]
+		user := LoadUser(token)
+		if user == nil {
+			// TODO: send failure notification email to sender
+			continue
+		}
+
+		entity, err := ReadEntity(user.PublicKey)
+		if err != nil {
+			panic(err)
+		}
+		keys = append(keys, entity)
+	}
+
+	cipherBuffer := new(bytes.Buffer)
+	w, err := armor.Encode(cipherBuffer, "MESSAGE", make(map[string]string))
+	if err != nil {
+		panic(err)
+	}
+	plainWriter, err := openpgp.Encrypt(w, keys, nil, nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	plainWriter.Write([]byte(plaintext))
+	plainWriter.Close()
+
+	ciphertext := cipherBuffer.String()
+	return ciphertext
 }
 
 func validateEmailData(client *Client) error {
