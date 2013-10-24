@@ -5,9 +5,9 @@
 package main
 
 import (
-	"testing"
 	"flag"
 	"log"
+	"testing"
 	"time"
 )
 
@@ -24,14 +24,15 @@ func TestSendEmail(t *testing.T) {
 			MessageID:     "someid",
 			UnixTime:      time.Now().Unix(),
 			From:          "from@localhost.com",
-			To:            "to1@"+*testServer+",to2@"+*testServer,
+			To:            "to1@" + *testServer + ",to2@" + *testServer,
 			CipherSubject: "<cipher subject>",
 		},
-		CipherBody:    "<cipher body>",
+		CipherBody: "<cipher body>",
 	}
 
 	addrs := ParseEmailAddresses(email.To).FilterByHost(*testServer)
-	err := smtpSendTo(email, *testServer, addrs)
+	boxedEmail := &BoxedEmail{Email: *email}
+	err := smtpSendTo(boxedEmail, *testServer, addrs)
 	if err != nil {
 		t.Fatal(err)
 	}

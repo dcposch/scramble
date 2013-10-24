@@ -12,9 +12,11 @@ import (
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
 var mxCache map[string]string
+var mxHost string
 
 func init() {
 	mxCache = make(map[string]string)
+	mxHost = GetConfig().SmtpMxHost
 	go smtpSendLoop()
 }
 
@@ -55,25 +57,26 @@ func smtpLookUp(host string) (string, error) {
 // Sends all messages over SMTP.
 func smtpSendLoop() {
 	for {
-		msgs := CheckoutOutbox(1)
+		msgs := CheckoutOutbox(10)
 		for _, msg := range msgs {
-			go func(msg BoxedEmail) {
-				// msg.Address is the destination host for outbox messages
-				addrs := ParseEmailAddresses(msg.To).FilterByHost(msg.Address)
-				err := smtpSendTo(&msg.Email, msg.Address, addrs)
-				if err != nil {
-					// Failed to send. Tell the user everything we know...
-					errMsg := err.Error()
-					MarkSendError(&msg, &errMsg)
-				}
-				MarkOutboxAs([]BoxedEmail{msg}, "outbox-sent")
-			}(msg)
+			go smtpSendAndMark(msg)
 		}
 		time.Sleep(time.Second)
 	}
 }
 
-func smtpSend(msg *Email) error {
+func smtpSendAndMark(msg *BoxedEmail) {
+	err := smtpSend(msg)
+	if err != nil {
+		// Failed to send. Tell the user everything we know...
+		log.Printf("Message sending failed: %v\n", err)
+		errMsg := err.Error()
+		MarkSendError(msg, &errMsg)
+	}
+	MarkOutboxAs([]*BoxedEmail{msg}, "outbox-sent")
+}
+
+func smtpSend(msg *BoxedEmail) error {
 	hostAddrs := GroupAddrsByHost(msg.To)
 	addrsFailed := EmailAddresses{}
 	for host, addrs := range hostAddrs {
@@ -98,19 +101,67 @@ func smtpSend(msg *Email) error {
 const smtpTemplate = `Message-ID: <%s@%s>
 From: <%s>
 To: %s
-Subject: Encrypted message
+Subject: %s
 
-%s
-%s`
+%s%s`
 
-func smtpSendTo(email *Email, smtpHost string, addrs EmailAddresses) error {
+func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error {
+	var plainSubject, cipherSubject string
+	if IsArmored(email.CipherSubject) {
+		plainSubject = "Encrypted subject"
+		cipherSubject = email.CipherSubject + "\n"
+	} else {
+		//TODO: fix naming conventions
+		plainSubject = email.CipherSubject
+		cipherSubject = ""
+	}
 	msg := fmt.Sprintf(smtpTemplate,
 		email.MessageID, GetConfig().SmtpMxHost,
 		email.From,
 		ParseEmailAddresses(email.To).AngledString(),
-		email.CipherSubject,
+		plainSubject,
+		cipherSubject,
 		email.CipherBody)
-	log.Printf("SMTP: sending to %s\n", smtpHost)
-	err := smtp.SendMail(smtpHost+":25", nil, email.From, addrs.Strings(), []byte(msg))
-	return err
+	log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg)
+
+	c, err := smtp.Dial(smtpHost + ":25")
+	if err != nil {
+		return err
+	}
+	log.Println("hello")
+	if err = c.Hello(mxHost); err != nil {
+		return err
+	}
+	log.Println("starting tls")
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err = c.StartTLS(nil); err != nil {
+			return err
+		}
+	}
+	log.Println("from")
+	if err = c.Mail(email.From); err != nil {
+		return err
+	}
+	log.Println("to")
+	for _, addr := range addrs.Strings() {
+		log.Println("to " + addr)
+		if err = c.Rcpt(addr); err != nil {
+			return err
+		}
+	}
+	log.Println("data")
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+	log.Println("close")
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+	return c.Quit()
 }

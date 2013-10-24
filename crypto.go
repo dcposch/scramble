@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"code.google.com/p/go.crypto/openpgp"
+	"code.google.com/p/go.crypto/openpgp/armor"
+	"code.google.com/p/go.crypto/openpgp/packet"
 	"crypto/sha1"
 	"encoding/base32"
 	"io"
 	"strings"
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/armor"
-	"code.google.com/p/go.crypto/openpgp/packet"
-	"bytes"
 )
 
 func ComputeSha1(str string) []byte {
@@ -35,7 +35,9 @@ func SerializeKeys(entity *openpgp.Entity) (privKeyArmor, pubKeyArmor string, er
 	b := bytes.NewBuffer(nil)
 	w, _ := armor.Encode(b, openpgp.PrivateKeyType, nil)
 	err = entity.SerializePrivate(w, nil)
-	if err != nil { return "", "", err }
+	if err != nil {
+		return "", "", err
+	}
 	w.Close()
 	privKeyArmor = b.String()
 
@@ -43,32 +45,43 @@ func SerializeKeys(entity *openpgp.Entity) (privKeyArmor, pubKeyArmor string, er
 	b.Reset()
 	w, _ = armor.Encode(b, openpgp.PublicKeyType, nil)
 	err = entity.Serialize(w)
-	if err != nil { return "", "", err }
+	if err != nil {
+		return "", "", err
+	}
 	w.Close()
 	pubKeyArmor = b.String()
 
 	return
 }
 
+func IsArmored(str string) bool {
+	block, err := armor.Decode(strings.NewReader(str))
+	return err != nil && block != nil
+}
+
 func ReadEntity(privKeyArmor string) (*openpgp.Entity, error) {
 	block, err := armor.Decode(strings.NewReader(privKeyArmor))
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return openpgp.ReadEntity(packet.NewReader(block.Body))
 }
 
 func SignText(entity *openpgp.Entity, text string) string {
 	/*
-	The armored signature from above can be verified in javascript like so:
-	```javascript
-		sig = openpgp.read_message(sig_armored)
-		pk  = openpgp.read_publicKey(pubkey_armored)
-		sig[0].signature.verify("some message", {obj:pk[0]})
-	```
+		The armored signature from above can be verified in javascript like so:
+		```javascript
+			sig = openpgp.read_message(sig_armored)
+			pk  = openpgp.read_publicKey(pubkey_armored)
+			sig[0].signature.verify("some message", {obj:pk[0]})
+		```
 	*/
 	b := bytes.NewBuffer(nil)
 	w, _ := armor.Encode(b, openpgp.SignatureType, nil)
 	err := openpgp.DetachSign(w, entity, strings.NewReader(text), nil)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	w.Close()
 	return b.String()
 }

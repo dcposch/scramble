@@ -47,7 +47,7 @@ type BoxSummary struct {
 // Represents an email in the box join table.
 type BoxedEmail struct {
 	Email
-	Id           int64
-	Box          string
-	Address      string
+	Id      int64
+	Box     string
+	Address string
 }

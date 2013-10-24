@@ -13,14 +13,14 @@ type EmailAddress struct {
 
 func (addr *EmailAddress) String() string {
 	if addr.Hash == "" {
-		return addr.Name+"@"+addr.Host
+		return addr.Name + "@" + addr.Host
 	} else {
-		return addr.Name+"#"+addr.Hash+"@"+addr.Host
+		return addr.Name + "#" + addr.Hash + "@" + addr.Host
 	}
 }
 
 func (addr *EmailAddress) StringNoHash() string {
-	return addr.Name+"@"+addr.Host
+	return addr.Name + "@" + addr.Host
 }
 
 // "foo@bar.com" -> EmailAddress
@@ -45,7 +45,13 @@ func ParseEmailAddresses(addrList string) EmailAddresses {
 	return addrs
 }
 
-// "foo@bar.com,baz@boo.com" -> {<host>:[]EmailAddress}
+// Maps a string list of email addresses (eg To or CC) to MX hosts.
+// Performs DNS lookup as needed.
+//
+// "foo@bar.com,baz@boo.com" -> {<mxHost>:[]EmailAddress}
+//
+// Note mxHost is not the same as emailHost. For example:
+// "larry@gmail.com" -> {"smtp-in.l.gmail.com": [...]}
 func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
 	if addrList == "" {
 		return nil
@@ -97,7 +103,7 @@ func (addrs EmailAddresses) AngledString() string {
 	if len(addrs) == 0 {
 		return ""
 	}
-	return "<"+strings.Join(addrs.Strings(), ">,<")+">"
+	return "<" + strings.Join(addrs.Strings(), ">,<") + ">"
 }
 
 // -> ["foo@bar.com","baz@boo.com"]

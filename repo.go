@@ -354,7 +354,7 @@ func MoveEmail(address string, messageID string, newBox string) {
 //
 
 // Load and set box as 'outbox-processing'
-func CheckoutOutbox(limit int) []BoxedEmail {
+func CheckoutOutbox(limit int) []*BoxedEmail {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
 		" m.from_email, m.to_email, m.cipher_subject, m.cipher_body, "+
 		" b.id, b.box, b.address "+
@@ -367,7 +367,7 @@ func CheckoutOutbox(limit int) []BoxedEmail {
 	if err != nil {
 		panic(err)
 	}
-	boxedEmails := []BoxedEmail{}
+	boxedEmails := []*BoxedEmail{}
 	for rows.Next() {
 		var boxed BoxedEmail
 		rows.Scan(
@@ -381,14 +381,14 @@ func CheckoutOutbox(limit int) []BoxedEmail {
 			&boxed.Box,
 			&boxed.Address,
 		)
-		boxedEmails = append(boxedEmails, boxed)
+		boxedEmails = append(boxedEmails, &boxed)
 	}
 	MarkOutboxAs(boxedEmails, "outbox-processing")
 	return boxedEmails
 }
 
 // Mark box items as "outbox-sent" or "outbox-processing", etc
-func MarkOutboxAs(boxedEmails []BoxedEmail, newBox string) {
+func MarkOutboxAs(boxedEmails []*BoxedEmail, newBox string) {
 	if newBox != "outbox-sent" && newBox != "outbox-processing" {
 		panic("MarkOutboxAs() cannot move emails to " + newBox)
 	}
