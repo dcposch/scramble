@@ -23,15 +23,11 @@ func main() {
 	// Resources
 	http.HandleFunc("/", staticHandler) // html, js, css
 
-	// SMTP Server
-	go StartSMTPServer()
+	// SMTP Incoming Messages
+	StartSMTPServer()
+	StartSMTPSaver()
 
-	// DEBUG
-	var addrs []string
-	addrs = append(addrs, "dcposch@test.scramble.io")
-	cipher := encryptForUsers("big bad wolf", addrs)
-	log.Println("Cipher: " + cipher)
-
+	// Serve HTTP on localhost only. Let Nginx terminate HTTPS for us.
 	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HttpPort)
 	log.Printf("Listening on http://%s\n", address)
 	http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux))

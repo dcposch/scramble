@@ -21,8 +21,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/armor"
 	_ "code.google.com/p/go.crypto/ripemd160"
 	"compress/zlib"
 	"crypto/md5"
@@ -31,7 +29,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/sloonz/go-iconv" // TODO: requires GCC.
+	"github.com/sloonz/go-iconv"
 	"github.com/sloonz/go-qprintable"
 	"io"
 	"io/ioutil"
@@ -45,17 +43,47 @@ import (
 	"time"
 )
 
-type Client struct {
-	clientId    int64
-	state       int
-	helo        string
-	response    string
-	conn        net.Conn
-	bufin       *bufio.Reader
-	bufout      *bufio.Writer
-	killTime    int64
-	errors      int
-	savedNotify chan int
+// Public interface: a stream of SmtpMessages
+
+type SmtpMessage struct {
+	time     int64
+	mailFrom string
+	rcptTo   []string
+	subject  string
+
+	data SmtpMessageData
+
+	saveSuccess chan bool
+}
+
+type SmtpMessageData struct {
+	messageID string
+	from      *mail.Address
+	toList    []*mail.Address
+	ccList    []*mail.Address
+	subject   string
+	body      string
+}
+
+var SaveMailChan chan *SmtpMessage
+
+// Private implementation
+
+var emailRegex = regexp.MustCompile(`<(.+?)>`)
+var mimeHeaderRegex = regexp.MustCompile(`=\?(.+?)\?([QBqp])\?(.+?)\?=`)
+var charsetIllegalCharRegex = regexp.MustCompile(`[_:.\/\\]`)
+
+type client struct {
+	clientId int64
+	state    int
+	helo     string
+	response string
+	conn     net.Conn
+	bufin    *bufio.Reader
+	bufout   *bufio.Writer
+	killTime int64
+	errors   int
+
 	// Email properties
 	time       int64
 	mailFrom   string
@@ -65,16 +93,12 @@ type Client struct {
 	remoteAddr string
 }
 
-var regexSMTPTemplatep = regexp.MustCompile(`(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
-
 var serverName string
 var listenAddress string
 var maxSize int
 var timeout time.Duration
 var sem chan int
-var SaveMailChan chan *Client
 
-// TODO: get parameters from config.go
 func configure() {
 	// MX server name
 	serverName = GetConfig().SmtpMxHost
@@ -87,16 +111,12 @@ func configure() {
 	// currently active client list, 500 is maxClients
 	sem = make(chan int, 500)
 	// database writing workers
-	SaveMailChan = make(chan *Client, 5)
-	return
+	SaveMailChan = make(chan *SmtpMessage, 5)
 }
 
 func StartSMTPServer() {
 	configure()
-	// start some savemail workers
-	for i := 0; i < 3; i++ {
-		go saveMail()
-	}
+
 	// Start listening for SMTP connections
 	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
@@ -104,9 +124,13 @@ func StartSMTPServer() {
 	} else {
 		log.Printf("Listening on %s (SMTP)\n", listenAddress)
 	}
+
+	go handleClients(listener)
+}
+
+func handleClients(listener net.Listener) {
 	var clientId int64
-	clientId = 1
-	for {
+	for clientId = 1; ; clientId++ {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("Accept error: %s\n", err)
@@ -114,25 +138,24 @@ func StartSMTPServer() {
 		}
 		log.Println(" There are now " + strconv.Itoa(runtime.NumGoroutine()) + " serving goroutines")
 		sem <- 1 // Wait for active queue to drain.
-		go handleClient(&Client{
-			conn:        conn,
-			remoteAddr:  conn.RemoteAddr().String(),
-			time:        time.Now().Unix(),
-			bufin:       bufio.NewReader(conn),
-			bufout:      bufio.NewWriter(conn),
-			clientId:    clientId,
-			savedNotify: make(chan int),
+		go handleClient(&client{
+			conn:       conn,
+			remoteAddr: conn.RemoteAddr().String(),
+			time:       time.Now().Unix(),
+			bufin:      bufio.NewReader(conn),
+			bufout:     bufio.NewWriter(conn),
+			clientId:   clientId,
 		})
-		clientId++
 	}
 }
 
-func handleClient(client *Client) {
+func handleClient(client *client) {
 	defer closeClient(client)
 	// TODO: is it safe to show the clientId counter & sem?
 	//  it is nice debug info
 	greeting := "220 " + serverName +
-		" SMTP Scramble-SMTPd #" + strconv.FormatInt(client.clientId, 10) + " (" + strconv.Itoa(len(sem)) + ") " + time.Now().Format(time.RFC1123Z)
+		" SMTP Scramble-SMTPd #" + strconv.FormatInt(client.clientId, 10) +
+		" (" + strconv.Itoa(len(sem)) + ") " + time.Now().Format(time.RFC1123Z)
 	advertiseTls := "250-STARTTLS\r\n"
 	for i := 0; i < 100; i++ {
 		switch client.state {
@@ -165,7 +188,10 @@ func handleClient(client *Client) {
 				if len(input) > 5 {
 					client.helo = input[5:]
 				}
-				responseAdd(client, "250-"+serverName+" Hello "+client.helo+"["+client.remoteAddr+"]"+"\r\n"+"250-SIZE "+strconv.Itoa(maxSize)+"\r\n"+advertiseTls+"250 HELP")
+				responseAdd(client, "250-"+serverName+
+					" Hello "+client.helo+"["+client.remoteAddr+"]"+"\r\n"+
+					"250-SIZE "+strconv.Itoa(maxSize)+"\r\n"+
+					advertiseTls+"250 HELP")
 			case strings.Index(cmd, "MAIL FROM:") == 0:
 				email := extractEmail(input[10:])
 				if email == "" {
@@ -219,16 +245,23 @@ func handleClient(client *Client) {
 			var err error
 			client.data, err = readSmtp(client)
 			if err == nil {
-				// to do: timeout when adding to SaveMailChan
 				// place on the channel so that one of the save mail workers can pick it up
-				SaveMailChan <- client
-				// wait for the save to complete
-				status := <-client.savedNotify
+				smtpMessage, err := createSmtpMessage(client)
 
-				if status == 1 {
+				var success bool
+				if err == nil {
+					SaveMailChan <- smtpMessage
+					// wait for the save to complete
+					success = <-smtpMessage.saveSuccess
+				} else {
+					log.Printf("Could not parse SMTP message: %v", err)
+					success = false
+				}
+
+				if success {
 					responseAdd(client, "250 OK : queued")
 				} else {
-					responseAdd(client, "554 Error : transaction failed, blame it on the weather")
+					responseAdd(client, "554 Error : transaction failed")
 				}
 			} else {
 				log.Printf("DATA read error: %v\n", err)
@@ -254,18 +287,92 @@ func handleClient(client *Client) {
 
 }
 
-func responseAdd(client *Client, line string) {
+func createSmtpMessage(client *client) (*SmtpMessage, error) {
+	// check mailFrom and rcptTo, etc.
+	if err := validateEmailData(client); err != nil {
+		return nil, err
+	}
+
+	// parse the smtp body (which contains from, to, subject, body)
+	smtpData, err := parseSmtpData(client.data)
+	if err != nil {
+		return nil, err
+	}
+
+	// return a fully parsed, received email
+	return &SmtpMessage{
+		time:     client.time,
+		mailFrom: client.mailFrom,
+		rcptTo:   client.rcptTo,
+		subject:  mimeHeaderDecode(client.subject),
+
+		data: *smtpData,
+
+		saveSuccess: make(chan bool),
+	}, nil
+}
+
+func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
+	// parse the mail data to get the headers & body
+	parsed, err := mail.ReadMessage(strings.NewReader(smtpData))
+	if err != nil {
+		return nil, err
+	}
+
+	// parse message id
+	data := new(SmtpMessageData)
+	data.messageID = parsed.Header.Get("Message-ID")
+	if data.messageID == "" { // generate a message id
+		bytes := &[20]byte{}
+		rand.Read(bytes[:])
+		data.messageID = hex.EncodeToString(bytes[:])
+	} else {
+		re, _ := regexp.Compile(`<(.+?)>`)
+		if matched := re.FindStringSubmatch(data.messageID); len(matched) > 1 {
+			data.messageID = strings.Trim(matched[1], " ")
+		}
+	}
+
+	// parse from, to and cc
+	data.from, err = mail.ParseAddress(parsed.Header.Get("From"))
+	if err != nil {
+		return nil, err
+	}
+	data.toList, err = parsed.Header.AddressList("To")
+	if err != nil {
+		return nil, err
+	}
+	data.ccList, err = parsed.Header.AddressList("Cc")
+	if err != nil {
+		return nil, err
+	}
+
+	// parse subject
+	data.subject = parsed.Header.Get("Subject")
+
+	// parse the body
+	// TODO: multipart support
+	bodyBytes, err := ioutil.ReadAll(parsed.Body)
+	if err != nil {
+		return nil, err
+	}
+	data.body = string(bodyBytes)
+
+	return data, nil
+}
+
+func responseAdd(client *client, line string) {
 	client.response = line + "\r\n"
 }
-func closeClient(client *Client) {
+func closeClient(client *client) {
 	client.conn.Close()
 	<-sem // Done; enable next client to run.
 }
-func killClient(client *Client) {
+func killClient(client *client) {
 	client.killTime = time.Now().Unix()
 }
 
-func readSmtp(client *Client) (input string, err error) {
+func readSmtp(client *client) (input string, err error) {
 	var reply string
 	// Command state terminator by default
 	suffix := "\r\n"
@@ -298,7 +405,7 @@ func readSmtp(client *Client) (input string, err error) {
 }
 
 // Scan the data part for a Subject line. Can be a multi-line
-func scanSubject(client *Client, reply string) {
+func scanSubject(client *client, reply string) {
 	if client.subject == "" && (len(reply) > 8) {
 		test := strings.ToUpper(reply[0:9])
 		if i := strings.Index(test, "SUBJECT: "); i == 0 {
@@ -315,7 +422,7 @@ func scanSubject(client *Client, reply string) {
 	}
 }
 
-func responseWrite(client *Client) (err error) {
+func responseWrite(client *client) (err error) {
 	var size int
 	client.conn.SetDeadline(time.Now().Add(timeout * time.Second))
 	size, err = client.bufout.WriteString(client.response)
@@ -324,157 +431,7 @@ func responseWrite(client *Client) (err error) {
 	return err
 }
 
-func saveMail() {
-	var err error
-
-	//  receives values from the channel repeatedly until it is closed.
-	for {
-		client := <-SaveMailChan
-		log.Println("Mail from " + client.mailFrom + " to " + strings.Join(client.rcptTo, ","))
-		// check mailFrom and rcptTo, etc.
-		if client_err := validateEmailData(client); client_err != nil {
-			log.Println(client_err)
-			// notify client that a save completed, -1 = error
-			client.savedNotify <- -1
-			continue
-		}
-		client.subject = mimeHeaderDecode(client.subject)
-		// compress to save space
-		// client.data = compress(add_head + client.data)
-
-		// insert data
-		err = deliverMailLocally(client)
-		if err != nil {
-			log.Printf("Save error, %v\n", err)
-			client.savedNotify <- -1
-		} else {
-			client.savedNotify <- 1
-		}
-	}
-}
-
-func deliverMailLocally(client *Client) error {
-
-	// parse the mail data to get the headers & body
-	parsed, err := mail.ReadMessage(strings.NewReader(client.data))
-	if err != nil {
-		return err
-	}
-
-	messageID := parsed.Header.Get("Message-ID")
-	if messageID == "" { // generate a message id
-		bytes := &[20]byte{}
-		rand.Read(bytes[:])
-		messageID = hex.EncodeToString(bytes[:])
-	} else {
-		re, _ := regexp.Compile(`<(.+?)>`)
-		if matched := re.FindStringSubmatch(messageID); len(matched) > 1 {
-			messageID = strings.Trim(matched[1], " ")
-		}
-		// trim messageID, we only allow so many characters.
-		if len(messageID) > 40 {
-			messageID = messageID[:40]
-		}
-	}
-
-	toList, err := parsed.Header.AddressList("To")
-	if err != nil {
-		return err
-	}
-	// TODO: add a way to distinguish To & Cc fields.
-	// for now just add merge them into To.
-	ccList, err := parsed.Header.AddressList("Cc")
-	if err == nil {
-		toList = append(toList, ccList...)
-	}
-	// Bcc fields can be ignored, we still have rcptTo.
-	toStrList := []string{}
-	for _, to := range toList {
-		toStrList = append(toStrList, to.Address)
-	}
-
-	// Subject will be "Encrypted message" for all Scramble mail,
-	// where the real subject is the first PGP message block
-	subject := parsed.Header.Get("Subject")
-	if subject == "" {
-		subject = "(No subject)"
-	}
-
-	// Read the body. If it's unencrypted, encrypt it now
-	// and store it for the user.
-	bodyBytes, err := ioutil.ReadAll(parsed.Body)
-	if err != nil {
-		return err
-	}
-	body := string(bodyBytes)
-	var cipherSubject, cipherBody string
-	cipherPackets := regexSMTPTemplatep.FindAllString(body, -1)
-	// TODO: better way to distinguish between encrypted and unencrypted mail
-	if len(cipherPackets) == 2 {
-		cipherSubject = cipherPackets[0]
-		cipherBody = cipherPackets[1]
-	} else {
-		cipherSubject = encryptForUsers(subject, client.rcptTo)
-		cipherBody = encryptForUsers(body, client.rcptTo)
-	}
-
-	email := new(Email)
-	email.MessageID = messageID
-	email.UnixTime = client.time
-	email.From = client.mailFrom
-	email.To = strings.Join(toStrList, ",")
-	email.CipherSubject = cipherSubject
-	email.CipherBody = cipherBody
-
-	// TODO: consider if transactions are required.
-	// TODO: saveMessage may fail if messageId is not unique.
-	SaveMessage(email)
-	log.Println("Saved new email " + messageID)
-
-	// add to inbox locally
-	for _, addr := range client.rcptTo {
-		AddMessageToBox(email, addr, "inbox")
-		log.Println("Got mail: " + addr)
-	}
-
-	return nil
-}
-
-func encryptForUsers(plaintext string, addrs []string) string {
-	// TODO: no notaries, just a local get
-	keys := make([]*openpgp.Entity, 0)
-	for _, addr := range addrs {
-		token := strings.Split(addr, "@")[0]
-		user := LoadUser(token)
-		if user == nil {
-			// TODO: send failure notification email to sender
-			continue
-		}
-
-		entity, err := ReadEntity(user.PublicKey)
-		if err != nil {
-			panic(err)
-		}
-		keys = append(keys, entity)
-	}
-
-	cipherBuffer := new(bytes.Buffer)
-	w, err := armor.Encode(cipherBuffer, "MESSAGE", make(map[string]string))
-	if err != nil {
-		panic(err)
-	}
-	plainWriter, err := openpgp.Encrypt(w, keys, nil, nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	plainWriter.Write([]byte(plaintext))
-	plainWriter.Close()
-
-	ciphertext := cipherBuffer.String()
-	return ciphertext
-}
-
-func validateEmailData(client *Client) error {
+func validateEmailData(client *client) error {
 	if client.mailFrom == "" {
 		return errors.New("Missing MAIL FROM")
 	}
@@ -489,9 +446,8 @@ func validateEmailData(client *Client) error {
 }
 
 func extractEmail(str string) string {
-	re, _ := regexp.Compile(`<(.+?)>`)
 	var email string
-	if matched := re.FindStringSubmatch(str); len(matched) > 1 {
+	if matched := emailRegex.FindStringSubmatch(str); len(matched) > 1 {
 		email = strings.Trim(matched[1], " ")
 	} else {
 		email = strings.Trim(str, " ")
@@ -507,25 +463,29 @@ func extractEmail(str string) string {
 // Decode strings in Mime header format
 // eg. =?ISO-2022-JP?B?GyRCIVo9dztSOWJAOCVBJWMbKEI=?=
 func mimeHeaderDecode(str string) string {
-	reg, _ := regexp.Compile(`=\?(.+?)\?([QBqp])\?(.+?)\?=`)
-	matched := reg.FindAllStringSubmatch(str, -1)
+	matched := mimeHeaderRegex.FindAllStringSubmatch(str, -1)
 	var charset, encoding, payload string
-	if matched != nil {
-		for i := 0; i < len(matched); i++ {
-			if len(matched[i]) > 2 {
-				charset = matched[i][1]
-				encoding = strings.ToUpper(matched[i][2])
-				payload = matched[i][3]
-				switch encoding {
-				case "B":
-					str = strings.Replace(str, matched[i][0], mailTransportDecode(payload, "base64", charset), 1)
-				case "Q":
-					str = strings.Replace(str, matched[i][0], mailTransportDecode(payload, "quoted-printable", charset), 1)
-				}
-			}
+	if matched == nil {
+		return str
+	}
+	var ret string
+	for i := 0; i < len(matched); i++ {
+		if len(matched[i]) <= 2 {
+			continue
+		}
+		charset = matched[i][1]
+		encoding = strings.ToUpper(matched[i][2])
+		payload = matched[i][3]
+		switch encoding {
+		case "B":
+			ret = strings.Replace(str, matched[i][0],
+				mailTransportDecode(payload, "base64", charset), 1)
+		case "Q":
+			ret = strings.Replace(str, matched[i][0],
+				mailTransportDecode(payload, "quoted-printable", charset), 1)
 		}
 	}
-	return str
+	return ret
 }
 
 // decode from 7bit to 8bit UTF-8
@@ -575,8 +535,7 @@ func compress(s string) string {
 }
 
 func fixCharset(charset string) string {
-	reg, _ := regexp.Compile(`[_:.\/\\]`)
-	fixed_charset := reg.ReplaceAllString(charset, "-")
+	fixed_charset := charsetIllegalCharRegex.ReplaceAllString(charset, "-")
 	// Fix charset
 	// borrowed from http://squirrelmail.svn.sourceforge.net/viewvc/squirrelmail/trunk/squirrelmail/include/languages.php?revision=13765&view=markup
 	// OE ks_c_5601_1987 > cp949
