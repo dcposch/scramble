@@ -505,7 +505,9 @@ function displayEmail(target){
         var fromKey = keyMap[from].pubKey
         var fromHash = keyMap[from].pubHash
         if (!fromKey) {
-            alert("Failed to find public key for the sender ("+from+"). Message is unverified!")
+            // TODO: color code to show that the email is unverified
+            console.log("No key found for "+from+". This email is unverifiable "+
+                "regardless of whether it has a signature.");
         }
         if (newPubHashes.length > 0) {
             trySaveContacts(addContacts(viewState.contacts, newPubHashes))
@@ -516,7 +518,9 @@ function displayEmail(target){
                 // extract subject on the first line
                 var parts = REGEX_BODY.exec(plaintextBody)
                 if (parts == null) {
-                    alert("Error: Bad email body format. Subject unverified")
+                    // TODO: add a better way to tell the difference    
+                    console.log("The decrypted email body is not Scramble format. "+
+                        "It does not start with a subject line. Subject unverified.");
                 } else {
                     if (parts[1] != subject) {
                         // TODO better message

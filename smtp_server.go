@@ -37,7 +37,6 @@ import (
 	"net"
 	"net/mail"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +48,6 @@ type SmtpMessage struct {
 	time     int64
 	mailFrom string
 	rcptTo   []string
-	subject  string
 
 	data SmtpMessageData
 
@@ -107,7 +105,7 @@ func configure() {
 	// max email size
 	maxSize = 131072
 	// timeout for reads
-	timeout = time.Duration(10)
+	timeout = time.Duration(20)
 	// currently active client list, 500 is maxClients
 	sem = make(chan int, 500)
 	// database writing workers
@@ -136,7 +134,6 @@ func handleClients(listener net.Listener) {
 			log.Printf("Accept error: %s\n", err)
 			continue
 		}
-		log.Println(" There are now " + strconv.Itoa(runtime.NumGoroutine()) + " serving goroutines")
 		sem <- 1 // Wait for active queue to drain.
 		go handleClient(&client{
 			conn:       conn,
@@ -206,7 +203,7 @@ func handleClient(client *client) {
 				// XCLIENT ADDR=212.96.64.216 NAME=[UNAVAILABLE]
 				client.remoteAddr = input[13:]
 				client.remoteAddr = client.remoteAddr[0:strings.Index(client.remoteAddr, " ")]
-				log.Println("remote client address:[" + client.remoteAddr + "]")
+				log.Println("Remote client address: " + client.remoteAddr)
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "RCPT TO:") == 0:
 				email := extractEmail(input[8:])
@@ -304,7 +301,6 @@ func createSmtpMessage(client *client) (*SmtpMessage, error) {
 		time:     client.time,
 		mailFrom: client.mailFrom,
 		rcptTo:   client.rcptTo,
-		subject:  mimeHeaderDecode(client.subject),
 
 		data: *smtpData,
 
@@ -342,13 +338,13 @@ func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	data.ccList, err = parsed.Header.AddressList("Cc")
-	if err != nil {
+	data.ccList, err = parsed.Header.AddressList("CC")
+	if err != nil && err != mail.ErrHeaderNotPresent {
 		return nil, err
 	}
 
 	// parse subject
-	data.subject = parsed.Header.Get("Subject")
+	data.subject = mimeHeaderDecode(parsed.Header.Get("Subject"))
 
 	// parse the body
 	// TODO: multipart support

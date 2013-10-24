@@ -56,7 +56,7 @@ func deliverMailLocally(msg *SmtpMessage) error {
 		cipherSubject = cipherPackets[0]
 		cipherBody = cipherPackets[1]
 	} else {
-		cipherSubject = encryptForUsers(msg.subject, msg.rcptTo)
+		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
 		cipherBody = encryptForUsers(msg.data.body, msg.rcptTo)
 	}
 
@@ -97,7 +97,8 @@ func encryptForUsers(plaintext string, addrs []string) string {
 		token := strings.Split(addr, "@")[0]
 		user := LoadUser(token)
 		if user == nil {
-			// TODO: send failure notification email to sender
+			// we've already told the SMTP sender that those
+			// recipients don't exist on this server
 			continue
 		}
 
@@ -107,9 +108,11 @@ func encryptForUsers(plaintext string, addrs []string) string {
 		}
 		keys = append(keys, entity)
 	}
+	log.Printf("Encrypting plaintext for %s, found %d keys\n",
+		strings.Join(addrs, ","), len(keys))
 
 	cipherBuffer := new(bytes.Buffer)
-	w, err := armor.Encode(cipherBuffer, "MESSAGE", make(map[string]string))
+	w, err := armor.Encode(cipherBuffer, "MESSAGE", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -119,6 +122,7 @@ func encryptForUsers(plaintext string, addrs []string) string {
 	}
 	plainWriter.Write([]byte(plaintext))
 	plainWriter.Close()
+	w.Close()
 
 	ciphertext := cipherBuffer.String()
 	return ciphertext
