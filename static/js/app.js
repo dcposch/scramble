@@ -561,11 +561,13 @@ function displayEmail(target){
 }
 
 var linkRegex = new RegExp("^http(s)?://[a-z0-9-]+(.[a-z0-9-]+)*(:[0-9]+)?(\/.*)?$", "ig")
+
 // Turns URLS into links in the plaintext.
 // Returns HTML
 function createHyperlinks(text) {
+    var safeText =  Handlebars.Utils.escapeExpression(text);
     var exp = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-    return text.replace(exp,"<a href='$1'>$1</a>"); 
+    return safeText.replace(exp,"<a href='$1'>$1</a>"); 
 }
 
 function emailReply(){
