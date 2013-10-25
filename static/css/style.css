@@ -235,9 +235,10 @@ text-align: center;
 vertical-align:text-top;
 display:inline-block;
 }
-#content.email pre {
+#content.email .body {
 margin:10px 0;
 white-space:pre-wrap;
+font:11px monospace;
 }
 #content.email .replyForwardButtons {
 margin:10px 0;
