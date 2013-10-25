@@ -50,14 +50,14 @@ func saveEmail(msg *SmtpMessage) bool {
 func deliverMailLocally(msg *SmtpMessage) error {
 
 	var cipherSubject, cipherBody string
-	cipherPackets := regexSMTPTemplatep.FindAllString(msg.data.body, -1)
+	cipherPackets := regexSMTPTemplatep.FindAllString(msg.data.textBody, -1)
 	// TODO: better way to distinguish between encrypted and unencrypted mail
 	if len(cipherPackets) == 2 {
 		cipherSubject = cipherPackets[0]
 		cipherBody = cipherPackets[1]
 	} else {
 		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
-		cipherBody = encryptForUsers(msg.data.body, msg.rcptTo)
+		cipherBody = encryptForUsers(msg.data.textBody, msg.rcptTo)
 	}
 
 	email := new(Email)

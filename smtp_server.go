@@ -34,6 +34,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/mail"
 	"regexp"
@@ -61,6 +63,7 @@ type SmtpMessageData struct {
 	ccList    []*mail.Address
 	subject   string
 	body      string
+	textBody  string
 }
 
 var SaveMailChan chan *SmtpMessage
@@ -357,7 +360,66 @@ func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
 	}
 	data.body = string(bodyBytes)
 
+	// get the body as plain text. parse multipart mime if needed
+	contentType := parsed.Header.Get("Content-Type")
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return nil, err
+	}
+	if mediaType == "text/plain" {
+		data.textBody = data.body
+	} else if strings.HasPrefix(mediaType, "multipart/") {
+		data.textBody, err = readPlainText(strings.NewReader(data.body), params["boundary"])
+		if err != nil {
+			return nil, err
+		}
+	}
 	return data, nil
+}
+
+func readPlainText(reader io.Reader, multiBoundary string) (string, error) {
+	multiReader := multipart.NewReader(reader, multiBoundary)
+	var plainTexts []string
+	for {
+		part, err := multiReader.NextPart()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", err
+		}
+		partContentType := part.Header["Content-Type"][0]
+		var partMediaType string
+		var params map[string]string
+		if partContentType == "" {
+			// No Content-Type header altogether
+			// Assume plain text
+			partMediaType = "text/plain"
+		} else {
+			partMediaType, params, err = mime.ParseMediaType(partContentType)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		if partMediaType == "text/plain" {
+			textBodyBytes, err := ioutil.ReadAll(part)
+			if err != nil {
+				return "", err
+			} else {
+				textBody := string(textBodyBytes)
+				plainTexts = append(plainTexts, textBody)
+			}
+		} else if strings.HasPrefix(partMediaType, "multipart/") {
+			subBoundary := params["boundary"]
+			subPartText, err := readPlainText(part, subBoundary)
+			if err != nil {
+				return "", err
+			}
+			plainTexts = append(plainTexts, subPartText)
+		}
+	}
+
+	return strings.Join(plainTexts, ""), nil
 }
 
 func responseAdd(client *client, line string) {
