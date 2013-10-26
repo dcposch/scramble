@@ -8253,7 +8253,7 @@ function _openpgp () {
 				}
 			} else {
 				util.print_error('no message found!');
-				return null;
+                return messages;
 			}
 		}
 		
