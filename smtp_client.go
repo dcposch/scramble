@@ -139,7 +139,6 @@ func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error 
 		ParseEmailAddresses(email.To).AngledString(","),
 		plainSubject,
 		prependToBody,
-		email.CipherSubject,
 		email.CipherBody)
 	log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg)
 

@@ -115,7 +115,7 @@ func encryptForUsers(plaintext string, addrs []string) string {
 		strings.Join(addrs, ","), len(keys))
 
 	cipherBuffer := new(bytes.Buffer)
-	w, err := armor.Encode(cipherBuffer, "MESSAGE", nil)
+	w, err := armor.Encode(cipherBuffer, "PGP MESSAGE", nil)
 	if err != nil {
 		panic(err)
 	}
