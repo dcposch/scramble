@@ -278,41 +278,58 @@ func migrateCreateNameResolution() error {
 		hash           CHAR(16),
 		index (host, name)
     )`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Convert hash addresses in the database to name addresses
 	rows, err := db.Query(`SELECT token, email_host, public_hash FROM user`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	convertMap := map[string]string{} // hashAddress -> nameAddress
 	for rows.Next() {
 		var token, emailHost, pubHash string
 		err := rows.Scan(&token, &emailHost, &pubHash)
-		if err != nil { return err }
-		convertMap[pubHash+"@"+emailHost] = token+"@"+emailHost
+		if err != nil {
+			return err
+		}
+		log.Printf("%s@%s > %s@%s", pubHash, emailHost, token, emailHost)
+		convertMap[pubHash+"@"+emailHost] = token + "@" + emailHost
 	}
 	// Convert all address rows in box
 	rows, err = db.Query(`SELECT id, address FROM box`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	for rows.Next() {
 		var id, address string
 		err := rows.Scan(&id, &address)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		var newAddress = convertMap[address]
 		if newAddress == "" {
 			log.Printf("Could not translate address in box: %s %s", id, address)
 			continue
 		}
-		_ ,err = db.Exec(`UPDATE box SET address=? WHERE id=?`,
+		_, err = db.Exec(`UPDATE box SET address=? WHERE id=?`,
 			newAddress, id)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 	// Convert all address rows in email
 	rows, err = db.Query(`SELECT message_id, from_email, to_email FROM email`)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	for rows.Next() {
 		var id, fromEmail, toEmail string
-		err := rows.Scan(&id, &fromEmail, toEmail)
-		if err != nil { return err }
+		err := rows.Scan(&id, &fromEmail, &toEmail)
+		if err != nil {
+			return err
+		}
 		var newFromEmail = convertMap[fromEmail]
 		if newFromEmail == "" {
 			log.Printf("Could not translate from address in email: %s %s", id, fromEmail)
@@ -328,9 +345,11 @@ func migrateCreateNameResolution() error {
 			newToEmailArray = append(newToEmailArray, newToEmail)
 		}
 		var newToEmail = strings.Join(newToEmailArray, ",")
-		_ ,err = db.Exec(`UPDATE email SET from_email=?, to_email=? WHERE message_id=?`,
+		_, err = db.Exec(`UPDATE email SET from_email=?, to_email=? WHERE message_id=?`,
 			newFromEmail, newToEmail, id)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -347,28 +366,40 @@ func migrateMakeNameResolutionUnique() error {
 }
 
 func migrateEmailThreading() error {
-	_, err := db.Exec(`ALTER TABLE email `+
-		`MODIFY message_id VARCHAR(255) NOT NULL, `+
-		`ADD COLUMN ancestor_ids VARCHAR(10240), `+
+	_, err := db.Exec(`ALTER TABLE email ` +
+		`MODIFY message_id VARCHAR(255) NOT NULL, ` +
+		`ADD COLUMN ancestor_ids VARCHAR(10240), ` +
 		`ADD COLUMN thread_id VARCHAR(255) NOT NULL`)
-	if err != nil { return err }
-	_ ,err = db.Exec(`UPDATE email `+
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE email `+
 		`SET message_id = CONCAT(message_id, "@", ?)`,
 		GetConfig().SmtpMxHost)
-	if err != nil { return err }
-	_ ,err = db.Exec(`UPDATE email SET thread_id = message_id`)
-	if err != nil { return err }
-	_, err = db.Exec(`ALTER TABLE box `+
-		`MODIFY message_id VARCHAR(255) NOT NULL, `+
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE email SET thread_id = message_id`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`ALTER TABLE box ` +
+		`MODIFY message_id VARCHAR(255) NOT NULL, ` +
 		`ADD COLUMN thread_id VARCHAR(255) NOT NULL`)
-	if err != nil { return err }
-	_ ,err = db.Exec(`UPDATE box `+
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE box `+
 		`SET message_id = CONCAT(message_id, "@", ?)`,
 		GetConfig().SmtpMxHost)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_, err = db.Exec(`UPDATE box SET thread_id = message_id`)
-	if err != nil { return err }
-	_, err = db.Exec(`ALTER TABLE box `+
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`ALTER TABLE box ` +
 		`ADD INDEX (address, box, thread_id, unix_time)`)
 	return err
 }

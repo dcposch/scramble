@@ -71,13 +71,16 @@ viewState.contacts = null // plaintext address book, must *always* be good data.
 //
 
 function main(){
+    console.log("Hello World")
     if(!initPGP()) return
     bindKeyboardShortcuts()
 
     // are we logged in?
     if(!sessionStorage["token"] || !sessionStorage["passKey"]) {
+        console.log("Please log in.");
         displayLogin()
     } else {
+        console.log("Already logged in.");
         loadDecryptAndDisplayBox()
     }
 }
@@ -385,6 +388,7 @@ function bindBoxEvents(box) {
 function loadDecryptAndDisplayBox(box, page){
     box = box || "inbox"
     page = page || 1
+    console.log("Loading, decrypting and displaying "+box+", page "+page)
     $.get("/box/"+box,
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary){
@@ -400,7 +404,9 @@ function decryptAndDisplayBox(inboxSummary, box){
     sessionStorage["pubHash"] = inboxSummary.PublicHash;
     sessionStorage["emailAddress"] = inboxSummary.EmailAddress;
 
+    console.log("Decrypting and displaying "+box)
     getPrivateKey(function(privateKey){
+        console.log("Got private key")
         getContacts(function(){
             decryptSubjects(inboxSummary.EmailHeaders, privateKey)
             var data = {
@@ -1407,10 +1413,19 @@ function migrateContactsReverseLookup(contacts, fn) {
     }
     if (lookup.length > 0) {
         var params = {pubHashes:lookup.join(",")};
-        $.post("/publickeys/reverse", params, function(data) {
+        $.post("/publickeys/reverse", params, function(namesByHash) {
+            var names = [];
+            for(var hash in namesByHash){
+                if(namesByHash[hash]==""){
+                    console.log("Warning: deleting nonexistent legacy contact "+hash+"@scramble.io");
+                } else {
+                    names.push(namesByHash[hash]);
+                }
+            }
+
             // we have pubHash -> address.
             // now let's resolve these addresses.
-            lookupPublicKeys(Object.values(data), function(keyMap) {
+            lookupPublicKeys(names, function(keyMap) {
                 var newContacts = [];
                 for (var address in keyMap) {
                     var pubHash = keyMap[address].pubHash;
@@ -1541,7 +1556,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "test.scramble.io":
+        "scramble.io":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1837,7 +1852,9 @@ function initPGP(){
 
 // openpgp really wants this function.
 function showMessages(msg) {
-    console.log(msg)
+    var err = $("<div />").html(msg).text();
+    console.log("OpenPGP.js - "+err);
+    throw err;
 }
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
