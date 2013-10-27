@@ -115,9 +115,6 @@ func migrateEmailRefactor() error {
 		UnixTime                                            int64
 		MessageID, From, To, CipherSubject, CipherBody, Box string
 		PubHashTo, PubHashFrom                              string
-
-		// Convenience. Aggregate {<pub_hash> -> [<box1>,<box2>]} here
-		Boxes map[string][]string
 	}
 	rows, err := db.Query(`SELECT
         m.unix_time, m.message_id, m.from_email, m.to_email,
@@ -144,16 +141,11 @@ func migrateEmailRefactor() error {
 		if err != nil {
 			return err
 		}
-		if oldEmails[oldEmail.MessageID] == nil {
-			oldEmails[oldEmail.MessageID] = oldEmail
-			oldEmail.Boxes = map[string][]string{}
+		emailKey := oldEmail.MessageID + " " + oldEmail.PubHashTo
+		if oldEmails[emailKey] != nil {
+			log.Fatal("Duplicate messageId+pubHashTo pair...")
 		}
-		boxesForRecipient := oldEmails[oldEmail.MessageID].Boxes[oldEmail.PubHashTo]
-		if boxesForRecipient == nil {
-			oldEmails[oldEmail.MessageID].Boxes[oldEmail.PubHashTo] = []string{oldEmail.Box}
-		} else {
-			boxesForRecipient = append(boxesForRecipient, oldEmail.Box)
-		}
+		oldEmails[emailKey] = oldEmail
 	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS new_email (
@@ -187,11 +179,13 @@ func migrateEmailRefactor() error {
 
 	// Reinsert everything from oldEmails
 	for _, oldEmail := range oldEmails {
+		newMessageId := oldEmail.PubHashTo + "_" + oldEmail.MessageID
+
 		// insert row into email
 		_, err := db.Exec(`INSERT INTO new_email
             (message_id, unix_time, from_email, to_email, cipher_subject, cipher_body)
             VALUES (?,?,?,?,?,?)`,
-			oldEmail.MessageID,
+			newMessageId,
 			oldEmail.UnixTime,
 			oldEmail.From,
 			oldEmail.To,
@@ -201,26 +195,22 @@ func migrateEmailRefactor() error {
 		if err != nil {
 			return err
 		}
+
 		// insert row(s) into box
 		var sentToSelf bool = false
-		for pubHashTo, boxes := range oldEmail.Boxes {
-			addressTo := pubHashTo + "@scramble.io"
-			if oldEmail.PubHashFrom == pubHashTo && len(boxes) == 1 && boxes[0] != "sent" {
-				sentToSelf = true
-			}
-			for _, box := range boxes {
-				_, err := db.Exec(`INSERT INTO box
-                    (message_id, address, box, unix_time)
-                    VALUES (?,?,?,?)`,
-					oldEmail.MessageID,
-					addressTo,
-					box,
-					oldEmail.UnixTime,
-				)
-				if err != nil {
-					return err
-				}
-			}
+		addressTo := oldEmail.PubHashTo + "@scramble.io"
+		sentToSelf = (oldEmail.PubHashFrom == oldEmail.PubHashTo) &&
+			oldEmail.Box != "sent"
+		_, err = db.Exec(`INSERT INTO box
+            (message_id, address, box, unix_time)
+            VALUES (?,?,?,?)`,
+			newMessageId,
+			addressTo,
+			oldEmail.Box,
+			oldEmail.UnixTime,
+		)
+		if err != nil {
+			return err
 		}
 		// if sender also sent to self, there was no
 		// corresponding "sent" entry, so create one.
@@ -228,7 +218,7 @@ func migrateEmailRefactor() error {
 			_, err := db.Exec(`INSERT INTO box
 				(message_id, address, box, unix_time)
 				VALUES (?,?,?,?)`,
-				oldEmail.MessageID,
+				newMessageId,
 				oldEmail.From,
 				"sent",
 				oldEmail.UnixTime,
@@ -368,7 +358,7 @@ func migrateMakeNameResolutionUnique() error {
 func migrateEmailThreading() error {
 	_, err := db.Exec(`ALTER TABLE email ` +
 		`MODIFY message_id VARCHAR(255) NOT NULL, ` +
-		`ADD COLUMN ancestor_ids VARCHAR(10240), ` +
+		`ADD COLUMN ancestor_ids VARCHAR(10240) NOT NULL, ` +
 		`ADD COLUMN thread_id VARCHAR(255) NOT NULL`)
 	if err != nil {
 		return err

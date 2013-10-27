@@ -1556,7 +1556,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        "scramble.io":
+        /*"scramble.io":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1588,7 +1588,7 @@ function loadNotaries(cb) {
                 "/YAMYP4dUiE=                                                    \n"+
                 "=Mt/n                                                           \n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
+            ),*/
         "dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+

@@ -10,11 +10,11 @@ import (
 
 func main() {
 	// Rest API
-	http.HandleFunc("/user/", userHandler)                      // create users, look up hash->pubkey
-	http.HandleFunc("/publickeys/notary", notaryIdHandler)      // notary pubkey
-	http.HandleFunc("/publickeys/query", publicKeysHandler)     // look up name->pubhash&pubkey
+	http.HandleFunc("/user/", userHandler)                            // create users, look up hash->pubkey
+	http.HandleFunc("/publickeys/notary", notaryIdHandler)            // notary pubkey
+	http.HandleFunc("/publickeys/query", publicKeysHandler)           // look up name->pubhash&pubkey
 	http.HandleFunc("/publickeys/reverse", auth(reverseQueryHandler)) // look up pubhash->name_address
-	http.HandleFunc("/nginx_proxy", nginxProxyHandler)          // needed for nginx smtp tls proxy
+	http.HandleFunc("/nginx_proxy", nginxProxyHandler)                // needed for nginx smtp tls proxy
 
 	// Private Rest API
 	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts
@@ -32,7 +32,7 @@ func main() {
 	// Serve HTTP on localhost only. Let Nginx terminate HTTPS for us.
 	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HttpPort)
 	log.Printf("Listening on http://%s\n", address)
-	http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux))
+	log.Fatal(http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux)))
 }
 
 // Wraps an HTTP handler, adding cookie authentication.
@@ -75,7 +75,9 @@ func recoverAndLog(handler http.Handler) http.Handler {
 
 			// Finally, log.
 			durationMS := time.Since(begin).Nanoseconds() / 1000000
-			if rww.Status == -1 { rww.Status = 200 }
+			if rww.Status == -1 {
+				rww.Status = 200
+			}
 			log.Printf("%s %s %v %v %s", r.RemoteAddr, r.Method, rww.Status, durationMS, r.URL)
 		}()
 	})
@@ -86,6 +88,7 @@ type ResponseWriterWrapper struct {
 	Status int
 	http.ResponseWriter
 }
+
 func (w *ResponseWriterWrapper) WriteHeader(status int) {
 	w.Status = status
 	w.ResponseWriter.WriteHeader(status)
