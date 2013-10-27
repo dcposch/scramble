@@ -48,10 +48,6 @@ tests.addContacts = function() {
             {name:"joe",     address:"joe@hashed.im",  pubHash:"1111111111111111"},
             {name:"alice",   address:"alice@hashd.im", pubHash:"2222222222222222"}];
         assertThrows(function(){
-            // should fail because pubHash is missing
-            addContacts(contacts, [{name:"bob", address:"bob@hashed.im"}]);
-        });
-        assertThrows(function(){
             // should fail because address is missing
             addContacts(contacts, [{name:"bob", pubHash:"1111111111111111"}]);
         });

@@ -667,3 +667,41 @@ func GetNameResolution(name, host string) (hash string) {
 	}
 	return
 }
+
+func SetMxHostInfo(host string, isScramble bool) *MxHostInfo {
+	now := time.Now().Unix()
+	_, err := db.Exec("INSERT INTO mx_hosts "+
+		"(host, is_scramble, unix_time) "+
+		"VALUES (?,?,?) "+
+		"ON DUPLICATE KEY UPDATE "+
+		"is_scramble = VALUES(is_scramble),"+
+		"unix_time = VALUES(unix_time)",
+		host,
+		isScramble,
+		now,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return &MxHostInfo{host, isScramble, now}
+}
+
+func GetMxHostInfo(host string) *MxHostInfo {
+	var info MxHostInfo
+	err := db.QueryRow("SELECT "+
+		"host, is_scramble, unix_time "+
+		"FROM mx_hosts WHERE host=?",
+		host).Scan(
+		&info.Host,
+		&info.IsScramble,
+		&info.UnixTime,
+	)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil
+	case err != nil:
+		panic(err)
+	default:
+		return &info
+	}
+}

@@ -69,7 +69,7 @@ func init() {
 }
 
 type NotarySignedResult struct {
-	PubHash   string `json:"pubHash"`
+	PubHash   string `json:"pubHash,omitempty"`
 	Timestamp int64  `json:"timestamp"`
 	Signature string `json:"signature"`
 }

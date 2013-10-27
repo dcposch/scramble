@@ -61,8 +61,6 @@ func recoverAndLog(handler http.Handler) http.Handler {
 		rww := &ResponseWriterWrapper{-1, w}
 		begin := time.Now()
 
-		handler.ServeHTTP(rww, r)
-
 		defer func() {
 			// Send a 500 error if a panic happens during a handler.
 			// Without this, Chrome & Firefox were retrying aborted ajax requests,
@@ -80,6 +78,8 @@ func recoverAndLog(handler http.Handler) http.Handler {
 			}
 			log.Printf("%s %s %v %v %s", r.RemoteAddr, r.Method, rww.Status, durationMS, r.URL)
 		}()
+
+		handler.ServeHTTP(rww, r)
 	})
 }
 

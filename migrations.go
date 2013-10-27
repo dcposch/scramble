@@ -20,6 +20,7 @@ var migrations = []func() error{
 	migrateEmailThreading,
 	migrateBoxAddForeignKey,
 	migrateBoxAddError,
+	migrateCreateMxHosts,
 }
 
 func migrateDb() {
@@ -401,5 +402,16 @@ func migrateBoxAddForeignKey() error {
 
 func migrateBoxAddError() error {
 	_, err := db.Exec(`ALTER TABLE box ADD COLUMN error TEXT`)
+	return err
+}
+
+func migrateCreateMxHosts() error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS mx_hosts (
+        host         VARCHAR(254) NOT NULL,
+        is_scramble  BOOL NOT NULL,
+        unix_time    BIGINT NOT NULL,
+
+        PRIMARY KEY (host)
+    )`)
 	return err
 }

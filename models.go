@@ -53,3 +53,10 @@ type BoxedEmail struct {
 	Box     string
 	Address string
 }
+
+// Known info about an mx host.
+type MxHostInfo struct {
+	Host       string
+	IsScramble bool
+	UnixTime   int64 // when we found out
+}
