@@ -56,10 +56,7 @@ func validateBox(str string) string {
 	return str
 }
 func validateAddressSafe(str string) bool {
-	if !regexAddress.MatchString(str) {
-		return false
-	}
-	return true
+	return regexAddress.MatchString(str)
 }
 func validateHost(str string) string {
 	if !regexHost.MatchString(str) {
@@ -74,8 +71,11 @@ func validatePublicKeyArmor(str string) string {
 	return str
 }
 func validateMessageArmor(str string) string {
-	if !regexMessageArmor.MatchString(str) {
+	if !validateMessageArmorSafe(str) {
 		log.Panicf("Invalid public key:\n%s", str)
 	}
 	return str
+}
+func validateMessageArmorSafe(str string) bool {
+	return regexMessageArmor.MatchString(str)
 }

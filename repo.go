@@ -563,6 +563,7 @@ func DeleteThreadFromBoxes(address string, messageID string) {
 func CheckoutOutbox(limit int) []*BoxedEmail {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
 		" m.from_email, m.to_email, m.cipher_subject, m.cipher_body, "+
+		" m.thread_id, m.ancestor_ids, "+
 		" b.id, b.box, b.address "+
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
@@ -583,6 +584,8 @@ func CheckoutOutbox(limit int) []*BoxedEmail {
 			&boxed.To,
 			&boxed.CipherSubject,
 			&boxed.CipherBody,
+			&boxed.ThreadID,
+			&boxed.AncestorIDs,
 			&boxed.Id,
 			&boxed.Box,
 			&boxed.Address,

@@ -77,28 +77,30 @@ func smtpSendAndMark(msg *BoxedEmail) {
 }
 
 func smtpSend(msg *BoxedEmail) error {
-	hostAddrs := GroupAddrsByHost(msg.To)
-	addrsFailed := EmailAddresses{}
-	for host, addrs := range hostAddrs {
-		smtpHost, err := smtpLookUp(host)
-		if err != nil {
-			addrsFailed = append(addrsFailed, addrs...)
+	mxHostAddrs, _ := GroupAddrsByMxHost(msg.To)
+	var sent = false
+	for mxHost, addrs := range mxHostAddrs {
+		if mxHost != msg.Address {
+			continue
 		}
-		err = smtpSendTo(msg, smtpHost, addrs)
+		err := smtpSendTo(msg, mxHost, addrs)
 		if err != nil {
-			addrsFailed = append(addrsFailed, addrs...)
+			err := errors.New(fmt.Sprintf("SMTP sending failed to mxHost %v for addrs %v\n", mxHost, addrs))
+			return err
 		}
+		sent = true
 	}
-	if len(addrsFailed) == 0 {
+	if sent {
 		log.Printf("Email sent!\n")
 		return nil
 	} else {
-		err := errors.New(fmt.Sprintf("SMTP sending failed to %v\n", addrsFailed))
+		err := errors.New(fmt.Sprintf("SMTP sending failed to mxHost %v for (all) addrs %v\n", msg.Address, msg.To))
 		return err
 	}
 }
 
 const smtpTemplate = `Message-ID: <%s>%s
+Content-Type: text/plain
 From: <%s>
 To: %s
 Subject: %s
@@ -112,7 +114,7 @@ References: %s`
 
 func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error {
 	var plainSubject, prependToBody string
-	if IsArmored(email.CipherSubject) {
+	if validateMessageArmorSafe(email.CipherSubject) {
 		plainSubject = "Encrypted subject"
 		prependToBody = email.CipherSubject + "\n"
 	} else {
@@ -123,10 +125,10 @@ func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error 
 
 	// Construct In-Reply-To/References/X-Scramble-Thread-ID headers
 	var threadHeaders = ""
-	var ancestorIDs = ParseAngledEmailAddresses(email.AncestorIDs, ",")
+	var ancestorIDs = ParseAngledEmailAddresses(email.AncestorIDs, " ")
 	if len(ancestorIDs) > 0 {
 		threadHeaders = fmt.Sprintf(threadHeadersTemplate,
-			ancestorIDs[len(ancestorIDs)-1],
+			ancestorIDs[len(ancestorIDs)-1].String(),
 			email.ThreadID,
 			email.AncestorIDs,
 		)

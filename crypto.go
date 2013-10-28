@@ -54,11 +54,6 @@ func SerializeKeys(entity *openpgp.Entity) (privKeyArmor, pubKeyArmor string, er
 	return
 }
 
-func IsArmored(str string) bool {
-	block, err := armor.Decode(strings.NewReader(str))
-	return err != nil && block != nil
-}
-
 func ReadEntity(privKeyArmor string) (*openpgp.Entity, error) {
 	block, err := armor.Decode(strings.NewReader(privKeyArmor))
 	if err != nil {
