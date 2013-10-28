@@ -22,7 +22,7 @@ var BOX_PAGE_SIZE = 20
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/
 var REGEX_EMAIL = /^([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i
 var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i
-var REGEX_CONTACT_NAME = /^[a-z0-9._%+-]+$/i
+var REGEX_CONTACT_NAME = /^[^@]*$/i
 
 var SCRYPT_PARAMS = {
     N:16384, // difficulty=2^14, recommended range 2^14 to 2^20
@@ -153,7 +153,7 @@ function bindSidebarEvents() {
     $("#tab-archive").click(function(e){
         loadDecryptAndDisplayBox("archive")
     })
-    
+
     // Navigate to Compose
     $("#tab-compose").click(function(e){
         displayCompose()
@@ -163,7 +163,7 @@ function bindSidebarEvents() {
     $("#tab-contacts").click(function(e){
         displayContacts()
     })
-    
+
     // Log out: click a link, deletes sessionStorage and refreshes the page
     $("#link-logout").click(function(){
         sessionStorage.clear()
@@ -1413,25 +1413,27 @@ function migrateContactsReverseLookup(contacts, fn) {
     }
     if (lookup.length > 0) {
         var params = {pubHashes:lookup.join(",")};
-        $.post("/publickeys/reverse", params, function(namesByHash) {
-            var names = [];
-            for(var hash in namesByHash){
-                if(namesByHash[hash]==""){
+        $.post("/publickeys/reverse", params, function(pubHashToAddress) {
+            var addresses = [], hashesDeleted = [];
+            for(var hash in pubHashToAddress){
+                if(pubHashToAddress[hash]==""){
                     console.log("Warning: deleting nonexistent legacy contact "+hash+"@scramble.io");
+                    hashesDeleted.push(hash);
                 } else {
-                    names.push(namesByHash[hash]);
+                    addresses.push(pubHashToAddress[hash]);
                 }
             }
 
             // we have pubHash -> address.
             // now let's resolve these addresses.
-            lookupPublicKeys(names, function(keyMap) {
+            lookupPublicKeys(addresses, function(keyMap) {
                 var newContacts = [];
                 for (var address in keyMap) {
                     var pubHash = keyMap[address].pubHash;
                     newContacts.push({name:pubHashToName[pubHash], pubHash:pubHash, address:address});
                 }
-                var remaining = lookup.subtract(newContacts.map("pubHash"));
+                var hashesFound = newContacts.map("pubHash")
+                var remaining = lookup.subtract(hashesFound).subtract(hashesDeleted);
                 if (remaining.length > 0) {
                     alert("Error: contacts migration failed for address(es): "+remaining.join(","));
                     return;
@@ -1794,6 +1796,7 @@ function tryDecodePgp(armoredText, privateKey, publicKey){
     try {
         return decodePgp(armoredText, privateKey, publicKey)
     } catch (err){
+        console.log(err.stack);
         return "(Decryption failed)"
     }
 }
@@ -1821,13 +1824,19 @@ function decodePgp(armoredText, privateKey, publicKey){
     if(!keymat.keymaterial.decryptSecretMPIs("")){
         alert("Error. The private key is passphrase protected.")
     }
+    var text;
     if (publicKey) {
         var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}])
-        if (!res[0].signatureValid) {
+        if (res.length == 0){
+            console.log("Warning: this email is unsigned");
+            text = msg.decryptWithoutVerification(keymat, sessionKey)[0]
+        } else if (!res[0].signatureValid) {
             // old messages will pop this error modal.
             alert("Error. The signature is invalid!");
+        } else {
+            // valid signature, hooray
+            text = res[0].text;
         }
-        var text = res[0].text;
     } else {
         var text = msg.decryptWithoutVerification(keymat, sessionKey)[0]
     }
