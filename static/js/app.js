@@ -61,6 +61,10 @@ var DEFAULT_SIGNATURE = "\n\n--\n"+
 //
 
 var viewState = {}
+viewState.emails = null // all emails in the current thread
+viewState.getLastEmail = function(){
+    return this.emails == null ? null : this.emails[this.emails.length-1];
+}
 viewState.contacts = null // plaintext address book, must *always* be good data.
 
 
@@ -100,11 +104,11 @@ var keyMap = {
         "s":function(){loadDecryptAndDisplayBox("sent")},
         "a":function(){loadDecryptAndDisplayBox("archive")}
     },
-    "r":function(){emailReply(viewState.email)},
-    "a":function(){emailReplyAll(viewState.email)},
-    "f":function(){emailForward(viewState.email)},
-    "y":function(){emailMove(viewState.email, "archive", true)},
-    "d":function(){emailMove(viewState.email, "trash", true)},
+    "r":function(){emailReply(viewState.getLastEmail())},
+    "a":function(){emailReplyAll(viewState.getLastEmail())},
+    "f":function(){emailForward(viewState.getLastEmail())},
+    "y":function(){emailMove(viewState.getLastEmail(), "archive", true)},
+    "d":function(){emailMove(viewState.getLastEmail(), "trash", true)},
     27:closeModal // esc key
 }
 
@@ -481,34 +485,30 @@ function bindEmailEvents() {
         };
     };
 
-    $(".emailControl .replyButton").click(withEmail(emailReply))
-    $(".emailControl .replyAllButton").click(withEmail(emailReplyAll))
-    $(".emailControl .forwardButton").click(withEmail(emailForward))
-    $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}))
-    $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}))
-    $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}))
-    $(".emailControl .enterFromNameButton").click(withEmail(function(email){
+    $(".email .enterFromNameButton").click(withEmail(function(email){
         var name = prompt("Contact name for "+email.from);
-        if(name){
-            getPubHash(email.from, function(pubHash, error) {
-                if (error) {
-                    alert(error);
-                    return;
-                }
-                var contacts = addContacts(
-                    viewState.contacts,
-                    {name:name, address:email.from, pubHash:pubHash}
-                );
-                trySaveContacts(contacts, function() {
-                    displayStatus("Contact saved")
-                });
-            });
+        if(!name){
+            return;
         }
+        getPubHash(email.from, function(pubHash, error) {
+            if (error) {
+                alert(error);
+                return;
+            }
+            var contacts = addContacts(
+                viewState.contacts,
+                {name:name, address:email.from, pubHash:pubHash}
+            );
+            trySaveContacts(contacts, function() {
+                displayStatus("Contact saved")
+                // TODO: refresh thread to show the new contact name
+            });
+        });
     }));
 
     var withLastEmail = function(cb) {
         return function() {
-            cb(viewState.email);
+            cb(viewState.getLastEmail());
         };
     };
 
@@ -542,12 +542,14 @@ function displayEmail(emailHeader){
             msgId:     emailHeader.data("msgId"),
             threadId:  emailHeader.data("threadId"),
             box:       emailHeader.data("box"),
+            subject:   emailHeader.text(),
         };
     }
 
     var msgId    = emailHeader.msgId;
     var threadId = emailHeader.threadId;
     var box      = emailHeader.box;
+    var subject  = emailHeader.subject;
 
     $("#content").empty();
     $("li.box-item.current").removeClass("current");
@@ -572,7 +574,7 @@ function displayEmail(emailHeader){
                 // Construct array of email objects.
                 var emails = emailDatas.map(function(emailData){
                     decryptAndVerifyEmail(emailData, privateKey, keyMap);
-                    return createEmailViewModel(emailData, box);
+                    return createEmailViewModel(emailData, box, subject);
                 });
 
                 // Construct thread element, insert emails
@@ -580,7 +582,7 @@ function displayEmail(emailHeader){
 
                 // Update view state
                 bindEmailEvents();
-                viewState.email = emails[emails.length-1]; // for keyboard shortcuts & thread control
+                viewState.emails = emails; // for keyboard shortcuts & thread control
             })
         }, "json")
     })
@@ -599,7 +601,7 @@ function decryptAndVerifyEmail(data, privateKey, keyMap){
     data.plaintextBody = tryDecodePgp(data.CipherBody, privateKey, fromKey);
 }
 
-function createEmailViewModel(data, box) {
+function createEmailViewModel(data, box, threadSubject) {
     // Parse From, To, etc
     var from = trimToLower(data.From);
     var fromName = contactNameFromAddress(from);
@@ -625,7 +627,7 @@ function createEmailViewModel(data, box) {
         fromName:    fromName,
         to:          data.To,
         toAddresses: toAddresses,
-        subject:     parsedBody.subject,
+        subject:     parsedBody.subject || threadSubject,
         htmlBody:    createHyperlinks(parsedBody.body),
         box:         box,
     };
@@ -776,7 +778,7 @@ function bindComposeEvents(elCompose, cb) {
 function displayCompose(to, subject, body){
     // clean up 
     $(".box").html("");
-    viewState.email = null;
+    viewState.emails = null;
     setSelectedTab($("#tab-compose"));
     var elCompose = $(render("compose-template", {
         to:      to,
@@ -1087,7 +1089,7 @@ function displayContacts(){
     loadAndDecryptContacts(function(contacts){
         // clean up 
         $(".box").html("")
-        viewState.email = null
+        viewState.emails = [];
         setSelectedTab($("#tab-contacts"))
 
         // render compose form into #content
@@ -1315,7 +1317,7 @@ function contactAddressFromName(name){
     name = trimToLower(name)
     for(var i = 0; i < viewState.contacts.length; i++){
         var contact = viewState.contacts[i]
-        if(contact.name.toLowerCase() == name){
+        if(contact.name && contact.name.toLowerCase() == name){
             return contact.address;
         }
     }
@@ -1558,7 +1560,7 @@ function loadNotaries(cb) {
                 "=J+9O\n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
             ),
-        /*"scramble.io":
+        "scramble.io":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
                 "\n"+
@@ -1590,7 +1592,7 @@ function loadNotaries(cb) {
                 "/YAMYP4dUiE=                                                    \n"+
                 "=Mt/n                                                           \n"+
                 "-----END PGP PUBLIC KEY BLOCK-----"
-            ),*/
+            ),
         "dev.hashed.im":
             openpgp.read_publicKey(
                 "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
@@ -1794,9 +1796,17 @@ function getPublicKey(fn) {
 // if publicKey exists, it is used to verify the signature.
 function tryDecodePgp(armoredText, privateKey, publicKey){
     try {
-        return decodePgp(armoredText, privateKey, publicKey)
-    } catch (err){
-        console.log(err.stack);
+        if(armoredText.startsWith("-----BEGIN PGP MESSAGE-----")){
+            return decodePgp(armoredText, privateKey, publicKey)
+        } else {
+            // TODO: don't store plaintext, even for emails which 
+            // are sent unencrypted to an external address
+            // (for those: send unencrypted, then encrypt with the sender's
+            //  public key before storing it in their Sent box)
+            return armoredText;
+        }
+    } catch (err) {
+        console.log([err, err.stack]);
         return "(Decryption failed)"
     }
 }
@@ -1863,7 +1873,9 @@ function initPGP(){
 function showMessages(msg) {
     var err = $("<div />").html(msg).text();
     console.log("OpenPGP.js - "+err);
-    throw err;
+    if(err.toLowerCase().startsWith("error")){
+        throw err;
+    }
 }
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
