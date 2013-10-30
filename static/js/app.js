@@ -262,6 +262,7 @@ function login(token, pass){
 }
 
 
+
 //
 // LOGIN - "CREATE ACCOUNT" MODAL
 //
@@ -472,6 +473,8 @@ function readPrevEmail(){
     }
 }
 
+
+
 //
 // SINGLE EMAIL
 //
@@ -536,13 +539,9 @@ function bindEmailEvents() {
      which has the relevant .data() attributes.
 
     emailHeader => {
-        msgId
-        threadId
-        box         // This tells the server what box we're in. Server behavior:
-                    // If box is 'inbox', shows everything in 'inbox', 'sent'
-                    // If box is 'sent',  shows everything in 'inbox', 'sent'
-                    // If box is 'archive', shows everything in 'archive'.
-                    // 'trash' is not implemented.
+        msgId (id of the selected email)
+        threadId (thread id of the selected email)
+        box (location of the selected email: 'inbox', 'sent', etc)
     }
 */
 function displayEmail(emailHeader){
@@ -682,14 +681,15 @@ function emailReply(email){
 function emailReplyAll(email){
     if(!email) return
     var allRecipientsExceptMe = email.toAddresses
+        .concat([email.from])
         .filter(function(addr){
             // email starts with our pubHash -> don't reply to our self
             return addr.address != sessionStorage["emailAddress"];
-        })
-        .map(function(addr){
-            return addr.address.toLowerCase();
-        })
-        .concat([email.from])
+        });
+    if(allRecipientsExceptMe.length == 0){
+        // replying to myself...
+        allRecipientsExceptMe = [email.from];
+    }
     displayComposeInline(email, allRecipientsExceptMe.join(","), email.subject, "")
 }
 
@@ -759,6 +759,7 @@ function showNextThread() {
     $(".box .current").remove();
     displayEmail(newSelection);
 }
+
 
 
 //
@@ -1130,6 +1131,8 @@ function parseBody(plaintextBody) {
     }
 }
 
+
+
 //
 // CONTACTS
 //
@@ -1493,6 +1496,7 @@ function migrateContactsReverseLookup(contacts, fn) {
 }
 
 
+
 //
 // NOTARY
 //
@@ -1584,6 +1588,8 @@ function verifyNotarySignature(notaryRes, notaryPublicKey) {
     var sig = openpgp.read_message(notaryRes.signature)
     return sig[0].signature.verify(toSign, {obj:notaryPublicKey[0]})
 }
+
+
 
 //
 // CRYPTO
@@ -1793,6 +1799,7 @@ function decodePgp(armoredText, privateKey, publicKey){
 }
 
 
+
 //
 // UTILITY
 //
@@ -1890,3 +1897,4 @@ if (typeof window != "undefined") {
         }
     });
 }
+
