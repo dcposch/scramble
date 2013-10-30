@@ -16,7 +16,7 @@ font-size:24px;
 h3 {
 font-size:16px;
 }
-a, 
+a,
 a:visited,
 a:hover {
 color:#03a;
@@ -280,8 +280,13 @@ margin-bottom: 10px;
 float: right;
 color: #888;
 }
-.email .from {
+.email .addr-name {
 font-weight:bold;
+cursor:pointer;
+}
+.email .addr-name > .addr {
+font-weight:normal;
+display:none;
 }
 .email .to {
 vertical-align:text-top;
@@ -299,6 +304,37 @@ padding:10px 0;
 white-space:pre-wrap;
 border-bottom: 1px solid #eee;
 font:11px monospace;
+}
+
+
+
+/* TOOLTIPS */
+.tooltip {
+display: inline;
+position: relative;
+cursor: pointer;
+}
+.tooltip:hover:after {
+background: #fff;
+/*background: rgba(238,238,238,.8);*/
+border:1px solid #333;
+border-radius: 5px;
+top: 26px;
+content: attr(data-tooltip);
+left: 20%;
+padding: 5px 15px;
+position: absolute;
+z-index: 98;
+}
+.tooltip:hover:before {
+border: solid;
+border-color: #ddd transparent;
+border-width: 0 6px 6px 6px;
+top: 20px;
+content: "";
+left: 50%;
+position: absolute;
+z-index: 99;
 }
 
 

@@ -496,12 +496,12 @@ function bindEmailEvents() {
     $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}))
     $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}))
     $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}))
-    $(".email .enterFromNameButton").click(withEmail(function(email){
-        var name = prompt("Contact name for "+email.from);
+    $(".email .enterAddContactButton").click(function(){
+        var addr = $(this).data("addr");
+        var name = prompt("Contact name for "+addr);
         if (!name) {
             return;
         }
-        var addr = email.from;
         lookupPublicKeys([addr], function(keyMap) {
             var error =   keyMap[addr].error;
             var pubHash = keyMap[addr].pubHash;
@@ -517,7 +517,7 @@ function bindEmailEvents() {
                 displayStatus("Contact saved")
             });
         });
-    }));
+    });
 
     var withLastEmail = function(cb) {
         return function() {
@@ -531,6 +531,17 @@ function bindEmailEvents() {
     $(".threadControl .archiveButton").click(withLastEmail(function(email){emailMove(email, "archive", true)}))
     $(".threadControl .moveToInboxButton").click(withLastEmail(function(email){emailMove(email, "inbox", true)}))
     $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}))
+}
+
+function bindEmailContent(){
+    $("#content .addr-name").click(function(){
+        var expanded = $(this).data("expanded") == "true";
+        $(this).data("expanded", ""+!expanded);
+        var action = expanded ? "hide" : "show";
+        $(this).find(".addr").animate({
+            width:action
+        }, "fast");
+    });
 }
 
 /**
@@ -617,15 +628,8 @@ function decryptAndVerifyEmail(data, privateKey, keyMap){
 
 function createEmailViewModel(data, box, threadSubject) {
     // Parse From, To, etc
-    var from = trimToLower(data.From);
-    var fromName = contactNameFromAddress(from);
-    var toAddresses = data.To.split(",").map(function(addr){
-        addr = trimToLower(addr);
-        return {
-            address: addr,
-            name: contactNameFromAddress(addr),
-        };
-    });
+    var fromAddress = namedAddrFromAddress(data.From);
+    var toAddresses = data.To.split(",").map(namedAddrFromAddress);
 
     // Parse Body
     var parsedBody = parseBody(data.plaintextBody);
@@ -637,8 +641,8 @@ function createEmailViewModel(data, box, threadSubject) {
         threadId:    data.ThreadID,
         time:        new Date(data.UnixTime*1000),
         unixTime:    data.UnixTime,
-        from:        from,
-        fromName:    fromName,
+        from:        data.From,
+        fromAddress: fromAddress,
         to:          data.To,
         toAddresses: toAddresses,
         subject:     parsedBody.subject || threadSubject,
@@ -661,6 +665,7 @@ function showEmailThread(emails){
     }
 
     $("#content").empty().append(elThread);
+    bindEmailContent();
 }
 
 var linkRegex = new RegExp("^http(s)?://[a-z0-9-]+(.[a-z0-9-]+)*(:[0-9]+)?(\/.*)?$", "ig")
@@ -675,22 +680,27 @@ function createHyperlinks(text) {
 
 function emailReply(email){
     if(!email) return
-    displayComposeInline(email, email.from, email.subject, "")
+    var replyTo = email.fromAddress.name || email.fromAddress.address;
+    displayComposeInline(email, replyTo, email.subject, "")
 }
 
 function emailReplyAll(email){
     if(!email) return
     var allRecipientsExceptMe = email.toAddresses
-        .concat([email.from])
+        .concat([email.fromAddress])
         .filter(function(addr){
             // email starts with our pubHash -> don't reply to our self
             return addr.address != sessionStorage["emailAddress"];
         });
     if(allRecipientsExceptMe.length == 0){
         // replying to myself...
-        allRecipientsExceptMe = [email.from];
+        allRecipientsExceptMe = [namedAddrFromAddress(email.from)];
     }
-    displayComposeInline(email, allRecipientsExceptMe.join(","), email.subject, "")
+
+    var replyTo = allRecipientsExceptMe.map(function(addr){
+        return addr.name || addr.address;
+    }).join(",");
+    displayComposeInline(email, replyTo, email.subject, "")
 }
 
 function emailForward(email){
@@ -1392,6 +1402,14 @@ function contactAddressFromName(name){
     return null
 }
 
+function namedAddrFromAddress(address){
+    var addr = trimToLower(address);
+    return {
+        address: addr,
+        name: contactNameFromAddress(addr)
+    };
+}
+
 function getContacts(fn){
     if(viewState.contacts){
         fn(viewState.contacts)
@@ -1825,10 +1843,23 @@ function showMessages(msg) {
 }
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
+var templates = null
 function render(templateId, data) {
-    var source = document.getElementById(templateId).textContent
-    var template = Handlebars.compile(source)
-    return template(data)
+    if(!templates){
+        templates = {}
+        $("script").each(function(){
+            var source = this.textContent;
+            if(!this.id){
+                return;
+            } else if(this.id.endsWith("-template")){
+                templates[this.id] = Handlebars.compile(source)
+            } else if(this.id.endsWith("-partial")){
+                Handlebars.registerPartial(this.id, source)
+            }
+        });
+    }
+
+    return templates[templateId](data)
 }
 
 // Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"

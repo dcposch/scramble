@@ -169,17 +169,11 @@
 <div class="email" data-msg-id="{{msgId}}">
     <div class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</div>
     <div class="from">
-        {{#if fromName}}{{fromName}}
-        {{else}}{{from}} - <a href="#" class="enterFromNameButton">add contact</a>
-        {{/if}}
+    {{> email-address-partial fromAddress}}
     </div>
     <div class="to">to 
         {{#each toAddresses}}
-            <span class="to-address">
-                {{#if name}}{{name}}
-                {{else}}{{address}}
-                {{/if}}
-            </span>
+            {{> email-address-partial}}
         {{/each}}
     </div>
     {{!--
@@ -204,6 +198,15 @@
 </div>
 </script>
 
+<script id="email-address-partial" type="text/x-handlebars-template">
+    {{#if name}}
+        <span class="addr-name">{{name}}
+            <span class="addr">&lt;{{address}}&gt;</span>
+        </span>
+    {{else}}
+        <span class="addr"><a href="#" data-addr="{{address}}" class="enterAddContactButton">{{address}}</a></span>
+    {{/if}}
+</script>
 
 
 <!-- COMPOSE -->
