@@ -23,6 +23,7 @@ var migrations = []func() error{
 	migrateCreateMxHosts,
 	migrateAddNotaryKey,
 	migrateAddNameResolutionTimestamp,
+	migrateBoxRemoveError,
 }
 
 func migrateDb() {
@@ -426,5 +427,10 @@ func migrateAddNotaryKey() error {
 
 func migrateAddNameResolutionTimestamp() error {
 	_, err := db.Exec(`ALTER TABLE name_resolution ADD COLUMN unix_time BIGINT NOT NULL`)
+	return err
+}
+
+func migrateBoxRemoveError() error {
+	_, err := db.Exec(`ALTER TABLE box DROP COLUMN error`)
 	return err
 }

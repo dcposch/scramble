@@ -100,11 +100,11 @@ func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
 }
 
 // Like GroupAddrsByHost, but resolves the hostname to Mx host.
-// Returns two maps where the second is all the hosts for which the Mx lookup failed.
-func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, map[string]EmailAddresses) {
+// The second return value is an array of all addresses that couldn't be resolved.
+func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, EmailAddresses) {
 	hostAddrs := GroupAddrsByHost(addrList)
 	mxHostAddrs := map[string]EmailAddresses{}
-	failedHostAddrs := map[string]EmailAddresses{}
+	failedAddrs := EmailAddresses{}
 	for host, addrs := range hostAddrs {
 		var mxHost string
 		// Skip lookup for self
@@ -116,12 +116,14 @@ func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, map[string]
 		// Lookup Mx record
 		mxHost, err := mxLookUp(host)
 		if err != nil {
-			failedHostAddrs[host] = addrs
+			for _, addr := range addrs {
+				failedAddrs = append(failedAddrs, addr)
+			}
 		} else {
 			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs...)
 		}
 	}
-	return mxHostAddrs, failedHostAddrs
+	return mxHostAddrs, failedAddrs
 }
 
 // This lets us add convenience methods to []EmailAddress
@@ -177,4 +179,17 @@ func (addrs EmailAddresses) FilterByHost(host string) EmailAddresses {
 		}
 	}
 	return filtered
+}
+
+// Returns uniqued addresses. Does not modify self.
+func (addrs EmailAddresses) Unique() EmailAddresses {
+	unique := map[EmailAddress]struct{}{}
+	for _, addr := range addrs {
+		unique[addr] = struct{}{}
+	}
+	uniqued := EmailAddresses{}
+	for addr, _ := range unique {
+		uniqued = append(uniqued, addr)
+	}
+	return uniqued
 }

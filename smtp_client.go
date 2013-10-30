@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
-	"time"
 )
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
@@ -17,7 +16,6 @@ var mxHost string
 func init() {
 	mxCache = make(map[string]string)
 	mxHost = GetConfig().SmtpMxHost
-	go smtpSendLoop()
 }
 
 // Looks up the SMTP server for an email host
@@ -53,50 +51,26 @@ func mxLookUp(host string) (string, error) {
 	return bestServer, nil
 }
 
-// Polls the outbox every second.
-// Sends all messages over SMTP.
-func smtpSendLoop() {
-	for {
-		msgs := CheckoutOutbox(10)
-		for _, msg := range msgs {
-			go smtpSendAndMark(msg)
-		}
-		time.Sleep(time.Second)
+// TODO: log errors
+func smtpSend(msg *OutgoingEmail) error {
+	mxHostAddrs, failedAddrs := GroupAddrsByMxHost(msg.To)
+	if len(failedAddrs) != 0 {
+		// This should never happen.
+		panic("Could not resolve some mx records in smtpSend: "+failedAddrs.String())
 	}
-}
-
-func smtpSendAndMark(msg *BoxedEmail) {
-	err := smtpSend(msg)
-	if err != nil {
-		// Failed to send. Tell the user everything we know...
-		log.Printf("Message sending failed: %v\n", err)
-		errMsg := err.Error()
-		MarkSendError(msg, &errMsg)
-	}
-	MarkOutboxAs([]*BoxedEmail{msg}, "outbox-sent")
-}
-
-func smtpSend(msg *BoxedEmail) error {
-	mxHostAddrs, _ := GroupAddrsByMxHost(msg.To)
-	var sent = false
+	// TODO: parallel send?
 	for mxHost, addrs := range mxHostAddrs {
-		if mxHost != msg.Address {
-			continue
+		if mxHost == GetConfig().SmtpMxHost {
+			continue // don't send to self, local deliveries use different logic.
 		}
 		err := smtpSendTo(msg, mxHost, addrs)
 		if err != nil {
 			err := errors.New(fmt.Sprintf("SMTP sending failed to mxHost %v for addrs %v\n", mxHost, addrs))
 			return err
 		}
-		sent = true
 	}
-	if sent {
-		log.Printf("Email sent!\n")
-		return nil
-	} else {
-		err := errors.New(fmt.Sprintf("SMTP sending failed to mxHost %v for (all) addrs %v\n", msg.Address, msg.To))
-		return err
-	}
+	log.Printf("Email sent!\n")
+	return nil
 }
 
 const smtpTemplate = `Message-ID: <%s>%s
@@ -105,22 +79,21 @@ From: <%s>
 To: %s
 Subject: %s
 
-%s%s`
+%s`
 
 const threadHeadersTemplate = `
 In-Reply-To: <%s>
 X-Scramble-Thread-ID: <%s>
 References: %s`
 
-func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error {
-	var plainSubject, prependToBody string
-	if validateMessageArmorSafe(email.CipherSubject) {
-		plainSubject = "Encrypted subject"
-		prependToBody = email.CipherSubject + "\n"
+func smtpSendTo(email *OutgoingEmail, smtpHost string, addrs EmailAddresses) error {
+	var subject, body string
+	if email.IsPlaintext {
+		subject = email.PlaintextSubject
+		body = email.PlaintextBody
 	} else {
-		//TODO: fix naming conventions
-		plainSubject = email.CipherSubject
-		prependToBody = ""
+		subject = "Encrypted subject"
+		body = email.CipherSubject + "\n" + email.CipherBody
 	}
 
 	// Construct In-Reply-To/References/X-Scramble-Thread-ID headers
@@ -139,10 +112,22 @@ func smtpSendTo(email *BoxedEmail, smtpHost string, addrs EmailAddresses) error 
 		threadHeaders,
 		email.From,
 		ParseEmailAddresses(email.To).AngledString(","),
-		plainSubject,
-		prependToBody,
-		email.CipherBody)
-	log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg)
+		subject,
+		body,
+	)
+	if email.IsPlaintext {
+		msg2 := fmt.Sprintf(smtpTemplate,
+			email.MessageID,
+			threadHeaders,
+			email.From,
+			ParseEmailAddresses(email.To).AngledString(","),
+			"<plaintext subject>",
+			"<plaintext body>",
+		)
+		log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg2)
+	} else {
+		log.Printf("SMTP: sending to %s %v\n%s\n", smtpHost, addrs, msg)
+	}
 
 	c, err := smtp.Dial(smtpHost + ":25")
 	if err != nil {

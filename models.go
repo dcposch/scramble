@@ -36,6 +36,15 @@ type Email struct {
 	AncestorIDs  string
 }
 
+// Represents an email on the way out.
+// Plaintext should never hit the db (or disk)
+type OutgoingEmail struct {
+	Email
+	IsPlaintext      bool
+	PlaintextBody    string
+	PlaintextSubject string
+}
+
 type BoxSummary struct {
 	EmailAddress string
 	PublicHash   string
@@ -44,14 +53,6 @@ type BoxSummary struct {
 	Limit        int
 	Total        int
 	EmailHeaders []EmailHeader
-}
-
-// Represents an email in the box join table.
-type BoxedEmail struct {
-	Email
-	Id      int64
-	Box     string
-	Address string
 }
 
 // Known info about an mx host.

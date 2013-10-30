@@ -122,15 +122,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// fail immediately if any address cannot be resolved.
 	if len(failedHostAddrs) != 0 || len(failedNameAddrs) != 0 {
 		// TODO: better error handling
-		failedHosts := []string{}
-		for failedHost, _ := range failedHostAddrs {
-			failedHosts = append(failedHosts, failedHost)
-		}
-		for failedHost, _ := range failedNameAddrs {
-			failedHosts = append(failedHosts, failedHost)
-		}
+		failedAddrs := append(failedHostAddrs, failedNameAddrs...)
 		w.WriteHeader(500)
-		w.Write([]byte(fmt.Sprintf("Host (%v) has no MX record", strings.Join(failedHosts, ","))))
+		w.Write([]byte(fmt.Sprintf("MX lookup failed for (%v)", failedAddrs.String())))
 		return
 	}
 
@@ -593,13 +587,40 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	email.From = userId.EmailAddress
 	email.To = r.FormValue("to")
 
-	// XXX remove this case
+	// for each address, lookup MX record & determine what to do.
+	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(email.To)
+
+	// fail immediately if any address cannot be resolved.
+	if len(failedHostAddrs) != 0 {
+		// TODO: better error handling
+		w.WriteHeader(500)
+		w.Write([]byte(fmt.Sprintf("Mx lookup failed for (%v)", failedHostAddrs.String())))
+		return
+	}
+
+	// Handle plaintext emails specially
+	outgoingEmail := new(OutgoingEmail)
 	if r.FormValue("cipherBody") == "" { // unencrypted
-		email.CipherSubject = r.FormValue("subject")
-		email.CipherBody = r.FormValue("body")
+		// Gather local recipients
+		localRecipients := EmailAddresses{ParseEmailAddress(userId.EmailAddress)}
+		for mxHost, addrs := range mxHostAddrs {
+			if mxHost == GetConfig().SmtpMxHost {
+				localRecipients = addrs
+			}
+		}
+		localRecipients = localRecipients.Unique()
+		// Populate outgoingEmail 
+		email.CipherSubject = encryptForUsers(r.FormValue("subject"), localRecipients.Strings())
+		email.CipherBody = encryptForUsers(r.FormValue("body"), localRecipients.Strings())
+		outgoingEmail.Email = *email
+		outgoingEmail.PlaintextSubject = r.FormValue("subject")
+		outgoingEmail.PlaintextBody = r.FormValue("body")
+		outgoingEmail.IsPlaintext = true
 	} else { // encrypted
 		email.CipherSubject = validateMessageArmor(r.FormValue("cipherSubject"))
 		email.CipherBody = validateMessageArmor(r.FormValue("cipherBody"))
+		outgoingEmail.Email = *email
+		outgoingEmail.IsPlaintext = false
 	}
 
 	// TODO: consider if transactions are required.
@@ -612,21 +633,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	// TODO: separate goroutine?
 	// TODO: parallize mx lookup?
 
-	// for each address, lookup MX record & determine what to do.
-	mxHostAddrs, failedHostAddrs := GroupAddrsByMxHost(email.To)
-
-	// fail immediately if any address cannot be resolved.
-	if len(failedHostAddrs) != 0 {
-		// TODO: better error handling
-		failedHosts := []string{}
-		for failedHost, _ := range failedHostAddrs {
-			failedHosts = append(failedHosts, failedHost)
-		}
-		w.WriteHeader(500)
-		w.Write([]byte(fmt.Sprintf("Destination host (%v) has no MX record", strings.Join(failedHosts, ","))))
-		return
-	}
-
+	// Deliver mail locally
 	for mxHost, addrs := range mxHostAddrs {
 		// if mxHost is GetConfig().SmtpMxHost, assume that the lookup will return itself.
 		// this saves us from having to set up test MX records for localhost testing.
@@ -637,13 +644,13 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 			}
 			continue
 		}
+	}
 
-		// Add to outbox for delivery
-		// Note that we only store the mxHost part for the 'address' column,
-		//  and only once for multiple recipients on the same mxHost.
-		// This is because SMTP can support sending the same email to
-		//  multiple recipients on the same host at once.
-		AddMessageToBox(email, mxHost, "outbox")
+	// Deliver mail outside synchronously
+	// In the future we may want more advanced logic.
+	err := smtpSend(outgoingEmail)
+	if err != nil {
+		panic(err)
 	}
 }
 

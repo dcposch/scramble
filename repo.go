@@ -6,7 +6,6 @@ import _ "github.com/go-sql-driver/mysql"
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 	//"github.com/jaekwon/go-prelude/colors"
@@ -555,87 +554,6 @@ func DeleteThreadFromBoxes(address string, messageID string) {
 	db.Exec("DELETE FROM email WHERE message_id=?", messageID)
 }
 
-//
-// OUTBOX
-//
-
-// Load and set box as 'outbox-processing'
-func CheckoutOutbox(limit int) []*BoxedEmail {
-	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
-		" m.from_email, m.to_email, m.cipher_subject, m.cipher_body, "+
-		" m.thread_id, m.ancestor_ids, "+
-		" b.id, b.box, b.address "+
-		" FROM email AS m INNER JOIN box AS b "+
-		" ON b.message_id = m.message_id "+
-		" WHERE b.box='outbox' "+
-		" ORDER BY b.unix_time ASC "+
-		" LIMIT ?",
-		limit)
-	if err != nil {
-		panic(err)
-	}
-	boxedEmails := []*BoxedEmail{}
-	for rows.Next() {
-		var boxed BoxedEmail
-		rows.Scan(
-			&boxed.MessageID,
-			&boxed.UnixTime,
-			&boxed.From,
-			&boxed.To,
-			&boxed.CipherSubject,
-			&boxed.CipherBody,
-			&boxed.ThreadID,
-			&boxed.AncestorIDs,
-			&boxed.Id,
-			&boxed.Box,
-			&boxed.Address,
-		)
-		boxedEmails = append(boxedEmails, &boxed)
-	}
-	MarkOutboxAs(boxedEmails, "outbox-processing")
-	return boxedEmails
-}
-
-// Mark box items as "outbox-sent" or "outbox-processing", etc
-func MarkOutboxAs(boxedEmails []*BoxedEmail, newBox string) {
-	if len(boxedEmails) == 0 {
-		return
-	}
-	if newBox != "outbox-sent" && newBox != "outbox-processing" {
-		panic("MarkOutboxAs() cannot move emails to " + newBox)
-	}
-	boxedIds := []interface{}{}
-	for _, boxedEmail := range boxedEmails {
-		boxedIds = append(boxedIds, strconv.FormatInt(boxedEmail.Id, 10))
-	}
-	boxedIdsPH := "?" + strings.Repeat(",?", len(boxedIds)-1)
-	_, err := db.Exec("UPDATE box SET box=?, unix_time=? WHERE "+
-		"id IN ("+boxedIdsPH+") AND box IN ('outbox', 'outbox-processing', 'outbox-sent') ",
-		// For more information on this abomination, read
-		// https://groups.google.com/d/msg/golang-dev/yszLiYREbK4/sH1AWu23l18J
-		append([]interface{}{
-			newBox,
-			time.Now().Unix(),
-		},
-			boxedIds...,
-		)...,
-	)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// Sets the error message on an email we were unable to send,
-// or clears the error message if err is null
-func MarkSendError(boxedEmail *BoxedEmail, errorMessage *string) {
-	_, err := db.Exec("UPDATE box SET error=? WHERE id=?",
-		errorMessage,
-		boxedEmail.Id,
-	)
-	if err != nil {
-		panic(err)
-	}
-}
 
 //
 // NOTARY

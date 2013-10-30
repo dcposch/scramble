@@ -31,8 +31,7 @@ func TestSendEmail(t *testing.T) {
 	}
 
 	addrs := ParseEmailAddresses(email.To).FilterByHost(*testServer)
-	boxedEmail := &BoxedEmail{Email: *email}
-	err := smtpSendTo(boxedEmail, *testServer, addrs)
+	err := smtpSendTo(email, *testServer, addrs)
 	if err != nil {
 		t.Fatal(err)
 	}
