@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -191,15 +192,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			if len(request.NameAddresses) > 0 {
 				signedResults := map[string]*NotarySignedResult{}
 				thisResult := &NotaryResultError{signedResults, ""}
-				for mxHost, addrs := range mxHostNameAddrs {
+				for _, addrs := range mxHostNameAddrs {
 					for _, addr := range addrs {
-						var pubHash string
-						if mxHost == GetConfig().SmtpMxHost {
-							// TODO: what if addr's host is not the user's default?
-							pubHash = LoadPubHash(addr.Name)
-						} else {
-							pubHash = ResolveName(addr.Name, addr.Host)
-						}
+						pubHash := ResolveName(addr.Name, addr.Host)
 						// pubHash may be "", and that's a ok.
 						signedResults[addr.String()] = &NotarySignedResult{
 							pubHash,
@@ -222,16 +217,16 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, addr := range pubKeyLookup {
 				name, hash := addr.NameAndHash()
-				pubHash := LoadPubHash(name)
+				pubHash := LoadPubHash(name, addr.Host)
 				if pubHash == "" {
-					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{PublicKeysStatusNoSuchUser, "", "Unknown name " + name}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{PublicKeysStatusNoSuchUser, "", "Unknown address " + addr.StringNoHash()}
 					continue
 				}
 				pubKey := LoadPubKey(pubHash)
 				if hash == "" || pubHash == hash {
 					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{PublicKeysStatusOK, pubKey, ""}
 				} else {
-					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{PublicKeysStatusError, pubKey, "Wrong hash for name"}
+					res.PublicKeys[addr.StringNoHash()] = &PublicKeysPubKeyError{PublicKeysStatusError, pubKey, "Wrong hash for address " + addr.StringNoHash()}
 				}
 			}
 
@@ -266,7 +261,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 				// Yahoo's mxHost times out like this.
 				// Assume the mxHost isn't a scramble host.
 				if mxHostInfos[mxHost] == nil {
-					mxHostInfos[mxHost] = SetMxHostInfo(mxHost, false)
+					mxHostInfos[mxHost] = TrySetMxHostInfo(mxHost, false, "")
 				}
 				continue
 			}
@@ -282,14 +277,14 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				// Assume the mxHost isn't a scramble host.
 				if mxHostInfos[mxHost] == nil {
-					mxHostInfos[mxHost] = SetMxHostInfo(mxHost, false)
+					mxHostInfos[mxHost] = TrySetMxHostInfo(mxHost, false, "")
 				}
 				log.Println("Error in /publickeys/query json parse: %s", err.Error())
 				continue
 			} else {
 				// Hey, a scramble host.
 				if mxHostInfos[mxHost] == nil {
-					mxHostInfos[mxHost] = SetMxHostInfo(mxHost, true)
+					mxHostInfos[mxHost] = TrySetMxHostInfo(mxHost, true, "")
 				}
 			}
 			// aggregate notary responses
@@ -373,7 +368,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 					// Gmail's mxHost times out like this.
 					// Assume the mxHost isn't a scramble host.
 					if mxHostInfos[mxHostRespErr.MxHost] == nil {
-						SetMxHostInfo(mxHostRespErr.MxHost, false)
+						TrySetMxHostInfo(mxHostRespErr.MxHost, false, "")
 					}
 					continue
 				}
@@ -417,7 +412,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.PublicHash = ComputePublicHash(user.PublicKey)
 	user.CipherPrivateKey = validateHex(r.FormValue("cipherPrivateKey"))
 	user.EmailHost = computeEmailHost(r.Host)
-	user.EmailAddress = user.Token + "@" + computeEmailHost(r.Host)
+	user.EmailAddress = user.Token + "@" + user.EmailHost
 
 	log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
 
@@ -425,6 +420,9 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "That username is taken", http.StatusBadRequest)
 		return
 	}
+
+	// Add user to local name_resolution table
+	AddNameResolution(user.Token, user.EmailHost, user.PublicHash)
 
 	// Seed user token & hash to notaries.
 	SeedUserToNotaries(user)
@@ -667,6 +665,12 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 // NOTARY
 //
 
+type NotaryInfoResponse struct {
+	MxHost   string `json:"mxHost"`
+	PubKey   string `json:"pubKey"`
+	Notaries map[string]string `json:"notaries"`
+}
+
 func notaryHandler(w http.ResponseWriter, r *http.Request) {
 	resJson, err := json.Marshal(struct {
 		MxHost   string            `json:"mxHost"`
@@ -684,4 +688,54 @@ func notaryHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: set cache
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resJson)
+}
+
+func publicKeySeedHandler(w http.ResponseWriter, r *http.Request) {
+	address := ParseEmailAddress(r.FormValue("address"))
+	pubHash := validateHash(r.FormValue("pubHash"))
+	timestamp, err := strconv.ParseInt(r.FormValue("timestamp"), 10, 64)
+	if err != nil {
+		panic(errors.New("Invalid timestamp"))
+	}
+	signature := validateSignatureArmor(r.FormValue("signature"))
+
+	// TODO: maybe also do a sanity check on the timestamp.
+
+	mxHost, err := mxLookUp(address.Host)
+	if err != nil {
+		log.Panicf("Cannot seed address %v, mx lookup failed.", address.String())
+	}
+
+	mxHostInfo := GetMxHostInfo(mxHost)
+	if mxHostInfo == nil || mxHostInfo.NotaryPublicKey == "" {
+		resp, err := http.Get("https://"+mxHost+"/publickeys/notary")
+		if err != nil {
+			log.Panicf("Cannot seed address %v,"+
+				" could not fetch mx host notary info", address.String())
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Panicf("Cannot seed address %v,"+
+				" could not read mx host notary info", address.String())
+		}
+		parsed := NotaryInfoResponse{}
+		err = json.Unmarshal(body, &parsed)
+		if err != nil {
+			log.Panicf("Cannot seed address %v,"+
+				" could not parse mx host notary info", address.String())
+		}
+		mxHostInfo = SetMxHostInfo(mxHost, true, parsed.PubKey)
+	}
+
+	signed := StringForNotaryToSign(address.Name, address.Host, pubHash, timestamp)
+	ok := VerifySignature(mxHostInfo.NotaryPublicKey, signed, signature)
+
+	if ok {
+		AddNameResolution(address.Name, address.Host, pubHash)
+		// TODO respond with our own signature to speed up user account creation.
+	} else {
+		log.Panicf("Cannot seed address %v, bad signature!", address.String())
+	}
+
 }

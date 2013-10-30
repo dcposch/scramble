@@ -114,7 +114,7 @@ func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, map[string]
 			continue
 		}
 		// Lookup Mx record
-		mxHost, err := smtpLookUp(host)
+		mxHost, err := mxLookUp(host)
 		if err != nil {
 			failedHostAddrs[host] = addrs
 		} else {

@@ -56,7 +56,8 @@ type BoxedEmail struct {
 
 // Known info about an mx host.
 type MxHostInfo struct {
-	Host       string
-	IsScramble bool
-	UnixTime   int64 // when we found out
+	Host            string
+	IsScramble      bool
+	NotaryPublicKey string
+	UnixTime        int64
 }

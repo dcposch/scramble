@@ -18,6 +18,7 @@ var regexAddress = regexp.MustCompile(`^(?i)(`+dotAtom+`)@(`+dotAtom+`)$`)
 var regexHost = regexp.MustCompile(`^(?i)(`+domain+`)$`)
 var regexPublicKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----`)
 var regexMessageArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
+var regexSignatureArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP SIGNATURE-----.*?-----END PGP SIGNATURE-----`)
 
 func validatePassHash(str string) string {
 	if !regexPassHash.MatchString(str) {
@@ -58,6 +59,12 @@ func validateBox(str string) string {
 func validateAddressSafe(str string) bool {
 	return regexAddress.MatchString(str)
 }
+func validateAddress(str string) string {
+	if !validateAddressSafe(str) {
+		log.Panicf("Invalid address %s", str)
+	}
+	return str
+}
 func validateHost(str string) string {
 	if !regexHost.MatchString(str) {
 		log.Panicf("Invalid host %s", str)
@@ -66,16 +73,25 @@ func validateHost(str string) string {
 }
 func validatePublicKeyArmor(str string) string {
 	if !regexPublicKeyArmor.MatchString(str) {
-		log.Panicf("Invalid public key:\n%s", str)
-	}
-	return str
-}
-func validateMessageArmor(str string) string {
-	if !validateMessageArmorSafe(str) {
-		log.Panicf("Invalid public key:\n%s", str)
+		log.Panicf("Invalid pgp public key:\n%s", str)
 	}
 	return str
 }
 func validateMessageArmorSafe(str string) bool {
 	return regexMessageArmor.MatchString(str)
+}
+func validateMessageArmor(str string) string {
+	if !validateMessageArmorSafe(str) {
+		log.Panicf("Invalid pgp message:\n%s", str)
+	}
+	return str
+}
+func validateSignatureArmorSafe(str string) bool {
+	return regexSignatureArmor.MatchString(str)
+}
+func validateSignatureArmor(str string) string {
+	if !validateSignatureArmorSafe(str) {
+		log.Panicf("Invalid pgp signature:\n%s", str)
+	}
+	return str
 }

@@ -80,3 +80,19 @@ func SignText(entity *openpgp.Entity, text string) string {
 	w.Close()
 	return b.String()
 }
+
+func VerifySignature(pubKey, signed, signatureArmor string) bool {
+	keyRing, err := openpgp.ReadArmoredKeyRing(strings.NewReader(pubKey))
+	if err != nil {
+		panic(err)
+	}
+	signer, err := openpgp.CheckArmoredDetachedSignature(
+		keyRing,
+		strings.NewReader(signed),
+		strings.NewReader(signatureArmor),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return signer != nil
+}

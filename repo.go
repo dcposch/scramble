@@ -122,12 +122,12 @@ func LoadUserID(token string) *UserID {
 	return &user
 }
 
-// Loads a given public hash by a user's token (name)
-func LoadPubHash(token string) string {
+// Loads a given public hash by a user's token (name) & email_host
+func LoadPubHash(token, emailHost string) string {
 	var hash string
 	err := db.QueryRow("SELECT public_hash "+
-		" FROM user WHERE token=?",
-		token).Scan(&hash)
+		" FROM user WHERE token=? and email_host=?",
+		token, emailHost).Scan(&hash)
 	if err == sql.ErrNoRows {
 		return ""
 	}
@@ -643,11 +643,13 @@ func MarkSendError(boxedEmail *BoxedEmail, errorMessage *string) {
 
 func AddNameResolution(name, host, hash string) {
 	_, err := db.Exec("INSERT INTO name_resolution "+
-		"(name, host, hash) "+
-		"VALUES (?,?,?)",
+		"(name, host, hash, unix_time) "+
+		"VALUES (?,?,?,?)",
 		name,
 		host,
-		hash)
+		hash,
+		time.Now().Unix(),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -668,32 +670,44 @@ func GetNameResolution(name, host string) (hash string) {
 	return
 }
 
-func SetMxHostInfo(host string, isScramble bool) *MxHostInfo {
+func TrySetMxHostInfo(host string, isScramble bool, notaryPublicKey string) *MxHostInfo {
+	hostInfo := GetMxHostInfo(host)
+	if hostInfo == nil {
+		return SetMxHostInfo(host, isScramble, notaryPublicKey)
+	}
+	return hostInfo
+}
+
+func SetMxHostInfo(host string, isScramble bool, notaryPublicKey string) *MxHostInfo {
 	now := time.Now().Unix()
 	_, err := db.Exec("INSERT INTO mx_hosts "+
-		"(host, is_scramble, unix_time) "+
-		"VALUES (?,?,?) "+
+		"(host, is_scramble, notary_public_key, unix_time) "+
+		"VALUES (?,?,?,?) "+
 		"ON DUPLICATE KEY UPDATE "+
-		"is_scramble = VALUES(is_scramble),"+
+		"is_scramble = VALUES(is_scramble), "+
+		"notary_public_key = VALUES(notary_public_key), "+
 		"unix_time = VALUES(unix_time)",
 		host,
 		isScramble,
+		sql.NullString{notaryPublicKey, notaryPublicKey != ""},
 		now,
 	)
 	if err != nil {
 		panic(err)
 	}
-	return &MxHostInfo{host, isScramble, now}
+	return &MxHostInfo{host, isScramble, notaryPublicKey, now}
 }
 
 func GetMxHostInfo(host string) *MxHostInfo {
 	var info MxHostInfo
+	var pubKeyNull sql.NullString
 	err := db.QueryRow("SELECT "+
-		"host, is_scramble, unix_time "+
+		"host, is_scramble, notary_public_key, unix_time "+
 		"FROM mx_hosts WHERE host=?",
 		host).Scan(
 		&info.Host,
 		&info.IsScramble,
+		&pubKeyNull,
 		&info.UnixTime,
 	)
 	switch {
@@ -702,6 +716,7 @@ func GetMxHostInfo(host string) *MxHostInfo {
 	case err != nil:
 		panic(err)
 	default:
+		info.NotaryPublicKey = pubKeyNull.String
 		return &info
 	}
 }

@@ -21,8 +21,8 @@ func init() {
 }
 
 // Looks up the SMTP server for an email host
-// For example, smtpLookUp("gmail.com") returns "gmail-smtp-in.l.google.com"
-func smtpLookUp(host string) (string, error) {
+// For example, mxLookUp("gmail.com") returns "gmail-smtp-in.l.google.com"
+func mxLookUp(host string) (string, error) {
 	cachedServer := mxCache[host]
 	if cachedServer != "" {
 		return cachedServer, nil

@@ -21,6 +21,8 @@ var migrations = []func() error{
 	migrateBoxAddForeignKey,
 	migrateBoxAddError,
 	migrateCreateMxHosts,
+	migrateAddNotaryKey,
+	migrateAddNameResolutionTimestamp,
 }
 
 func migrateDb() {
@@ -413,5 +415,16 @@ func migrateCreateMxHosts() error {
 
         PRIMARY KEY (host)
     )`)
+	return err
+}
+
+func migrateAddNotaryKey() error {
+	_, err := db.Exec(`ALTER TABLE mx_hosts ADD COLUMN notary_public_key TEXT`)
+	return err
+}
+
+
+func migrateAddNameResolutionTimestamp() error {
+	_, err := db.Exec(`ALTER TABLE name_resolution ADD COLUMN unix_time BIGINT NOT NULL`)
 	return err
 }

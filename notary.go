@@ -4,7 +4,6 @@ package main
 
 import (
 	"code.google.com/p/go.crypto/openpgp"
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var regexKeyFile *regexp.Regexp = regexp.MustCompile(`(?s)(-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----)
@@ -110,94 +110,67 @@ type NotaryResultError struct {
 	Error  string                         `json:"error,omitempty"`
 }
 
-// Returns the hash if known, otherwise queues to fetch later.
+// Returns the hash from name_resolution table.
 func ResolveName(name, host string) string {
 	addr := name + "@" + host
 	hash := GetNameResolution(name, host)
 
-	// TODO: notary should just send an empty response here
-	// We should have a separate endpoint (eg POST /publickeys)
-	// for saving new (name, key) pairs to the notary, and that
-	// endpoint should respond with NotarySign((name,key)) to confirm
 	if hash == "" {
-		// for now let's just run a request immediately
-		go func() {
-			mxHost, err := smtpLookUp(host)
-			if err != nil {
-				return
-			}
-			u := url.URL{}
-			u.Scheme = "https"
-			u.Host = mxHost
-			u.Path = "/publickeys/query"
-			body := url.Values{}
-			body.Set("nameAddresses", addr)
-			body.Set("notaries", mxHost)
 
-			resp, err := http.PostForm(u.String(), body)
+		mxHost, err := mxLookUp(host)
+		if err != nil {
+			return "" // whatever, we were going to return "" anyways
+		}
+		if mxHost == GetConfig().SmtpMxHost {
+			log.Printf("Well, that's unexpected. Why didn't GetNameResolution pick up the hash for %v?\n"+
+				"Using user table instead. But really, this should be in the name_resolution table.", addr)
+			return LoadPubHash(name, host)
+		}
 
-			if err != nil {
-				log.Printf("Secondary notary query failed for %s:\n%s", mxHost, err.Error())
-				return
-			}
-			defer resp.Body.Close()
-			respBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				log.Printf("Failed to retrieve hash for %s", addr)
-				return
-			}
-
-			parsed := PublicKeysResponse{}
-			err = json.Unmarshal(respBody, &parsed)
-			if err != nil {
-				log.Printf("Failed to parse response for %s:\n\n%s\n\n%s", addr, respBody, err.Error())
-				return
-			}
-			if len(parsed.NameResolution) != 1 {
-				log.Printf("Unexpected number of responses for %s", addr)
-				return
-			}
-			for _, resErr := range parsed.NameResolution {
-				if resErr.Result != nil &&
-					resErr.Result[addr] != nil &&
-					resErr.Result[addr].PubHash != "" {
-					AddNameResolution(name, host, resErr.Result[addr].PubHash)
-				}
-			}
-		}()
 	}
 	return hash
 }
 
+func StringForNotaryToSign(name, host, pubHash string, timestamp int64) string {
+	return name + "@" + host + "=" + pubHash + "@" + strconv.FormatInt(timestamp, 10)
+}
+
 func SignNotaryResponse(name, host, pubHash string, timestamp int64) string {
-	toSign := name + "@" + host + "=" + pubHash + "@" + strconv.FormatInt(timestamp, 10)
+	toSign := StringForNotaryToSign(name, host, pubHash, timestamp)
 	return SignText(notaryInfo.Entity, toSign)
 }
 
 // New accounts need to get their token & pubHash seeded.
 func SeedUserToNotaries(user *User) {
+
+	name    := user.Token
+	host    := user.EmailHost
+	address := user.EmailAddress
+	pubHash := user.PublicHash
+	timestamp := time.Now().Unix()
+	signature := SignNotaryResponse(name, host, pubHash, timestamp)
+
 	for notary, _:= range notaries {
 		if notary == GetConfig().SmtpMxHost {
 			continue
 		}
-		log.Println("Seeding new user " + user.EmailAddress + " to " + notary)
-		// Maybe batch in the future, for now just run immediately.
-		// This /publickeys/query call will cause the remote notary host to call 'ResolveName',
-		// which in turn makes a /publickeys/query call back here.
-		go func(notary, userEmailAddress string) {
+		go func(notary string) {
+			log.Println("Seeding new user " + user.EmailAddress + " to " + notary)
 			u := url.URL{}
 			u.Scheme = "https"
 			u.Host = notary
-			u.Path = "/publickeys/query"
+			u.Path = "/publickeys/seed"
 			body := url.Values{}
-			body.Set("nameAddresses", userEmailAddress)
-			body.Set("notaries", notary)
+			body.Set("address", address)
+			body.Set("pubHash", pubHash)
+			body.Set("timestamp", strconv.FormatInt(timestamp, 10))
+			body.Set("signature", signature)
 			resp, err := http.PostForm(u.String(), body)
 			if err != nil {
 				log.Printf("Notary seeding failed for %s:\n%s", notary, err.Error())
 				return
 			}
 			resp.Body.Close()
-		}(notary, user.EmailAddress)
+		}(notary)
 	}
 }
