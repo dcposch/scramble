@@ -20,7 +20,7 @@ func createTestUser() {
 			Token:        "test",
 			PasswordHash: "5026f031ceea00023da878da2be4660ae85040e8", // 'test test test test'
 			PublicHash:   "x6urvahzhylq5swe",
-			EmailHost:    GetConfig().SmtpMxHost,
+			EmailHost:    GetConfig().SMTPMxHost,
 		},
 		PublicKey: `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: OpenPGP.js v.1.20130306
@@ -78,8 +78,8 @@ func TestPublicKeysHandler(t *testing.T) {
 		"POST", "publickeys/query",
 		url.Values{
 			"nameAddresses": {tUser.EmailAddress},
-			"hashAddresses": {"doesnotexist#2222222222222222@" + GetConfig().SmtpMxHost},
-			"notaries":      {GetConfig().SmtpMxHost},
+			"hashAddresses": {"doesnotexist#2222222222222222@" + GetConfig().SMTPMxHost},
+			"notaries":      {GetConfig().SMTPMxHost},
 		},
 	)
 	//log.Println(record.Code, record.Body.String())
@@ -94,9 +94,9 @@ func TestPublicKeysHandler(t *testing.T) {
 	if parsed.NameResolution == nil {
 		log.Fatal("Name resolution failed")
 	}
-	var hostResultError = parsed.NameResolution[GetConfig().SmtpMxHost]
+	var hostResultError = parsed.NameResolution[GetConfig().SMTPMxHost]
 	if hostResultError == nil {
-		log.Fatalf("Name resolution failed for host %s", GetConfig().SmtpMxHost)
+		log.Fatalf("Name resolution failed for host %s", GetConfig().SMTPMxHost)
 	}
 	var notaryRes = hostResultError.Result[tUser.EmailAddress]
 	if notaryRes.PubHash != tUser.PublicHash {
@@ -111,7 +111,7 @@ func TestPublicKeysHandler(t *testing.T) {
 	}
 
 	log.Printf("%v \n", parsed)
-	address := "doesnotexist@" + GetConfig().SmtpMxHost
+	address := "doesnotexist@" + GetConfig().SMTPMxHost
 	var dneRes = parsed.PublicKeys[address]
 	if dneRes.Error != "Unknown address "+address {
 		log.Fatalf("Unexpected error message for name that does not exist: %s", dneRes.Error)

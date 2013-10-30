@@ -1,6 +1,6 @@
 package main
 
-// A single user, email address, and key pair
+// User represents a single user, email address, and key pair
 // The email address is <public key hash>@<host>
 type User struct {
 	UserID
@@ -8,7 +8,7 @@ type User struct {
 	CipherPrivateKey string
 }
 
-// A single user's identifying info
+// UserID represents a single user's identifying info
 // All hashes are hex encoded
 type UserID struct {
 	Token           string
@@ -19,7 +19,7 @@ type UserID struct {
 	EmailHost       string
 }
 
-// Represents an email header with encrypted subject. No body.
+// EmailHeader has standard headers and an PGP-encrypted subject. No body.
 type EmailHeader struct {
 	MessageID     string
 	ThreadID      string
@@ -29,11 +29,11 @@ type EmailHeader struct {
 	CipherSubject string
 }
 
-// Represents a full email, header and body PGP encrypted.
+// Email represents a full email, header and body PGP encrypted.
 type Email struct {
 	EmailHeader
-	CipherBody   string
-	AncestorIDs  string
+	CipherBody  string
+	AncestorIDs string
 }
 
 // Represents an email on the way out.
@@ -45,6 +45,8 @@ type OutgoingEmail struct {
 	PlaintextSubject string
 }
 
+// BoxSummary represents one page from a box (inbox, sent, etc),
+// including the email headers and subjects but without andy bodies
 type BoxSummary struct {
 	EmailAddress string
 	PublicHash   string
@@ -55,7 +57,8 @@ type BoxSummary struct {
 	EmailHeaders []EmailHeader
 }
 
-// Known info about an mx host.
+// MxHostInfo represents info from DNS (or from cache)
+// info about an mx host.
 type MxHostInfo struct {
 	Host            string
 	IsScramble      bool

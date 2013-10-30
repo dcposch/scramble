@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 	//"github.com/jaekwon/go-prelude/colors"
 )
 
@@ -79,7 +79,7 @@ type PublicKeysResponse struct {
 }
 
 func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
-	userId, _ := authenticate(r)
+	userID, _ := authenticate(r)
 	timestamp := time.Now().Unix()
 
 	type MxHostRespErr struct {
@@ -105,13 +105,13 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// <mxHost>: true, for nonScramble hosts.
 	mxHostInfos := map[string]*MxHostInfo{}
 	allMxHosts := map[string]struct{}{}
-	for mxHost, _ := range mxHostNameAddrs {
+	for mxHost := range mxHostNameAddrs {
 		allMxHosts[mxHost] = struct{}{}
 	}
-	for mxHost, _ := range mxHostHashAddrs {
+	for mxHost := range mxHostHashAddrs {
 		allMxHosts[mxHost] = struct{}{}
 	}
-	for mxHost, _ := range allMxHosts {
+	for mxHost := range allMxHosts {
 		mxHostInfos[mxHost] = GetMxHostInfo(mxHost)
 	}
 
@@ -128,18 +128,18 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// server-to-server requests need no userId,
+	// server-to-server requests need no userID,
 	// but all requested addresses should belong to this server.
-	ourMxHost := GetConfig().SmtpMxHost
-	if userId == nil {
-		for host, _ := range mxHostHashAddrs {
+	ourMxHost := GetConfig().SMTPMxHost
+	if userID == nil {
+		for host := range mxHostHashAddrs {
 			if host != ourMxHost {
 				log.Panicf("Invalid host for server-to-server /publickeys/query request."+
 					"Expected %v, got %v", ourMxHost, host)
 			}
 		}
-		if len(notaries) > 1 || notaries[0] != GetConfig().SmtpMxHost {
-			log.Panicf("Expected 0 or 1 notary @" + GetConfig().SmtpMxHost +
+		if len(notaries) > 1 || notaries[0] != GetConfig().SMTPMxHost {
+			log.Panicf("Expected 0 or 1 notary @" + GetConfig().SMTPMxHost +
 				", got [" + strings.Join(notaries, ",") + "]")
 		}
 	}
@@ -179,7 +179,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan *MxHostRespErr)
 	counter := 0
 	for mxHost, request := range allRequests {
-		if mxHost == GetConfig().SmtpMxHost {
+		if mxHost == GetConfig().SMTPMxHost {
 			// if host is this host
 
 			// handle resolution request
@@ -201,9 +201,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// handle pubkey lookup
-			var pubKeyLookup EmailAddresses = request.HashAddresses
+			pubKeyLookup := request.HashAddresses
 			for mxHost, addrs := range mxHostNameAddrs {
-				if mxHost == GetConfig().SmtpMxHost {
+				if mxHost == GetConfig().SMTPMxHost {
 					for _, addr := range addrs {
 						pubKeyLookup = append(pubKeyLookup, addr)
 					}
@@ -303,9 +303,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// If this request is primary,
 	// Fill remaining addresses with appropriate error messages
 	// Client must still verify that addresses aren't missing
-	if userId != nil {
+	if userID != nil {
 		for mxHost, addrs := range mxHostNameAddrs {
-			if mxHost == GetConfig().SmtpMxHost {
+			if mxHost == GetConfig().SMTPMxHost {
 				continue // no need to fill error messages, already filled.
 			}
 			for _, addr := range addrs {
@@ -319,7 +319,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		for mxHost, addrs := range mxHostHashAddrs {
-			if mxHost == GetConfig().SmtpMxHost {
+			if mxHost == GetConfig().SMTPMxHost {
 				continue // no need to fill error messages, already filled.
 			}
 			for _, addr := range addrs {
@@ -345,11 +345,11 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// respond back
-	resJson, err := json.Marshal(res)
+	resJSON, err := json.Marshal(res)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(resJson)
+	w.Write(resJSON)
 
 	// drain ch
 	go func() {
@@ -374,7 +374,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 // POST /publickeys/reverse to lookup name from pubhash
 // This exists to upgrade legacy contacts lists.
-func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	pubHashes := r.FormValue("pubHashes")
 	res := map[string]string{}
 	for _, pubHash := range strings.Split(pubHashes, ",") {
@@ -384,11 +384,11 @@ func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userId *UserID)
 		address := LoadAddressFromPubHash(pubHash)
 		res[pubHash] = address
 	}
-	resJson, err := json.Marshal(res)
+	resJSON, err := json.Marshal(res)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(resJson)
+	w.Write(resJSON)
 }
 
 // POST /user to create a new account
@@ -428,9 +428,9 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 // Because the server never knows the plaintext, it is also
 // unable to update individual keys in address book -- whenever
 // the user makes changes, the client encrypts and posts all contacts
-func contactsHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func contactsHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	if r.Method == "GET" {
-		cipherContactsHex := LoadContacts(userId.Token)
+		cipherContactsHex := LoadContacts(userID.Token)
 		if cipherContactsHex == nil {
 			http.Error(w, "Not found", http.StatusNotFound)
 		} else {
@@ -441,13 +441,13 @@ func contactsHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 		if err != nil {
 			panic(err)
 		}
-		SaveContacts(userId.Token, string(cipherContactsHex))
+		SaveContacts(userID.Token, string(cipherContactsHex))
 	}
 }
 
 // GET /user/me/key for the logged-in user's encrypted private key
-func privateKeyHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	user := LoadUser(userId.Token)
+func privateKeyHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+	user := LoadUser(userID.Token)
 	if user == nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
@@ -457,18 +457,16 @@ func privateKeyHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 
 func computeEmailHost(requestHost string) string {
 	if requestHost == "localhost" || strings.HasPrefix(requestHost, "localhost:") {
-		return GetConfig().SmtpMxHost
-	} else {
-		if strings.Index(requestHost, ":") != -1 {
-			host, _, err := net.SplitHostPort(requestHost)
-			if err != nil {
-				panic(err)
-			}
-			return host
-		} else {
-			return requestHost
-		}
+		return GetConfig().SMTPMxHost
 	}
+	if strings.Index(requestHost, ":") == -1 {
+		return requestHost
+	}
+	host, _, err := net.SplitHostPort(requestHost)
+	if err != nil {
+		panic(err)
+	}
+	return host
 }
 
 //
@@ -478,7 +476,7 @@ func computeEmailHost(requestHost string) string {
 // Takes no arguments, returns all the metadata about a user's inbox.
 // Encrypted subjects are returned, but no message bodies.
 // The caller must have auth cookies set.
-func inboxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func inboxHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	box := r.URL.Path[len("/box/"):]
 	query := r.URL.Query()
 	offset, err := strconv.Atoi(query.Get("offset"))
@@ -493,8 +491,8 @@ func inboxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	var emailHeaders []EmailHeader
 	var total int
 	if box == "inbox" || box == "archive" || box == "sent" {
-		emailHeaders = LoadBoxByThread(userId.EmailAddress, box, offset, limit)
-		total, err = CountBox(userId.EmailAddress, box)
+		emailHeaders = LoadBoxByThread(userID.EmailAddress, box, offset, limit)
+		total, err = CountBox(userID.EmailAddress, box)
 		if err != nil {
 			panic(err)
 		}
@@ -506,56 +504,56 @@ func inboxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	}
 
 	var summary BoxSummary
-	summary.EmailAddress = userId.EmailAddress
-	summary.PublicHash = userId.PublicHash
+	summary.EmailAddress = userID.EmailAddress
+	summary.PublicHash = userID.PublicHash
 	summary.Box = box
 	summary.Offset = offset
 	summary.Limit = limit
 	summary.Total = total
 	summary.EmailHeaders = emailHeaders
 
-	summaryJson, err := json.Marshal(summary)
+	summaryJSON, err := json.Marshal(summary)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(summaryJson)
+	w.Write(summaryJSON)
 }
 
 //
 // EMAIL ROUTE
 //
 
-func emailHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func emailHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	if r.Method == "GET" {
-		emailFetchHandler(w, r, userId)
+		emailFetchHandler(w, r, userID)
 	} else if r.Method == "PUT" {
-		emailBoxHandler(w, r, userId)
+		emailBoxHandler(w, r, userID)
 	} else if r.Method == "POST" {
-		emailSendHandler(w, r, userId)
+		emailSendHandler(w, r, userID)
 	}
 }
 
 // GET /email/ fetches an email & all messages
 //  in the given box for the given threadID
-func emailFetchHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	threadID := validateMessageID(r.FormValue("threadId"))
+func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+	threadID := validateMessageID(r.FormValue("threadID"))
 	// We may need this in the future:
 	_ = validateBox(r.FormValue("box"))
 
-	threadEmails := LoadThreadFromBoxes(userId.EmailAddress, threadID)
+	threadEmails := LoadThreadFromBoxes(userID.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
 		http.Error(w, "Not found or unauthorized", http.StatusUnauthorized)
 		return
 	}
-	resJson, err := json.Marshal(threadEmails)
+	resJSON, err := json.Marshal(threadEmails)
 	if err != nil {
 		panic(err)
 	}
-	w.Write(resJson)
+	w.Write(resJSON)
 }
 
 // PUT /email/id can change things about an email, eg what box it's in
-func emailBoxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func emailBoxHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	id := validateMessageID(r.URL.Path[len("/email/"):])
 	newBox := validateBox(r.FormValue("box"))
 	moveThread := (r.FormValue("moveThread") == "true")
@@ -563,28 +561,28 @@ func emailBoxHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	// For now just delete emails instead of moving to "trash".
 	if newBox == "trash" {
 		if moveThread {
-			DeleteThreadFromBoxes(userId.EmailAddress, id)
+			DeleteThreadFromBoxes(userID.EmailAddress, id)
 		} else {
-			DeleteFromBoxes(userId.EmailAddress, id)
+			DeleteFromBoxes(userID.EmailAddress, id)
 		}
 	} else {
 		if moveThread {
-			MoveThread(userId.EmailAddress, id, newBox)
+			MoveThread(userID.EmailAddress, id, newBox)
 		} else {
-			MoveEmail(userId.EmailAddress, id, newBox)
+			MoveEmail(userID.EmailAddress, id, newBox)
 		}
 	}
 }
 
 // POST /email/ creates a new email from auth user
-func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
+func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	email := new(Email)
-	email.MessageID = validateMessageID(r.FormValue("msgId"))
-	email.ThreadID = validateMessageID(r.FormValue("threadId"))
-	email.AncestorIDs = ParseAngledEmailAddresses(r.FormValue("ancestorIds"), " ").
+	email.MessageID = validateMessageID(r.FormValue("msgID"))
+	email.ThreadID = validateMessageID(r.FormValue("threadID"))
+	email.AncestorIDs = ParseAngledEmailAddresses(r.FormValue("ancestorIDs"), " ").
 		AngledStringCappedToBytes(" ", GetConfig().AncestorIDsMaxBytes)
 	email.UnixTime = time.Now().Unix()
-	email.From = userId.EmailAddress
+	email.From = userID.EmailAddress
 	email.To = r.FormValue("to")
 
 	// for each address, lookup MX record & determine what to do.
@@ -602,14 +600,14 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	outgoingEmail := new(OutgoingEmail)
 	if r.FormValue("cipherBody") == "" { // unencrypted
 		// Gather local recipients
-		localRecipients := EmailAddresses{ParseEmailAddress(userId.EmailAddress)}
+		localRecipients := EmailAddresses{ParseEmailAddress(userID.EmailAddress)}
 		for mxHost, addrs := range mxHostAddrs {
-			if mxHost == GetConfig().SmtpMxHost {
+			if mxHost == GetConfig().SMTPMxHost {
 				localRecipients = addrs
 			}
 		}
 		localRecipients = localRecipients.Unique()
-		// Populate outgoingEmail 
+		// Populate outgoingEmail
 		email.CipherSubject = encryptForUsers(r.FormValue("subject"), localRecipients.Strings())
 		email.CipherBody = encryptForUsers(r.FormValue("body"), localRecipients.Strings())
 		outgoingEmail.Email = *email
@@ -624,20 +622,20 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	}
 
 	// TODO: consider if transactions are required.
-	// TODO: saveMessage may fail if messageId is not unique.
+	// TODO: saveMessage may fail if messageID is not unique.
 	SaveMessage(email)
 
 	// add message to sender's sent box
-	AddMessageToBox(email, userId.EmailAddress, "sent")
+	AddMessageToBox(email, userID.EmailAddress, "sent")
 
 	// TODO: separate goroutine?
 	// TODO: parallize mx lookup?
 
 	// Deliver mail locally
 	for mxHost, addrs := range mxHostAddrs {
-		// if mxHost is GetConfig().SmtpMxHost, assume that the lookup will return itself.
+		// if mxHost is GetConfig().SMTPMxHost, assume that the lookup will return itself.
 		// this saves us from having to set up test MX records for localhost testing.
-		if mxHost == GetConfig().SmtpMxHost {
+		if mxHost == GetConfig().SMTPMxHost {
 			// add to inbox locally
 			for _, addr := range addrs {
 				AddMessageToBox(email, addr.String(), "inbox")
@@ -664,7 +662,7 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 	header.Add("Auth-Status", "OK")
 	header.Add("Auth-Server", "127.0.0.1")
-	header.Add("Auth-Port", fmt.Sprintf("%d", GetConfig().SmtpPort))
+	header.Add("Auth-Port", fmt.Sprintf("%d", GetConfig().SMTPPort))
 	w.Write([]byte{})
 }
 
@@ -673,18 +671,18 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 //
 
 type NotaryInfoResponse struct {
-	MxHost   string `json:"mxHost"`
-	PubKey   string `json:"pubKey"`
+	MxHost   string            `json:"mxHost"`
+	PubKey   string            `json:"pubKey"`
 	Notaries map[string]string `json:"notaries"`
 }
 
 func notaryHandler(w http.ResponseWriter, r *http.Request) {
-	resJson, err := json.Marshal(struct {
+	resJSON, err := json.Marshal(struct {
 		MxHost   string            `json:"mxHost"`
 		PubKey   string            `json:"pubKey"`
 		Notaries map[string]string `json:"notaries"`
 	}{
-		GetConfig().SmtpMxHost,
+		GetConfig().SMTPMxHost,
 		GetNotaryInfo().PublicKeyArmor,
 		GetNotaries(),
 	},
@@ -694,7 +692,7 @@ func notaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// TODO: set cache
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(resJson)
+	w.Write(resJSON)
 }
 
 func publicKeySeedHandler(w http.ResponseWriter, r *http.Request) {
@@ -702,7 +700,7 @@ func publicKeySeedHandler(w http.ResponseWriter, r *http.Request) {
 	pubHash := validateHash(r.FormValue("pubHash"))
 	timestamp, err := strconv.ParseInt(r.FormValue("timestamp"), 10, 64)
 	if err != nil {
-		panic(errors.New("Invalid timestamp"))
+		panic(errors.New("invalid timestamp"))
 	}
 	signature := validateSignatureArmor(r.FormValue("signature"))
 
@@ -715,7 +713,7 @@ func publicKeySeedHandler(w http.ResponseWriter, r *http.Request) {
 
 	mxHostInfo := GetMxHostInfo(mxHost)
 	if mxHostInfo == nil || mxHostInfo.NotaryPublicKey == "" {
-		resp, err := http.Get("https://"+mxHost+"/publickeys/notary")
+		resp, err := http.Get("https://" + mxHost + "/publickeys/notary")
 		if err != nil {
 			log.Panicf("Cannot seed address %v,"+
 				" could not fetch mx host notary info", address.String())

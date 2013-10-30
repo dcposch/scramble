@@ -9,24 +9,28 @@ import (
 	"strings"
 )
 
+// All configuration for a Scramble server+notary.
+// The config object is read from ~/.scramble/config.json
 type Config struct {
 	DbServer   string
 	DbUser     string
 	DbPassword string
 	DbCatalog  string
 
-	SmtpMxHost string
-	SmtpPort   int // internal, nginx handles TLS and forwards
+	SMTPMxHost string
+	SMTPPort   int // internal, nginx handles TLS and forwards
 
-	HttpPort   int // internal, nginx handles SSL and forwards
+	HTTPPort int // internal, nginx handles SSL and forwards
 
-	Notaries   map[string]string // for seeding new accounts, and clients to query
+	Notaries map[string]string // for seeding new accounts, and clients to query
 
 	ReservedNames []string // reserved usernames
 
 	AncestorIDsMaxBytes int // should match the VARCHAR() limit of email > ancestor_ids
 }
 
+// Gets the cotents of the Scramble config file, ~/.scramble/config.json
+// The file is read only once at startup.
 func GetConfig() *Config {
 	return &config
 }
@@ -56,8 +60,7 @@ var config = Config{
 	"local.scramble.io",
 	8825,
 	8888,
-	map[string]string{
-	},
+	map[string]string{},
 	[]string{"admin", "administrator", "root", "support", "help", "spam",
 		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 		"mailer", "daemon", "postmaster"},
@@ -96,6 +99,8 @@ func writeDefaultConfig(configFile string) {
 	}
 }
 
+// Checks whether a given name (such as "admin" or "root")
+// is reserved, to prevent outside users from registering those user names
 func (cfg *Config) IsReservedName(name string) bool {
 	for _, n := range cfg.ReservedNames {
 		if strings.ToLower(n) == strings.ToLower(name) {

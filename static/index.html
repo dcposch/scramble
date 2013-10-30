@@ -100,7 +100,7 @@
 {{> box-pagination}}
 <ul class="box-items">
     {{#each emailHeaders}}
-        {{!-- data-msg-id becomes .data("msgId") --}}
+        {{!-- data-msg-id becomes .data("msgID") --}}
         <li class="box-item"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
@@ -137,7 +137,7 @@
 
 <!-- THREAD (MANY EMAILS) -->
 <script id="thread-template" type="text/x-handlebars-template">
-<div id="thread" data-thread-id="{{threadId}}">
+<div id="thread" data-thread-id="{{threadID}}">
     <div id="thread-subject">
         <h2>{{subject}}</h2>
         <div class="threadControl controlButtons">
@@ -166,7 +166,7 @@
     For example, the buttons (ie replyButton, forwardButton) work
      by finding the context email data by .closest(".email").data("email").
 --}}
-<div class="email" data-msg-id="{{msgId}}">
+<div class="email" data-msg-id="{{msgID}}">
     <div class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</div>
     <div class="from">
     {{> email-address-partial fromAddress}}
@@ -212,8 +212,8 @@
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
 <div class="compose {{#if inline}}inline{{/if}}">
-    <input type="hidden" name="ancestorIds" value="{{ancestorIds}}"/>
-    <input type="hidden" name="threadId" value="{{threadId}}"/>
+    <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
+    <input type="hidden" name="threadID" value="{{threadID}}"/>
     {{#if inline}}
     <input type="hidden" name="subject" value="{{subject}}"/>
     {{else}}

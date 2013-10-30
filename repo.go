@@ -340,7 +340,7 @@ func LoadMessage(id string) Email {
 }
 
 // Load emails for a given thread in given boxes.
-func LoadThreadFromBoxes(address, threadId string) []Email {
+func LoadThreadFromBoxes(address, threadID string) []Email {
 
 	rows, err := db.Query("SELECT "+
 		"e.message_id, e.unix_time, e.from_email, e.to_email, "+
@@ -355,7 +355,7 @@ func LoadThreadFromBoxes(address, threadId string) []Email {
 		") AS m ON e.message_id = m.message_id "+
 		"ORDER BY e.unix_time ASC",
 		address,
-		threadId,
+		threadID,
 	)
 	if err != nil {
 		panic(err)
@@ -553,7 +553,6 @@ func DeleteThreadFromBoxes(address string, messageID string) {
 	// protected by foreign key constraints
 	db.Exec("DELETE FROM email WHERE message_id=?", messageID)
 }
-
 
 //
 // NOTARY

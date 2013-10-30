@@ -147,7 +147,7 @@ func migrateEmailRefactor() error {
 		}
 		emailKey := oldEmail.MessageID + " " + oldEmail.PubHashTo
 		if oldEmails[emailKey] != nil {
-			log.Fatal("Duplicate messageId+pubHashTo pair...")
+			log.Fatal("Duplicate messageID+pubHashTo pair...")
 		}
 		oldEmails[emailKey] = oldEmail
 	}
@@ -183,13 +183,13 @@ func migrateEmailRefactor() error {
 
 	// Reinsert everything from oldEmails
 	for _, oldEmail := range oldEmails {
-		newMessageId := oldEmail.PubHashTo + "_" + oldEmail.MessageID
+		newMessageID := oldEmail.PubHashTo + "_" + oldEmail.MessageID
 
 		// insert row into email
 		_, err := db.Exec(`INSERT INTO new_email
             (message_id, unix_time, from_email, to_email, cipher_subject, cipher_body)
             VALUES (?,?,?,?,?,?)`,
-			newMessageId,
+			newMessageID,
 			oldEmail.UnixTime,
 			oldEmail.From,
 			oldEmail.To,
@@ -201,14 +201,14 @@ func migrateEmailRefactor() error {
 		}
 
 		// insert row(s) into box
-		var sentToSelf bool = false
+		sentToSelf := false
 		addressTo := oldEmail.PubHashTo + "@scramble.io"
 		sentToSelf = (oldEmail.PubHashFrom == oldEmail.PubHashTo) &&
 			oldEmail.Box != "sent"
 		_, err = db.Exec(`INSERT INTO box
             (message_id, address, box, unix_time)
             VALUES (?,?,?,?)`,
-			newMessageId,
+			newMessageID,
 			addressTo,
 			oldEmail.Box,
 			oldEmail.UnixTime,
@@ -222,7 +222,7 @@ func migrateEmailRefactor() error {
 			_, err := db.Exec(`INSERT INTO box
 				(message_id, address, box, unix_time)
 				VALUES (?,?,?,?)`,
-				newMessageId,
+				newMessageID,
 				oldEmail.From,
 				"sent",
 				oldEmail.UnixTime,
@@ -261,7 +261,7 @@ func migrateAddUserEmailAddress() error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SmtpMxHost)
+	_, err = db.Exec(`UPDATE user SET email_host = ?`, GetConfig().SMTPMxHost)
 	return err
 }
 
@@ -369,7 +369,7 @@ func migrateEmailThreading() error {
 	}
 	_, err = db.Exec(`UPDATE email `+
 		`SET message_id = CONCAT(message_id, "@", ?)`,
-		GetConfig().SmtpMxHost)
+		GetConfig().SMTPMxHost)
 	if err != nil {
 		return err
 	}
@@ -385,7 +385,7 @@ func migrateEmailThreading() error {
 	}
 	_, err = db.Exec(`UPDATE box `+
 		`SET message_id = CONCAT(message_id, "@", ?)`,
-		GetConfig().SmtpMxHost)
+		GetConfig().SMTPMxHost)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,6 @@ func migrateAddNotaryKey() error {
 	_, err := db.Exec(`ALTER TABLE mx_hosts ADD COLUMN notary_public_key TEXT`)
 	return err
 }
-
 
 func migrateAddNameResolutionTimestamp() error {
 	_, err := db.Exec(`ALTER TABLE name_resolution ADD COLUMN unix_time BIGINT NOT NULL`)

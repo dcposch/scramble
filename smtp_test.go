@@ -19,15 +19,17 @@ func TestSendEmail(t *testing.T) {
 		return
 	}
 
-	email := &Email{
-		EmailHeader: EmailHeader{
-			MessageID:     "someid",
-			UnixTime:      time.Now().Unix(),
-			From:          "from@localhost.com",
-			To:            "to1@" + *testServer + ",to2@" + *testServer,
-			CipherSubject: "<cipher subject>",
+	email := &OutgoingEmail{
+		Email: Email{
+			EmailHeader: EmailHeader{
+				MessageID:     "someid",
+				UnixTime:      time.Now().Unix(),
+				From:          "from@localhost.com",
+				To:            "to1@" + *testServer + ",to2@" + *testServer,
+				CipherSubject: "<cipher subject>",
+			},
+			CipherBody: "<cipher body>",
 		},
-		CipherBody: "<cipher body>",
 	}
 
 	addrs := ParseEmailAddresses(email.To).FilterByHost(*testServer)

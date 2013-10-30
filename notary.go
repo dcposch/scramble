@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var regexKeyFile *regexp.Regexp = regexp.MustCompile(`(?s)(-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----)
+var regexKeyFile = regexp.MustCompile(`(?s)(-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----)
 (-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----)`)
 
 type NotaryInfo struct {
@@ -26,6 +26,7 @@ type NotaryInfo struct {
 
 // Info about this notary
 var notaryInfo *NotaryInfo
+
 // The notaries that clients will query,
 // and the notaries that this server will seed new accounts with.
 // {<NotaryMxHost>: <NotaryPublicKeyArmored>}
@@ -52,8 +53,8 @@ func loadThisNotaryInfo() {
 		log.Printf("Creating new keyfiles for notary at %s\n", keyFile)
 		entity, _ := openpgp.NewEntity(
 			"Notary",
-			"Notary for "+GetConfig().SmtpMxHost+" Scramble Server",
-			"support@"+GetConfig().SmtpMxHost,
+			"Notary for "+GetConfig().SMTPMxHost+" Scramble Server",
+			"support@"+GetConfig().SMTPMxHost,
 			nil)
 		privKeyArmor, pubKeyArmor, err = SerializeKeys(entity)
 		err = ioutil.WriteFile(keyFile, []byte(privKeyArmor+"\n"+pubKeyArmor), 0600)
@@ -77,7 +78,7 @@ func loadThisNotaryInfo() {
 		notaryInfo = &NotaryInfo{entity, pubKeyArmor, hash}
 	}
 
-	log.Printf("Notary for this host loaded: %v@%v", GetNotaryInfo().Hash, GetConfig().SmtpMxHost)
+	log.Printf("Notary for this host loaded: %v@%v", GetNotaryInfo().Hash, GetConfig().SMTPMxHost)
 }
 
 func loadNotaries() {
@@ -121,7 +122,7 @@ func ResolveName(name, host string) string {
 		if err != nil {
 			return "" // whatever, we were going to return "" anyways
 		}
-		if mxHost == GetConfig().SmtpMxHost {
+		if mxHost == GetConfig().SMTPMxHost {
 			log.Printf("Well, that's unexpected. Why didn't GetNameResolution pick up the hash for %v?\n"+
 				"Using user table instead. But really, this should be in the name_resolution table.", addr)
 			return LoadPubHash(name, host)
@@ -143,15 +144,15 @@ func SignNotaryResponse(name, host, pubHash string, timestamp int64) string {
 // New accounts need to get their token & pubHash seeded.
 func SeedUserToNotaries(user *User) {
 
-	name    := user.Token
-	host    := user.EmailHost
+	name := user.Token
+	host := user.EmailHost
 	address := user.EmailAddress
 	pubHash := user.PublicHash
 	timestamp := time.Now().Unix()
 	signature := SignNotaryResponse(name, host, pubHash, timestamp)
 
-	for notary, _:= range notaries {
-		if notary == GetConfig().SmtpMxHost {
+	for notary := range notaries {
+		if notary == GetConfig().SMTPMxHost {
 			continue
 		}
 		go func(notary string) {

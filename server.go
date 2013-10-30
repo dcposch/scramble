@@ -31,7 +31,7 @@ func main() {
 	StartSMTPSaver()
 
 	// Serve HTTP on localhost only. Let Nginx terminate HTTPS for us.
-	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HttpPort)
+	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HTTPPort)
 	log.Printf("Listening on http://%s\n", address)
 	log.Fatal(http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux)))
 }
@@ -42,13 +42,13 @@ func main() {
 // or calls the inner function passing in a valid logged-in username.
 func auth(handler func(http.ResponseWriter, *http.Request, *UserID)) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userId, err := authenticate(r)
+		userID, err := authenticate(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		handler(w, r, userId)
+		handler(w, r, userID)
 	})
 }
 

@@ -38,7 +38,7 @@ func saveEmails() {
 	}
 }
 
-func saveEmail(msg *SmtpMessage) bool {
+func saveEmail(msg *SMTPMessage) bool {
 	err := deliverMailLocally(msg)
 	if err != nil {
 		log.Printf("Can't save email, DB error: %v\n", err)
@@ -47,7 +47,7 @@ func saveEmail(msg *SmtpMessage) bool {
 	return true
 }
 
-func deliverMailLocally(msg *SmtpMessage) error {
+func deliverMailLocally(msg *SMTPMessage) error {
 
 	var cipherSubject, cipherBody string
 	cipherPackets := regexSMTPTemplatep.FindAllString(msg.data.textBody, -1)
@@ -70,10 +70,10 @@ func deliverMailLocally(msg *SmtpMessage) error {
 	email.CipherBody = cipherBody
 	email.ThreadID = msg.data.threadID.String()
 	email.AncestorIDs = msg.data.ancestorIDs.AngledStringCappedToBytes(
-        " ", GetConfig().AncestorIDsMaxBytes)
+		" ", GetConfig().AncestorIDsMaxBytes)
 
 	// TODO: consider if transactions are required.
-	// TODO: saveMessage may fail if messageId is not unique.
+	// TODO: saveMessage may fail if messageID is not unique.
 	SaveMessage(email)
 	log.Printf("Saved new email %s from %s to %s\n",
 		email.MessageID, email.From, email.To)

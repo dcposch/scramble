@@ -10,6 +10,10 @@ test:
 	go test
 	cat static/js/stubs.js static/js/sugar.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
 
+lint:
+	go get github.com/golang/lint/golint
+	../../bin/golint *.go
+
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)
 doc: $(HTML) static/doc/index.html

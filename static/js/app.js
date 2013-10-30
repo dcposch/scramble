@@ -539,8 +539,8 @@ function bindEmailEvents() {
      which has the relevant .data() attributes.
 
     emailHeader => {
-        msgId (id of the selected email)
-        threadId (thread id of the selected email)
+        msgID (id of the selected email)
+        threadID (thread id of the selected email)
         box (location of the selected email: 'inbox', 'sent', etc)
     }
 */
@@ -551,8 +551,8 @@ function displayEmail(emailHeader){
             return;
         }
         emailHeader = {
-            msgId:     emailHeader.data("msgId"),
-            threadId:  emailHeader.data("threadId"),
+            msgID:     emailHeader.data("msgId"),
+            threadID:  emailHeader.data("threadId"),
             box:       emailHeader.data("box"),
             subject:   emailHeader.text(),
         };
@@ -560,20 +560,20 @@ function displayEmail(emailHeader){
         return;
     }
 
-    var msgId    = emailHeader.msgId;
-    var threadId = emailHeader.threadId;
+    var msgID    = emailHeader.msgID;
+    var threadID = emailHeader.threadID;
     var box      = emailHeader.box;
     var subject  = emailHeader.subject;
 
     $("#content").empty();
     $("li.box-item.current").removeClass("current");
-    $("li.box-item[data-thread-id='"+threadId+"']").addClass("current");
+    $("li.box-item[data-thread-id='"+threadID+"']").addClass("current");
 
     getPrivateKey(function(privateKey) {
 
         var params = {
-            msgId:    msgId,
-            threadId: threadId,
+            msgID:    msgID,
+            threadID: threadID,
             box:      box,
         };
 
@@ -625,9 +625,9 @@ function createEmailViewModel(data, box, threadSubject) {
 
     // The model for rendering the email template
     return {
-        msgId:       data.MessageID,
-        ancestorIds: data.AncestorIDs,
-        threadId:    data.ThreadID,
+        msgID:       data.MessageID,
+        ancestorIDs: data.AncestorIDs,
+        threadID:    data.ThreadID,
         time:        new Date(data.UnixTime*1000),
         unixTime:    data.UnixTime,
         from:        data.From,
@@ -642,7 +642,7 @@ function createEmailViewModel(data, box, threadSubject) {
 
 function showEmailThread(emails){
     var thread = {
-        threadId:    emails[emails.length-1].threadId,
+        threadID:    emails[emails.length-1].threadID,
         subject:     emails[emails.length-1].subject || "(No subject)",
         box:         emails[emails.length-1].box,
     };
@@ -712,7 +712,7 @@ function emailMove(email, box, moveThread){
         moveThread: (moveThread || false)
     };
     $.ajax({
-        url: '/email/'+email.msgId,
+        url: '/email/'+email.msgID,
         type: 'PUT',
         data: params,
     }).done(function(){
@@ -728,10 +728,10 @@ function emailMove(email, box, moveThread){
     })
 }
 
-function getEmailElement(msgId) {
-    var elEmail = $(".email[data-msg-id='"+msgId+"']");
+function getEmailElement(msgID) {
+    var elEmail = $(".email[data-msg-id='"+msgID+"']");
     if (elEmail.length != 1) {
-        console.log("Failed to find exactly 1 email element with msgId:"+msgId);
+        console.log("Failed to find exactly 1 email element with msgID:"+msgID);
         return;
     }
     return elEmail;
@@ -740,7 +740,7 @@ function getEmailElement(msgId) {
 // Remove the email from the thread.
 // If thread is empty, show the next thread.
 function removeEmailFromThread(email) {
-    var elEmail = getEmailElement(email.msgId);
+    var elEmail = getEmailElement(email.msgID);
     var elThread = elEmail.closest("#thread");
     elEmail.remove();
     // If this thread has no emails left, then show the next thread.
@@ -765,22 +765,22 @@ function showNextThread() {
 //
 
 // cb: function(emailData), emailData has plaintext components including
-//  msgId, threadId, ancestorIds, subject, to, body...
+//  msgID, threadID, ancestorIDs, subject, to, body...
 function bindComposeEvents(elCompose, cb) {
     elCompose.find(".sendButton").click(function(){
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
-        var msgId = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
-        var threadId    = elCompose.find("[name='threadId']").val() || msgId;
-        var ancestorIds = elCompose.find("[name='ancestorIds']").val() || "";
+        var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
+        var threadID    = elCompose.find("[name='threadID']").val() || msgID;
+        var ancestorIDs = elCompose.find("[name='ancestorIDs']").val() || "";
         var subject     = elCompose.find("[name='subject']").val();
         var to          = elCompose.find("[name='to']").val();
         var body        = elCompose.find("[name='body']").val();
-        sendEmail(msgId, threadId, ancestorIds, to, subject, body, function(){
+        sendEmail(msgID, threadID, ancestorIDs, to, subject, body, function(){
             cb({
-                msgId:       msgId,
-                threadId:    threadId,
-                ancestorIds: ancestorIds,
+                msgID:       msgID,
+                threadID:    threadID,
+                ancestorIDs: ancestorIDs,
                 subject:     subject,
                 to:          to,
                 body:        body,
@@ -807,14 +807,14 @@ function displayCompose(to, subject, body){
 }
 
 function displayComposeInline(email, to, subject, body) {
-    var elEmail = getEmailElement(email.msgId);
-    var newAncestorIds = email.ancestorIds ?
-        email.ancestorIds+" <"+email.msgId+">" :
-        "<"+email.msgId+">";
+    var elEmail = getEmailElement(email.msgID);
+    var newAncestorIDs = email.ancestorIDs ?
+        email.ancestorIDs+" <"+email.msgID+">" :
+        "<"+email.msgID+">";
     var elCompose = $(render("compose-template", {
         inline:      true,
-        threadId:    email.threadId,
-        ancestorIds: newAncestorIds,
+        threadID:    email.threadID,
+        ancestorIDs: newAncestorIDs,
         to:          to,
         subject:     subject,
         body:        body || DEFAULT_SIGNATURE,
@@ -828,7 +828,7 @@ function displayComposeInline(email, to, subject, body) {
 
 }
 
-function sendEmail(msgId, threadId, ancestorIds, to, subject, body, cb){
+function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb){
     // validate email addresses
     var toAddresses = to.split(",").map(trimToLower)
     if (toAddresses.length == 0) {
@@ -891,10 +891,10 @@ function sendEmail(msgId, threadId, ancestorIds, to, subject, body, cb){
         if(missingKeys.length > 0){
             if(confirm("Could not find public keys for: "+missingKeys.join(", ")
                 +" \nSend unencrypted to all recipients?")){
-                sendEmailUnencrypted(msgId, threadId, ancestorIds, toAddresses.join(","), subject, body, cb);
+                sendEmailUnencrypted(msgID, threadID, ancestorIDs, toAddresses.join(","), subject, body, cb);
             }
         } else {
-            sendEmailEncrypted(msgId, threadId, ancestorIds, pubKeys, subject, body, cb);
+            sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
         }
     })
 
@@ -1061,7 +1061,7 @@ function lookupPublicKeys(addresses, cb) {
 }
 
 // addrPubKeys: {toAddress: <pubKey>}
-function sendEmailEncrypted(msgId, threadId, ancestorIds, addrPubKeys, subject, body, cb) {
+function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, body, cb) {
     // Get the private key so we can sign the encrypted message
     getPrivateKey(function(privateKey) {
         // Get the public key so we can also read it in the sent box
@@ -1079,9 +1079,9 @@ function sendEmailEncrypted(msgId, threadId, ancestorIds, addrPubKeys, subject, 
 
             // send our message
             var data = {
-                msgId:         msgId,
-                threadId:      threadId,
-                ancestorIds:   ancestorIds,
+                msgID:         msgID,
+                threadID:      threadID,
+                ancestorIDs:   ancestorIDs,
                 to:            Object.keys(addrPubKeys).join(","),
                 cipherSubject: cipherSubject,
                 cipherBody:    cipherBody
@@ -1091,12 +1091,12 @@ function sendEmailEncrypted(msgId, threadId, ancestorIds, addrPubKeys, subject, 
     })
 }
 
-function sendEmailUnencrypted(msgId, threadId, ancestorIds, to, subject, body, cb) {
+function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb) {
     // send our message
     var data = {
-        msgId:         msgId,
-        threadId:      threadId,
-        ancestorIds:   ancestorIds,
+        msgID:         msgID,
+        threadID:      threadID,
+        ancestorIDs:   ancestorIDs,
         to:            to,
         subject:       subject,
         body:          body
@@ -1832,7 +1832,7 @@ function showMessages(msg) {
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
 var templates = null
-function render(templateId, data) {
+function render(templateID, data) {
     if(!templates){
         templates = {}
         $("script").each(function(){
@@ -1847,7 +1847,7 @@ function render(templateId, data) {
         });
     }
 
-    return templates[templateId](data)
+    return templates[templateID](data)
 }
 
 // Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"

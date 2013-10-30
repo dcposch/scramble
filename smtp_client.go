@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -15,7 +14,7 @@ var mxHost string
 
 func init() {
 	mxCache = make(map[string]string)
-	mxHost = GetConfig().SmtpMxHost
+	mxHost = GetConfig().SMTPMxHost
 }
 
 // Looks up the SMTP server for an email host
@@ -56,16 +55,16 @@ func smtpSend(msg *OutgoingEmail) error {
 	mxHostAddrs, failedAddrs := GroupAddrsByMxHost(msg.To)
 	if len(failedAddrs) != 0 {
 		// This should never happen.
-		panic("Could not resolve some mx records in smtpSend: "+failedAddrs.String())
+		panic("Could not resolve some mx records in smtpSend: " + failedAddrs.String())
 	}
 	// TODO: parallel send?
 	for mxHost, addrs := range mxHostAddrs {
-		if mxHost == GetConfig().SmtpMxHost {
+		if mxHost == GetConfig().SMTPMxHost {
 			continue // don't send to self, local deliveries use different logic.
 		}
 		err := smtpSendTo(msg, mxHost, addrs)
 		if err != nil {
-			err := errors.New(fmt.Sprintf("SMTP sending failed to mxHost %v for addrs %v\n", mxHost, addrs))
+			err := fmt.Errorf("SMTP sending failed to mxHost %v for addrs %v\n", mxHost, addrs)
 			return err
 		}
 	}

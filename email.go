@@ -16,17 +16,16 @@ func (addr *EmailAddress) String() string {
 
 // Return this address but with everything after '#' stripped from Name.
 func (addr *EmailAddress) StringNoHash() string {
-	if hashIdx := strings.Index(addr.Name, "#"); hashIdx != -1 {
-		return addr.Name[:hashIdx] + "@" + addr.Host
-	} else {
-		return addr.Name + "@" + addr.Host
+	if hashIndex := strings.Index(addr.Name, "#"); hashIndex != -1 {
+		return addr.Name[:hashIndex] + "@" + addr.Host
 	}
+	return addr.Name + "@" + addr.Host
 }
 
 // Splits the Name into what precedes the first '#' and what follows
 func (addr *EmailAddress) NameAndHash() (string, string) {
-	if hashIdx := strings.Index(addr.Name, "#"); hashIdx != -1 {
-		return addr.Name[:hashIdx], addr.Name[hashIdx+1:]
+	if hashIndex := strings.Index(addr.Name, "#"); hashIndex != -1 {
+		return addr.Name[:hashIndex], addr.Name[hashIndex+1:]
 	}
 	return addr.Name, ""
 }
@@ -109,7 +108,7 @@ func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, EmailAddres
 		var mxHost string
 		// Skip lookup for self
 		// This helps with localhost testing
-		if host == GetConfig().SmtpMxHost {
+		if host == GetConfig().SMTPMxHost {
 			mxHostAddrs[host] = append(mxHostAddrs[host], addrs...)
 			continue
 		}
@@ -188,7 +187,7 @@ func (addrs EmailAddresses) Unique() EmailAddresses {
 		unique[addr] = struct{}{}
 	}
 	uniqued := EmailAddresses{}
-	for addr, _ := range unique {
+	for addr := range unique {
 		uniqued = append(uniqued, addr)
 	}
 	return uniqued

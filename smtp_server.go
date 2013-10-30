@@ -44,32 +44,32 @@ import (
 	"time"
 )
 
-// Public interface: a stream of SmtpMessages
+// Public interface: a stream of SMTPMessages
 
-type SmtpMessage struct {
+type SMTPMessage struct {
 	time     int64
 	mailFrom string
 	rcptTo   []string
 
-	data SmtpMessageData
+	data SMTPMessageData
 
 	saveSuccess chan bool
 }
 
-type SmtpMessageData struct {
+type SMTPMessageData struct {
 	messageID   EmailAddress
-    threadID    EmailAddress
-    ancestorIDs EmailAddresses
+	threadID    EmailAddress
+	ancestorIDs EmailAddresses
 
-	from      *mail.Address
-	toList    []*mail.Address
-	ccList    []*mail.Address
-	subject   string
-	body      string
-	textBody  string
+	from     *mail.Address
+	toList   []*mail.Address
+	ccList   []*mail.Address
+	subject  string
+	body     string
+	textBody string
 }
 
-var SaveMailChan chan *SmtpMessage
+var SaveMailChan chan *SMTPMessage
 
 // Private implementation
 
@@ -78,7 +78,7 @@ var mimeHeaderRegex = regexp.MustCompile(`=\?(.+?)\?([QBqp])\?(.+?)\?=`)
 var charsetIllegalCharRegex = regexp.MustCompile(`[_:.\/\\]`)
 
 type client struct {
-	clientId int64
+	clientID int64
 	state    int
 	helo     string
 	response string
@@ -105,9 +105,9 @@ var sem chan int
 
 func configure() {
 	// MX server name
-	serverName = GetConfig().SmtpMxHost
+	serverName = GetConfig().SMTPMxHost
 	// SMTP port that nginx forwards to
-	listenAddress = fmt.Sprintf("127.0.0.1:%d", GetConfig().SmtpPort)
+	listenAddress = fmt.Sprintf("127.0.0.1:%d", GetConfig().SMTPPort)
 	// max email size
 	maxSize = 131072
 	// timeout for reads
@@ -115,7 +115,7 @@ func configure() {
 	// currently active client list, 500 is maxClients
 	sem = make(chan int, 500)
 	// database writing workers
-	SaveMailChan = make(chan *SmtpMessage, 5)
+	SaveMailChan = make(chan *SMTPMessage, 5)
 }
 
 func StartSMTPServer() {
@@ -133,8 +133,8 @@ func StartSMTPServer() {
 }
 
 func handleClients(listener net.Listener) {
-	var clientId int64
-	for clientId = 1; ; clientId++ {
+	var clientID int64
+	for clientID = 1; ; clientID++ {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("Accept error: %s\n", err)
@@ -147,17 +147,17 @@ func handleClients(listener net.Listener) {
 			time:       time.Now().Unix(),
 			bufin:      bufio.NewReader(conn),
 			bufout:     bufio.NewWriter(conn),
-			clientId:   clientId,
+			clientID:   clientID,
 		})
 	}
 }
 
 func handleClient(client *client) {
 	defer closeClient(client)
-	// TODO: is it safe to show the clientId counter & sem?
+	// TODO: is it safe to show the clientID counter & sem?
 	//  it is nice debug info
 	greeting := "220 " + serverName +
-		" SMTP Scramble-SMTPd #" + strconv.FormatInt(client.clientId, 10) +
+		" SMTP Scramble-SMTPd #" + strconv.FormatInt(client.clientID, 10) +
 		" (" + strconv.Itoa(len(sem)) + ") " + time.Now().Format(time.RFC1123Z)
 	advertiseTls := "250-STARTTLS\r\n"
 	for i := 0; i < 100; i++ {
@@ -166,7 +166,7 @@ func handleClient(client *client) {
 			responseAdd(client, greeting)
 			client.state = 1
 		case 1: // READ COMMAND
-			input, err := readSmtp(client)
+			input, err := readSMTP(client)
 			if err != nil {
 				log.Printf("Read error: %v\n", err)
 				if err == io.EOF {
@@ -246,13 +246,13 @@ func handleClient(client *client) {
 			}
 		case 2: // READ DATA
 			var err error
-			client.data, err = readSmtp(client)
+			client.data, err = readSMTP(client)
 			if err == nil {
 				// DEBUG ONLY: log the full message so that we can diagnose SMTP problems
 				log.Printf("YOU'VE GOT MAIL\n%s\n", client.data)
 
 				// place on the channel so that one of the save mail workers can pick it up
-				smtpMessage, err := createSmtpMessage(client)
+				smtpMessage, err := createSMTPMessage(client)
 
 				var success bool
 				if err == nil {
@@ -293,20 +293,20 @@ func handleClient(client *client) {
 
 }
 
-func createSmtpMessage(client *client) (*SmtpMessage, error) {
+func createSMTPMessage(client *client) (*SMTPMessage, error) {
 	// check mailFrom and rcptTo, etc.
 	if err := validateEmailData(client); err != nil {
 		return nil, err
 	}
 
 	// parse the smtp body (which contains from, to, subject, body)
-	smtpData, err := parseSmtpData(client.data)
+	smtpData, err := parseSMTPData(client.data)
 	if err != nil {
 		return nil, err
 	}
 
 	// return a fully parsed, received email
-	return &SmtpMessage{
+	return &SMTPMessage{
 		time:     client.time,
 		mailFrom: client.mailFrom,
 		rcptTo:   client.rcptTo,
@@ -317,7 +317,7 @@ func createSmtpMessage(client *client) (*SmtpMessage, error) {
 	}, nil
 }
 
-func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
+func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 	// parse the mail data to get the headers & body
 	parsed, err := mail.ReadMessage(strings.NewReader(smtpData))
 	if err != nil {
@@ -331,7 +331,7 @@ func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
 		// generate a message id
 		bytes := &[20]byte{}
 		rand.Read(bytes[:])
-		messageID = EmailAddress{hex.EncodeToString(bytes[:]), GetConfig().SmtpMxHost}
+		messageID = EmailAddress{hex.EncodeToString(bytes[:]), GetConfig().SMTPMxHost}
 	}
 
 	// [<thread_id>?,...,<grandparent_message_id>,<parent_message_id>]
@@ -346,10 +346,10 @@ func parseSmtpData(smtpData string) (*SmtpMessageData, error) {
 		threadID = computeThreadID(messageID, ancestorIDs)
 	}
 
-	data := new(SmtpMessageData)
+	data := new(SMTPMessageData)
 	data.messageID = messageID
-    data.threadID = threadID
-    data.ancestorIDs = ancestorIDs
+	data.threadID = threadID
+	data.ancestorIDs = ancestorIDs
 
 	// parse from, to and cc
 	data.from, err = mail.ParseAddress(parsed.Header.Get("From"))
@@ -421,10 +421,9 @@ func readPlainText(reader io.Reader, multiBoundary string) (string, error) {
 			textBodyBytes, err := ioutil.ReadAll(part)
 			if err != nil {
 				return "", err
-			} else {
-				textBody := string(textBodyBytes)
-				plainTexts = append(plainTexts, textBody)
 			}
+			textBody := string(textBodyBytes)
+			plainTexts = append(plainTexts, textBody)
 		} else if strings.HasPrefix(partMediaType, "multipart/") {
 			subBoundary := params["boundary"]
 			subPartText, err := readPlainText(part, subBoundary)
@@ -449,7 +448,7 @@ func killClient(client *client) {
 	client.killTime = time.Now().Unix()
 }
 
-func readSmtp(client *client) (input string, err error) {
+func readSMTP(client *client) (input string, err error) {
 	var reply string
 	// Command state terminator by default
 	suffix := "\r\n"
@@ -510,10 +509,10 @@ func responseWrite(client *client) (err error) {
 
 func validateEmailData(client *client) error {
 	if client.mailFrom == "" {
-		return errors.New("Missing MAIL FROM")
+		return errors.New("missing MAIL FROM")
 	}
 	if len(client.rcptTo) == 0 {
-		return errors.New("Missing RCPT TO")
+		return errors.New("missing RCPT TO")
 	}
 	for _, addr := range client.rcptTo {
 		// TODO check the hosts of the rcptTo addresses.
@@ -565,16 +564,16 @@ func mimeHeaderDecode(str string) string {
 }
 
 // decode from 7bit to 8bit UTF-8
-// encoding_type can be "base64" or "quoted-printable"
-func mailTransportDecode(str string, encoding_type string, charset string) string {
+// encodingType can be "base64" or "quoted-printable"
+func mailTransportDecode(str string, encodingType string, charset string) string {
 	if charset == "" {
 		charset = "UTF-8"
 	} else {
 		charset = strings.ToUpper(charset)
 	}
-	if encoding_type == "base64" {
+	if encodingType == "base64" {
 		str = fromBase64(str)
-	} else if encoding_type == "quoted-printable" {
+	} else if encodingType == "quoted-printable" {
 		str = fromQuotedP(str)
 	}
 	if charset != "UTF-8" {
@@ -611,23 +610,23 @@ func compress(s string) string {
 }
 
 func fixCharset(charset string) string {
-	fixed_charset := charsetIllegalCharRegex.ReplaceAllString(charset, "-")
+	fixedCharset := charsetIllegalCharRegex.ReplaceAllString(charset, "-")
 	// Fix charset
 	// borrowed from http://squirrelmail.svn.sourceforge.net/viewvc/squirrelmail/trunk/squirrelmail/include/languages.php?revision=13765&view=markup
 	// OE ks_c_5601_1987 > cp949
-	fixed_charset = strings.Replace(fixed_charset, "ks-c-5601-1987", "cp949", -1)
+	fixedCharset = strings.Replace(fixedCharset, "ks-c-5601-1987", "cp949", -1)
 	// Moz x-euc-tw > euc-tw
-	fixed_charset = strings.Replace(fixed_charset, "x-euc", "euc", -1)
+	fixedCharset = strings.Replace(fixedCharset, "x-euc", "euc", -1)
 	// Moz x-windows-949 > cp949
-	fixed_charset = strings.Replace(fixed_charset, "x-windows_", "cp", -1)
+	fixedCharset = strings.Replace(fixedCharset, "x-windows_", "cp", -1)
 	// windows-125x and cp125x charsets
-	fixed_charset = strings.Replace(fixed_charset, "windows-", "cp", -1)
+	fixedCharset = strings.Replace(fixedCharset, "windows-", "cp", -1)
 	// ibm > cp
-	fixed_charset = strings.Replace(fixed_charset, "ibm", "cp", -1)
+	fixedCharset = strings.Replace(fixedCharset, "ibm", "cp", -1)
 	// iso-8859-8-i -> iso-8859-8
-	fixed_charset = strings.Replace(fixed_charset, "iso-8859-8-i", "iso-8859-8", -1)
-	if charset != fixed_charset {
-		return fixed_charset
+	fixedCharset = strings.Replace(fixedCharset, "iso-8859-8-i", "iso-8859-8", -1)
+	if charset != fixedCharset {
+		return fixedCharset
 	}
 	return charset
 }
