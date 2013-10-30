@@ -12,7 +12,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	//"crypto/tls"
+	"strings"
 )
 
 var regexKeyFile *regexp.Regexp = regexp.MustCompile(`(?s)(-----BEGIN PGP PRIVATE KEY BLOCK-----.*?-----END PGP PRIVATE KEY BLOCK-----)
@@ -24,15 +24,27 @@ type NotaryInfo struct {
 	Hash           string
 }
 
+// Info about this notary
 var notaryInfo *NotaryInfo
+// The notaries that clients will query,
+// and the notaries that this server will seed new accounts with.
+// {<NotaryMxHost>: <NotaryPublicKeyArmored>}
+var notaries = map[string]string{}
 
 func GetNotaryInfo() *NotaryInfo {
 	return notaryInfo
 }
 
-// Load notary keys upon init.
-func init() {
+func GetNotaries() map[string]string {
+	return notaries
+}
 
+func init() {
+	loadThisNotaryInfo()
+	loadNotaries()
+}
+
+func loadThisNotaryInfo() {
 	var privKeyArmor, pubKeyArmor string
 	keyFile := os.Getenv("HOME") + "/.scramble/notary_privkey"
 	keyBytes, err := ioutil.ReadFile(keyFile)
@@ -65,7 +77,26 @@ func init() {
 		notaryInfo = &NotaryInfo{entity, pubKeyArmor, hash}
 	}
 
-	log.Printf("Notary loaded: %v@%v", GetNotaryInfo().Hash, GetConfig().SmtpMxHost)
+	log.Printf("Notary for this host loaded: %v@%v", GetNotaryInfo().Hash, GetConfig().SmtpMxHost)
+}
+
+func loadNotaries() {
+	notaryFiles := GetConfig().Notaries
+	notaryHosts := []string{}
+	for notaryHost, filename := range notaryFiles {
+		pubKeyBytes, err := ioutil.ReadFile(filename)
+		if err != nil {
+			panic(err)
+		}
+		notaries[notaryHost] = string(pubKeyBytes)
+		notaryHosts = append(notaryHosts, notaryHost)
+	}
+
+	if len(notaries) == 0 {
+		log.Panic("No notaries loaded. Was 'Notaries' set in ~/.scramble/config.json?")
+	}
+
+	log.Printf("Notaries loaded: %v", strings.Join(notaryHosts, ","))
 }
 
 type NotarySignedResult struct {
@@ -145,8 +176,7 @@ func SignNotaryResponse(name, host, pubHash string, timestamp int64) string {
 
 // New accounts need to get their token & pubHash seeded.
 func SeedUserToNotaries(user *User) {
-	notaries := GetConfig().SeedNotaries
-	for _, notary := range notaries {
+	for notary, _:= range notaries {
 		if notary == GetConfig().SmtpMxHost {
 			continue
 		}

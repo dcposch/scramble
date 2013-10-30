@@ -1560,153 +1560,20 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
 }
 
 // Load list of notaries.
-// TODO Currently just hardcoded, will change in the future.
-// TODO Needs to be overridden for local testing.
-// TODO Load public keys by querying /notary/id & saving it maybe.
 // cb: function(notaries), notaries: {<host>:<publicKey>, ...}
 function loadNotaries(cb) {
-    
-    cb({
-        // Production notaries, commented out for local development.
-        "hashed.im":
-            openpgp.read_publicKey(
-                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
-                "\n"+
-                "xsBNBFJLk4EBCAC4nrwXquYcsFdixa/ibyqRMivsZiqurfAViNtPdVK+p10YAFkK\n"+
-                "GQIi+E4p05k1CyDbHFUChouB+cQk2fSteLbb3VBND91mwixxElcuMVHOhDtObYod\n"+
-                "ND++RgwZZJ+OWG9M0zKQxGWBSSiaH2PHfofEmg1rRD7cU+DJPLkuDbG7OMrS3ayW\n"+
-                "g4qgXGHfsypR/1R7cytta7l8lCRSJOJnE4MSzVqkg5LU/TbAlI6GFvz1j0MAuPp/\n"+
-                "wqnXaGJAOvCtcKSHbtTkhdWdg+/IQkkh1u3TOqIZ3zUg/MiCdg5inoFuW5UIJe2Z\n"+
-                "KvEPNLylVjRKxuOzw47IjwlHFIK/Rg1FVtOTABEBAAHNQU5vdGFyeSAoTm90YXJ5\n"+
-                "IGZvciBoYXNoZWQuaW0gU2NyYW1ibGUgU2VydmVyKSA8c3VwcG9ydEBoYXNoZWQu\n"+
-                "aW0+wsBiBBMBCAAWBQJSS5OBCRCgZUoGo32kEAIbAwIZAQAAOwoIACRIIXmK5C3n\n"+
-                "EdNsGZeIeIT9W/1ip68m4VciWfhzWSipRVtjKyTFDS0lFx9I5kpNNA57+8dIWwCh\n"+
-                "JaY2Tz4h4lAOEhbp1lLQB+SITqnQsfRBpxvtVCs5LeRZ/3BcCPAIlcVyqHAkuFCx\n"+
-                "SHTzpxLvx3dklxuPn7+RnWtfpCwIMjUUHod6mQxVFXkZxom44IMWYGQmLKF416zj\n"+
-                "0Jg/JGmSKXMiUSKV2gIPk98Wkz4ab3xhblAbCalK2IAmAkA1QBbhAwqIPAA5rF0d\n"+
-                "zZ867WAMTFqiFQ0nipfE/s0opBokNmV/v9881yQ3VtM8PoPfoDX/zjXiETSHhPhF\n"+
-                "fkBl+ISqgqvOwE0EUkuTgQEIANvgLWvl0hjbJ6Qo7SC9AlVirgA1tdsL7eGNZJDJ\n"+
-                "uGzyhcFGubXQA0TDZl3bdUqCWCWwqNHB4hTSxink75Akfl3R4Vob60eOm3QYccPI\n"+
-                "giN9PB0Mt0ixSIbJ3rB/qAV4ZH4Fty2zthbxmqNhsYQBZ75IydQBUwjChD2Shs1t\n"+
-                "BQSreB+G95sf6vw0EnjdfpUuy0Aw38gHAGNr05Szep7OQ9Mf3h+9cszDpPVyNDU8\n"+
-                "xawQYdMJlVCgAkmSpRbCFIuGanze4ViLrmkhPHbzedDeLxHzq3GxAG2WeGspPLS+\n"+
-                "HDr3kGJisHQ4bPRcoPn16xEphCqFLrrUmQ1ErRvCmduUHFcAEQEAAcLAXwQYAQgA\n"+
-                "EwUCUkuTgQkQoGVKBqN9pBACGwwAAGv+CACaSfCTIKPhv35dBQSyZI7j7h/Fq6It\n"+
-                "opBqeqTEPq8Nz7tHE3b5bnRx0uLEv/gaGRr93fUJU5jdA+kQRp9AEa/wwcFu58VC\n"+
-                "vISKdmcZetT6D+hbNqFGTor01rQcO+MSTNFi9jB8AQx7wYKSI3WugsTBAuifzp6E\n"+
-                "N+e1s+ADMuAk9e92KNaX3i/2loexfB5f486th7+/ALNo2G4I2SrPFIq5GVNixOkf\n"+
-                "vlUab6/0EUC+d25//P3PPgqmNPyEYNrI1fYtqn7VYxa0jycsLOVCd/ak/SwqIlUo\n"+
-                "rk3ZF3pZKAwV5UM2IQSgS0fshNrDpuMkRxscv/KYW+tVqYeP8UX1r74k\n"+
-                "=J+9O\n"+
-                "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
-        "scramble.io":
-            openpgp.read_publicKey(
-                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
-                "\n"+
-                "xsBNBFJc8kEBCADAcboo0fUDW7oyF18TxSA2sROfJrg186xdHkp/enYjHzHRs2vw\n"+
-                "+Bs65Pp6Zug+0+BgoJHbpt7fNlkYchYvaySyAAmGzR6MtPrGR3VBhvslEkbHGW9J\n"+
-                "uy0jKs5o1EcrYi9aviUsispz7tsOJszcfNLDCpIf3zbmXV3RNJ5G+tHIuaG1D+Mz\n"+
-                "MkF6UO1sgwzG6ES36yaCBedFzzEwBi7At7CSTAGNV0r1ocAi/zkUDvGgpKvvf4lA\n"+
-                "Le9kuAuT7ozDPGJGwnPvFpjNxt53OPAegDKHPLVB9ZNaY/Mr9ee5ov3Pl5J7z1JT\n"+
-                "qc9RG6Mtlz15UQD1wEzZoEJRJJ+RwUTt8p4PABEBAAHNT05vdGFyeSAoTm90YXJ5\n"+
-                "IGZvciB0ZXN0LnNjcmFtYmxlLmlvIFNjcmFtYmxlIFNlcnZlcikgPHN1cHBvcnRA\n"+
-                "dGVzdC5zY3JhbWJsZS5pbz7CwGIEEwEIABYFAlJc8kEJEH2a1kplMK9TAhsDAhkB\n"+
-                "AADmkggAmGa9aWfHkiRWx3xixJNYDmqzVtfiYs46n2tseiVT6SPaythVsbYNTw2w\n"+
-                "M2711CF42IpJZpTUSUQ45zIrQQsNRwbwKjh8g5dCkngRfcDykDRdjMbUmF17/LLp\n"+
-                "aCccv70QVPaok/TgLr5QPPYr4OdR2pgyNezjGuHOrlrSQoViXhyD/h91vATh7d2G\n"+
-                "m6QkrAt0dI7QNWegVpSfuk9yXTKnBign2mrHc+HM107RYE0WK/oqy70Fa/GeqHE5\n"+
-                "5KwS3kLWu38qYnAYw5bpwNdOtl98BM89M6Unp3wq2I4dHj9NKskLNwkCF0cA9vaI\n"+
-                "bIw9faDwd9WW5ou1GAT0f/xMEKXbjs7ATQRSXPJBAQgAxk2m0pXwCifo2vKQnnyg\n"+
-                "LBt86B91TN2G1yfbigLmRmW15Z+fNuL5AuIz4eYZz6M0hxSQ0lhgEzGjDgIUaUAi\n"+
-                "6oCoqf+aTT978KkVEExZR+p/v3hqxwjtDc6q9OAjWCrXpXcPsIfDYGKCDt1Mx802\n"+
-                "Gqzw8dBkoy4PnQ6OMqUYnL1vQFui2nrksfrQCtTIlmsICW16frwLI2nPDrwY+GUi\n"+
-                "n3UoKGoT5JCXVPQ4sdDbgzJoqGJwe1JMls/+vfPaz1r0jOF/a3Ovau8vOvWSdodk\n"+
-                "L2db8HxfIbaMj+zBb6Hume/KdWKiJZ+Xv9ZnqnmjVl+TIz1ncqnfJWpJ5j/cSGsk\n"+
-                "CwARAQABwsBfBBgBCAATBQJSXPJBCRB9mtZKZTCvUwIbDAAAJKMIAFhG3a6upAxC\n"+
-                "PjCFOKV1L+z8F3N6HEQJBmwuwmWaIj6RhvnWdqBMkjmcxclAvuM9rzYZhrE0XjqK\n"+
-                "kZUrJhnCRCmLfWtA6SZE/C65FdCdIZPB04BmIW6MLEOL3+HleB5LD0v6Exx4KvFN\n"+
-                "e0clu0m0H+HxvrtnhdDaAEh2cdPZTiOlrbJ3oXwk9B1j/N1AJIqE5RSrrrOXrdl/\n"+
-                "3g3j/nGEf0hqhjPmB7kafR7ZbP78ipV1ENraoafk3RtKNKuZI5+2mdzvYYIiRTcH\n"+
-                "YE6g+T3KLPalnjqp3RppJ48pCH8bs/ZzeEGVrjDPcSscC5+96FmFvm064fOdSz7m\n"+
-                "/YAMYP4dUiE=                                                    \n"+
-                "=Mt/n                                                           \n"+
-                "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
-        "dev.hashed.im":
-            openpgp.read_publicKey(
-                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
-                "\n"+
-                "xsBNBFJM2MQBCAC+6XtfSNnub2S3OAUPCPVkQ+5FHQ1BKBft1R1rFlhsBYnBFp9O\n"+
-                "9mOG945gkq6tF3cW5IEOrHbTkyB3aHzunoU90AIE5r6FT/9d6BrSU68SdDGimYmd\n"+
-                "32UnIZpAYEBxOkVxKH1/qD1SBjqqFjCEfUNVfb+Yrtmpu+X7ZIOPsQvVG49Fm9jz\n"+
-                "Ec8czgh1+vZs76qljrNAfcHNNZnwLghF3bFwd0opckBRQ0Fy4iaxSn3ovwjKu2bZ\n"+
-                "/fzAMDSzjWm5SVOr3bgDKseJmfP3ILDfAzEH5BksDatPqWRDI96YOFNHNfmJ9AmO\n"+
-                "fdLeR234rixSrfcMiCPCk8ghjtkrh6MGFOVbABEBAAHNTU5vdGFyeSAoTm90YXJ5\n"+
-                "IGZvciBkZXYuc2NyYW1ibGUuaW8gU2NyYW1ibGUgU2VydmVyKSA8c3VwcG9ydEBk\n"+
-                "ZXYuc2NyYW1ibGUuaW8+wsBiBBMBCAAWBQJSTNjECRBkHs2sSxRdNAIbAwIZAQAA\n"+
-                "NTIIAHYURtQ9kPzbM2we5NEtSYugGUtaOlfksH4eNdLeSUta0lo5sAhTIDqhpU6r\n"+
-                "VZBFC/QMenvsJNjfLrusbDHUduOSdyHOWGMspvYMDD9k5b46HA6Gg/wS1HJvMImp\n"+
-                "3wMEnbP0hOx5RGgizYzRJW4t0lGJ24MPvXxyzH4XEWIpev5vskP50e/Al36i4w21\n"+
-                "xdJ73JSXw0AqZqaK3dQeZYRqFEK7UDdAWifOmgBWTKn1PH8zFIdf8YPx8y/Atq6K\n"+
-                "nEBKmrEAMkwOZxRFXGnQl6ZdvgbGWg3U5L8M7vkf2mQObbqqTkUEDh5DdC4so37t\n"+
-                "M9lIDTbqvzo80fUX/l/mzYc6HyTOwE0EUkzYxAEIAKA3QTMKdayva/0VgFXv7vjM\n"+
-                "SOqjcqFgcWgIsZyRGjWd04X2KZrAr3iO6V842JO3my34vmNuKG7Bys2A+b0oRrCU\n"+
-                "OP+XKmcqYwyf/lzwWgvSzZ/B7wsCn2pic8/gdbFvK4Nl2gwPmD+BPxy7ykdvIdkM\n"+
-                "ZYJVyPR9LSoPPXDsFwDXQ9FGtijfS5MeCAOadMHhk8Lzk1gSi4lGwP8seJwllH1d\n"+
-                "31YWprpKbMxZOZSvZSc5BvEgGeTgNGDzOnX0UqlAGIbUlwAhP/O/Q7np8LcYYIuS\n"+
-                "bwGa51na39Z/MVyZiwJya1Sw4ovNqZiB/LZHe6vObCdvB0MjShEriZnKslKok1UA\n"+
-                "EQEAAcLAXwQYAQgAEwUCUkzYxAkQZB7NrEsUXTQCGwwAAAHpCAB3ZRFjStuoO3FR\n"+
-                "efXaFQeFXSjV7x9MeFq0atoKp/5HGICnWyGvRWAVLhUu1svs15BeEBOXPKhCyWAc\n"+
-                "tzCQVvqlXEK0zcRW74nlOWoQH4QbjrYHQxdzHnzUfOIK2/zOcH0voX+QMu6kyC62\n"+
-                "2SRA0PxrANdFMrgRrxKzpptQiTYFvy1cZR/wZ5cutaO2BNBwHh5grPiTtLw9YAUQ\n"+
-                "cipCIzR5sCwi1wxU0hXrKlyP2fXFDgcreqP46ZUQObg6SnjvArxMzsYNnStfbW/W\n"+
-                "aNQWj12+wxHNgUyo1xhkvPk5g8svGhAFsZHVB93YxkKMX79SFku6nQGNbl7Ez3Mu\n"+
-                "hO2q+5YC\n"+
-                "=Hmrz\n"+
-                "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
-
-        /*
-        // This is the development notary public key.
-        // For development, just copy the following to your ~/.scramble/notary_privkey:
-        // https://github.com/dcposch/scramble/wiki/Development-Notary
-        // For production, delete this.
-        "local.scramble.io":
-            openpgp.read_publicKey(
-                "-----BEGIN PGP PUBLIC KEY BLOCK-----\n"+
-                "\n"+
-                "xsBNBFJR69oBCAC3Ijo61+i0C5lA4c7qVWRHZ3qquEap9jRr4kdyeASmJSGtwlkz\n"+
-                "8PmTVzwjvQLqjF69Or1TpWnhVI/Rcq0UILaiwcakk2JaoAzUkKCNnK3hJqZa0h7S\n"+
-                "in6PVQK12v9/5kwh4pv9bzVCWe8QOE+oU45DfeOm066EVZvyRttdNxxgtcMsilTI\n"+
-                "ecMI/MtELJHoGe7yUNNmScSNolxCBMUbKHMlAVry2SLbaSsiLK5jq+hBubl3Kp/+\n"+
-                "XLV6yHRhY9WbC2e1G5UR6VVrwk9Ea66zpvZB+qwoUxHsbbNfR8HceHKORu/MoKvR\n"+
-                "pzQqKNy9eUMVCv+RRGIssjbyVm2WQXDxAmOZABEBAAHNTU5vdGFyeSAoTm90YXJ5\n"+
-                "IGZvciBkZXYuc2NyYW1ibGUuaW8gU2NyYW1ibGUgU2VydmVyKSA8c3VwcG9ydEBk\n"+
-                "ZXYuc2NyYW1ibGUuaW8+wsBiBBMBCAAWBQJSUevaCRDaTZilZe26GwIbAwIZAQAA\n"+
-                "gTUIACZOY7dNqr48kHLl4M5DzOYPEuqNvn2HImFhzD2/+F5/BtO/WSXTd37kM1um\n"+
-                "9O0bOSk+BRes6K6QK8sGpea/s7vyk4wE6cKZzvgin584lUUHKTlitIc8baj37lBF\n"+
-                "tzlxA5ZtqDg98hHhlrY5wfe0OBA8K5n+9B1vGx7zBgT2CUi5evIV49jkrlN9fXH0\n"+
-                "wnbh1VIi2BI1HYKls2A/uCemxjSv9GktZDj5r1sijQRiB8dhEekbbkPAoTnUKpoS\n"+
-                "LUDxQ2T4A61WzvbwGjwuuSvOBjD5MvlGE+N+DRh7Vsrgt9ZEPiscGA+rIgKDXuvK\n"+
-                "ZhvsjTGJdkXghfIO6wFiV6bHz+TOwE0EUlHr2gEIALpLONxcBDwkEXqsnDxvq81r\n"+
-                "2mWijAu12L7swcj0OFJxLrm24DRy7Ccu4bxL18iNNDXT2hjkw+JeWfqjpjbVzd0P\n"+
-                "5jMfCr3B/IjHfVdW5zO6yJhBDRv5/z1Q8CQdUSECd7y+PNNrWPbdoW1SQD7w+oWB\n"+
-                "0AUYJtMq788vd2nJvfNco0noYCeig7u7Cybvxx81DC32F4QfxqoFteHwZOhZzgoa\n"+
-                "RBqYtat77i/UjZcx1R5Aluw47YqppwdBAyufKWsAhWGQAd2qyBfcTa2lp0MwSoo9\n"+
-                "J4lRf0PiRefj8RWRnrVnX63mpEJiNAuYJ0GDJjv6Q5+OeQEWSyDgI3/hEdfTQ0sA\n"+
-                "EQEAAcLAXwQYAQgAEwUCUlHr2gkQ2k2YpWXtuhsCGwwAAHH0CAB9FDx8R3HWbchC\n"+
-                "iZ8L4n2kDHwBYpxJ/I5EghHHgExmoC2qRC1nG2ORe1umM/ocixwH+MSP8mn7lwXC\n"+
-                "0viOkqq2RmMROFLnsb5LJ4EVFWrtuk3ui3i7CWw7+3/0OevMkavzfeyil4Jj8uhD\n"+
-                "DS3tHBdKrNXhHjartmdnxqKU2t91YmcpwoQLt48poSaFgwEhvRZnGqvN2vYiZ56A\n"+
-                "jT9EIPPS4RlhGFVGAYtlmTAVuc9oLH0gnlKyHFxBYGVMtyZ3mCPMZTGx0sHVGWr5\n"+
-                "mN6bbXranXF15OpoP8XdSwOaGsrvpXw/4ki2YPTmbI6x+1GhNoOsLHppZ1/k84eW\n"+
-                "UR5PU4G6\n"+
-                "=Qw2D\n"+
-                "-----END PGP PUBLIC KEY BLOCK-----"
-            ),
-        */
-    })
+    $.getJSON("/publickeys/notary", function(data) {
+        if (!data.notaries) {
+            alert("Failed to retrieve default notaries from server!");
+            return;
+        }
+        var notaries = {};
+        for (var notary in data.notaries) {
+            var pubKey = data.notaries[notary];
+            notaries[notary] = openpgp.read_publicKey(pubKey);
+        }
+        cb(notaries);
+    });
 }
 
 // Ensure that notaryRes is properly signed with notaryPublicKey.

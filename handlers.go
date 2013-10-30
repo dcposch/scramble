@@ -674,17 +674,21 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 // NOTARY
 //
 
-func notaryIdHandler(w http.ResponseWriter, r *http.Request) {
+func notaryHandler(w http.ResponseWriter, r *http.Request) {
 	resJson, err := json.Marshal(struct {
-		Host   string `json:"host"`
-		PubKey string `json:"pubkey"`
+		MxHost   string `json:"mxHost"`
+		PubKey   string `json:"pubKey"`
+		Notaries map[string]string `json:"notaries"`
 	}{
 		GetConfig().SmtpMxHost,
 		GetNotaryInfo().PublicKeyArmor,
+		GetNotaries(),
 	},
 	)
 	if err != nil {
 		panic(err)
 	}
+	// TODO: set cache
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(resJson)
 }

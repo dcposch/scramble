@@ -18,9 +18,9 @@ type Config struct {
 	SmtpMxHost string
 	SmtpPort   int // internal, nginx handles TLS and forwards
 
-	HttpPort int // internal, nginx handles SSL and forwards
+	HttpPort   int // internal, nginx handles SSL and forwards
 
-	SeedNotaries []string // for seeding new accounts
+	Notaries   map[string]string // for seeding new accounts, and clients to query
 
 	ReservedNames []string // reserved usernames
 
@@ -36,22 +36,33 @@ var defaultConfig = Config{
 	"scramble",
 	"scramble",
 	"scramble",
-
 	"local.scramble.io",
 	8825,
-
 	8888,
-
-	[]string{"hashed.im", "dev.hashed.im"},
-
+	map[string]string{
+		"local.scramble.io": "notaries/local.scramble.io",
+	},
 	[]string{"admin", "administrator", "root", "support", "help", "spam",
 		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 		"mailer", "daemon", "postmaster"},
-
 	10240,
 }
 
-var config Config
+var config = Config{
+	"127.0.0.1",
+	"scramble",
+	"scramble",
+	"scramble",
+	"local.scramble.io",
+	8825,
+	8888,
+	map[string]string{
+	},
+	[]string{"admin", "administrator", "root", "support", "help", "spam",
+		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
+		"mailer", "daemon", "postmaster"},
+	10240,
+}
 
 func init() {
 	configFile := os.Getenv("HOME") + "/.scramble/config.json"
@@ -67,7 +78,6 @@ func init() {
 	}
 
 	// try to parse configuration. on error, die
-	config = defaultConfig
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
 		log.Panicf("Invalid configuration file %s: %v", configFile, err)
