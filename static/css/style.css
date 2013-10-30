@@ -286,7 +286,6 @@ cursor:pointer;
 }
 .email .addr-name > .addr {
 font-weight:normal;
-display:none;
 }
 .email .to {
 vertical-align:text-top;

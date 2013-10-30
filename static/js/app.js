@@ -533,17 +533,6 @@ function bindEmailEvents() {
     $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}))
 }
 
-function bindEmailContent(){
-    $("#content .addr-name").click(function(){
-        var expanded = $(this).data("expanded") == "true";
-        $(this).data("expanded", ""+!expanded);
-        var action = expanded ? "hide" : "show";
-        $(this).find(".addr").animate({
-            width:action
-        }, "fast");
-    });
-}
-
 /**
     Takes an email header, selects its box-item, shows the thread.
     For convenience, you can pass in the li.box-item jquery element,
@@ -665,7 +654,6 @@ function showEmailThread(emails){
     }
 
     $("#content").empty().append(elThread);
-    bindEmailContent();
 }
 
 var linkRegex = new RegExp("^http(s)?://[a-z0-9-]+(.[a-z0-9-]+)*(:[0-9]+)?(\/.*)?$", "ig")
