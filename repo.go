@@ -166,7 +166,7 @@ func LoadAddressFromPubHash(publicHash string) string {
 	if err != nil {
 		panic(err)
 	}
-	return token+"@"+emailHost
+	return token + "@" + emailHost
 }
 
 // Loads a user's contacts, or nil if the user doesn't exist
@@ -237,15 +237,15 @@ func LoadBoxByThread(address string, box string, offset, limit int) []EmailHeade
 	rows, err := db.Query("SELECT e.message_id, e.unix_time, "+
 		"e.from_email, e.to_email, e.cipher_subject, e.thread_id "+
 		"FROM email AS e INNER JOIN ( "+
-			"SELECT box.message_id FROM box INNER JOIN ( "+
-				"SELECT MAX(unix_time) AS unix_time, thread_id FROM box "+
-				"WHERE address = ? AND box = ? GROUP BY thread_id "+
-				"ORDER BY unix_time DESC "+
-				"LIMIT ?, ? "+
-			") AS max ON "+
-			"max.unix_time = box.unix_time AND "+
-			"max.thread_id = box.thread_id AND "+
-			"box.address = ? AND box.box = ? " +
+		"SELECT box.message_id FROM box INNER JOIN ( "+
+		"SELECT MAX(unix_time) AS unix_time, thread_id FROM box "+
+		"WHERE address = ? AND box = ? GROUP BY thread_id "+
+		"ORDER BY unix_time DESC "+
+		"LIMIT ?, ? "+
+		") AS max ON "+
+		"max.unix_time = box.unix_time AND "+
+		"max.thread_id = box.thread_id AND "+
+		"box.address = ? AND box.box = ? "+
 		") AS m ON e.message_id = m.message_id "+
 		"ORDER BY e.unix_time DESC ",
 		//"LIMIT ?, ?",
@@ -253,7 +253,9 @@ func LoadBoxByThread(address string, box string, offset, limit int) []EmailHeade
 		offset, limit,
 		address, box,
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	return rowsToHeaders(rows)
 }
 
@@ -339,34 +341,26 @@ func LoadMessage(id string) Email {
 }
 
 // Load emails for a given thread in given boxes.
-func LoadThreadFromBoxes(address, threadId string, boxes []interface{}, offset, limit int) []Email {
-	boxesPH := "?"+strings.Repeat(",?", len(boxes)-1)
+func LoadThreadFromBoxes(address, threadId string) []Email {
+
 	rows, err := db.Query("SELECT "+
 		"e.message_id, e.unix_time, e.from_email, e.to_email, "+
 		"e.cipher_subject, e.cipher_body, "+
 		"e.ancestor_ids, e.thread_id "+
 		"FROM email AS e INNER JOIN ( "+
-			"SELECT box.message_id FROM box WHERE "+
-			"box.address = ? AND "+
-			"box.thread_id = ? AND "+
-			"box.box in ("+boxesPH+") "+
-			"GROUP BY box.message_id "+
-			"ORDER BY box.unix_time DESC "+
-			"LIMIT ?, ? "+
+		"SELECT box.message_id FROM box WHERE "+
+		"box.address = ? AND "+
+		"box.thread_id = ? "+
+		"GROUP BY box.message_id "+
+		"ORDER BY box.unix_time DESC "+
 		") AS m ON e.message_id = m.message_id "+
 		"ORDER BY e.unix_time ASC",
-		// For more information on this abomination, read
-		// https://groups.google.com/d/msg/golang-dev/yszLiYREbK4/sH1AWu23l18J
-		append(
-			append([]interface{}{
-					address, threadId,
-				},
-				boxes...
-			),
-			offset, limit,
-		)...,
+		address,
+		threadId,
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	return rowsToEmails(rows)
 }
 
@@ -398,17 +392,21 @@ func rowsToEmails(rows *sql.Rows) []Email {
 // e.g. [<id1>, <id1>, "", "", <id2>, ...]
 // messageIDs: an []interface{} of strings
 func LoadThreadIDsForMessageIDs(messageIDs []interface{}) []string {
-	messageIDsPH := "?"+strings.Repeat(",?", len(messageIDs)-1)
+	messageIDsPH := "?" + strings.Repeat(",?", len(messageIDs)-1)
 	rows, err := db.Query("SELECT message_id, thread_id "+
 		"FROM email WHERE message_id IN ("+messageIDsPH+")",
-		messageIDs...
+		messageIDs...,
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	lookup := map[string]string{}
 	for rows.Next() {
 		var messageID, threadID string
 		err := rows.Scan(&messageID, &threadID)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 		lookup[messageID] = threadID
 	}
 	threadIDs := []string{}
@@ -508,15 +506,15 @@ func MoveThread(address string, messageID string, newBox string) {
 	res, err := db.Exec(
 		"UPDATE box AS b "+
 			"INNER JOIN ( "+
-				"SELECT thread_id, unix_time FROM email "+
-				"WHERE message_id = ? "+
+			"SELECT thread_id, unix_time FROM email "+
+			"WHERE message_id = ? "+
 			") AS e ON "+
 			"b.thread_id = e.thread_id "+
-		"SET box = ? "+
-		"WHERE "+
-		"b.address = ? AND "+
-		"b.unix_time <= e.unix_time AND "+
-		"b.box IN ('inbox', 'archive', 'trash') ",
+			"SET box = ? "+
+			"WHERE "+
+			"b.address = ? AND "+
+			"b.unix_time <= e.unix_time AND "+
+			"b.box IN ('inbox', 'archive', 'trash') ",
 		messageID, newBox, address)
 	if err != nil {
 		panic(err)
@@ -537,15 +535,17 @@ func DeleteThreadFromBoxes(address string, messageID string) {
 	res, err := db.Exec(
 		"DELETE b FROM box AS b "+
 			"INNER JOIN ( "+
-				"SELECT thread_id, unix_time FROM email "+
-				"WHERE message_id = ? "+
+			"SELECT thread_id, unix_time FROM email "+
+			"WHERE message_id = ? "+
 			") AS e ON "+
 			"b.thread_id = e.thread_id "+
-		"WHERE "+
-		"b.unix_time <= e.unix_time AND "+
-		"b.address = ? ",
+			"WHERE "+
+			"b.unix_time <= e.unix_time AND "+
+			"b.address = ? ",
 		messageID, address)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	count, err := res.RowsAffected()
 	if err != nil || count == 0 {
 		log.Panicf("Could not delete thread messages for message %s for %s: %v",
@@ -608,17 +608,17 @@ func MarkOutboxAs(boxedEmails []*BoxedEmail, newBox string) {
 	for _, boxedEmail := range boxedEmails {
 		boxedIds = append(boxedIds, strconv.FormatInt(boxedEmail.Id, 10))
 	}
-	boxedIdsPH := "?"+strings.Repeat(",?", len(boxedIds)-1)
+	boxedIdsPH := "?" + strings.Repeat(",?", len(boxedIds)-1)
 	_, err := db.Exec("UPDATE box SET box=?, unix_time=? WHERE "+
 		"id IN ("+boxedIdsPH+") AND box IN ('outbox', 'outbox-processing', 'outbox-sent') ",
 		// For more information on this abomination, read
 		// https://groups.google.com/d/msg/golang-dev/yszLiYREbK4/sH1AWu23l18J
 		append([]interface{}{
-				newBox,
-				time.Now().Unix(),
-			},
-			boxedIds...
-		)...
+			newBox,
+			time.Now().Unix(),
+		},
+			boxedIds...,
+		)...,
 	)
 	if err != nil {
 		panic(err)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -157,20 +156,26 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			// no point asking a non-scramble mxHost for the key!
 			continue
 		}
-		if allRequests[mxHost] == nil { allRequests[mxHost] = &PerMxHostRequest{} }
+		if allRequests[mxHost] == nil {
+			allRequests[mxHost] = &PerMxHostRequest{}
+		}
 		allRequests[mxHost].HashAddresses = append(allRequests[mxHost].HashAddresses, nameAddrs...)
 	}
 	for mxHost, hashAddrs := range mxHostHashAddrs {
 		if mxHostInfos[mxHost] != nil && mxHostInfos[mxHost].IsScramble == false {
-			log.Println("Odd, how does address(es) "+hashAddrs.String()+" have hashes, when mxHost is nonscramble?")
+			log.Println("Odd, how does address(es) " + hashAddrs.String() + " have hashes, when mxHost is nonscramble?")
 			continue
 		}
-		if allRequests[mxHost] == nil { allRequests[mxHost] = &PerMxHostRequest{} }
+		if allRequests[mxHost] == nil {
+			allRequests[mxHost] = &PerMxHostRequest{}
+		}
 		allRequests[mxHost].HashAddresses = append(allRequests[mxHost].HashAddresses, hashAddrs...)
 	}
 	if len(nameAddrs) > 0 {
 		for _, notary := range notaries {
-			if allRequests[notary] == nil { allRequests[notary] = &PerMxHostRequest{} }
+			if allRequests[notary] == nil {
+				allRequests[notary] = &PerMxHostRequest{}
+			}
 			allRequests[notary].NameAddresses = nameAddrs
 		}
 	}
@@ -538,28 +543,16 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
 	}
 }
 
-var boxMapping = map[string][]interface{}{
-	"inbox":   []interface{}{"inbox", "sent"},
-	"sent":    []interface{}{"inbox", "sent"},
-	"archive": []interface{}{"archive"},
-}
-
 // GET /email/ fetches an email & all messages
 //  in the given box for the given threadID
 func emailFetchHandler(w http.ResponseWriter, r *http.Request, userId *UserID) {
-	// Not used:
-	// msgId := valudateMessageID(r.FormValue("msgId"))
 	threadID := validateMessageID(r.FormValue("threadId"))
-	box := validateBox(r.FormValue("box"))
-	boxes := boxMapping[box]
-	if boxes == nil {
-		panic(errors.New("Dunno how to handle box " + box))
-	}
+	// We may need this in the future:
+	_ = validateBox(r.FormValue("box"))
 
-	// TODO XXX: offset, limit
-	threadEmails := LoadThreadFromBoxes(userId.EmailAddress, threadID, boxes, 0, 100)
+	threadEmails := LoadThreadFromBoxes(userId.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
-		http.Error(w, "Not fount or unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Not found or unauthorized", http.StatusUnauthorized)
 		return
 	}
 	resJson, err := json.Marshal(threadEmails)
@@ -676,8 +669,8 @@ func nginxProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 func notaryHandler(w http.ResponseWriter, r *http.Request) {
 	resJson, err := json.Marshal(struct {
-		MxHost   string `json:"mxHost"`
-		PubKey   string `json:"pubKey"`
+		MxHost   string            `json:"mxHost"`
+		PubKey   string            `json:"pubKey"`
 		Notaries map[string]string `json:"notaries"`
 	}{
 		GetConfig().SmtpMxHost,
