@@ -655,6 +655,17 @@ func AddNameResolution(name, host, hash string) {
 	}
 }
 
+func DeleteNameResolution(name, host string) {
+	_, err := db.Exec("DELETE FROM name_resolution "+
+		"WHERE name=? and host=?",
+		name,
+		host,
+	)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func GetNameResolution(name, host string) (hash string) {
 	err := db.QueryRow("SELECT "+
 		"hash FROM name_resolution WHERE "+
