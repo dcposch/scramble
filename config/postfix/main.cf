@@ -1,0 +1,13 @@
+
+# WHEN INSTALLING POSTFIX, CHOOSE THE "Internet site" CONFIGURATION
+# APPEND THE FOLLOWING TO /etc/postfix/main.cf
+
+# Postfix cannot bind ipv4 port 25---Scramble needs to do that.
+# Ideally, we would not bind any port at all---we need Postfix
+# only for sending, not receiving---but sadly that's not an option.
+#
+# As a hack, bind ipv6 only, so there's no conflict.
+
+#inet_interfaces = all
+inet_interfaces = loopback-only
+inet_protocols = ipv6
