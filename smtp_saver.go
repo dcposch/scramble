@@ -112,7 +112,8 @@ func encryptForUsers(plaintext string, addrs []string) string {
 		keys = append(keys, entity)
 	}
 	if len(keys) == 0 {
-		panic("Need keys to encrypt.")
+		log.Printf("Warning: not encrypting incoming mail--unrecognized recipients")
+		return plaintext
 	}
 	log.Printf("Encrypting plaintext for %s, found %d keys\n",
 		strings.Join(addrs, ","), len(keys))
