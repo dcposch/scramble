@@ -1,240 +1,233 @@
 /* EVERYWHERE */
 body {
-font-family: "Arial",sans-serif;
-overflow: hidden;
+    font-family: "Arial",sans-serif;
+    overflow: hidden;
 }
-h1,h2,h3 {
-font-weight:bold;
-margin:10px 0;
+h1, h2, h3 {
+    font-weight: bold;
+    margin: 10px 0;
 }
 h1 {
-font-size:48px;
+    font-size: 48px
 }
 h2 {
-font-size:24px;
+    font-size: 24px
 }
 h3 {
-font-size:16px;
+    font-size: 16px
 }
-a,
-a:visited,
-a:hover {
-color:#03a;
-text-decoration:none;
+a, a:visited, a:hover {
+    color: #03a;
+    text-decoration: none;
 }
 #statusBar {
-position:absolute;
-top:10px;
-height:20px;
-left:322px;
-right:0px;
-color:#03a;
+    position: absolute;
+    top: 10px;
+    height: 20px;
+    left: 322px;
+    right: 0px;
+    color: #03a;
 }
 #content {
-position:absolute;
-left:312px;
-top:30px;
-right:0px;
-bottom:0px;
-padding:8px;
+    position: absolute;
+    left: 312px;
+    top: 30px;
+    right: 0px;
+    bottom: 0px;
+    padding: 8px;
 }
 #wrapper {
-min-width:840px;
-min-height:600px;
-position:absolute;
-top:0px;
-left:0px;
-bottom:0px;
-right:0px;
+    min-width: 840px;
+    min-height: 600px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    bottom: 0px;
+    right: 0px;
 }
-
 
 
 /* FORMS */
 .prompt {
-margin:3px 0;
+    margin: 3px 0
 }
 input[type=password], input[type=text] {
-width:200px;
-border:1px solid #ccc;
+    width: 200px;
+    border: 1px solid #ccc;
 }
 textarea {
-border:1px solid #ccc;
+    border: 1px solid #ccc
 }
 label {
-display:inline-block;
-width:140px;
-margin:0 10px 0 0;
-text-align:right;
+    display: inline-block;
+    width: 140px;
+    margin: 0 10px 0 0;
+    text-align: right;
 }
 input[type=submit] {
-width:70px;
-height:24px;
-font-size: 14px;
-color:#03a;
+    width: 70px;
+    height: 24px;
+    font-size: 14px;
+    color: #03a;
 }
 .hint {
-font-size:9px;
+    font-size: 9px
 }
-
 
 
 /* LOGIN FORM */
 #login {
-width:460px;
-margin:100px auto;
+    width: 460px;
+    margin: 100px auto;
 }
 #login h1 {
-margin-left:150px;
+    margin-left: 150px
 }
-
 #login .strike {
-text-align:center;
-font-style:italic;
-margin:10px 0;
+    text-align: center;
+    font-style: italic;
+    margin: 10px 0;
 }
 #login .strike hr {
-position:relative;
-top:4px;
-display:inline-block;
-width:150px;
-height:1px;
-background-color:#ccc;
-border:none;
+    position: relative;
+    top: 4px;
+    display: inline-block;
+    width: 150px;
+    height: 1px;
+    background-color: #ccc;
+    border: none;
 }
 #login .strike span {
-margin:4px;
+    margin: 4px
 }
 #login input[type=submit] {
-margin-left:150px;
-width:160px;
+    margin-left: 150px;
+    width: 160px;
 }
 #login .footer {
-margin-top:10px;
-text-align:center;
-font-size:10px;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 10px;
 }
-
 
 
 /* MODAL */
 .modal-bg {
-position:absolute;
-top:0;
-right:0;
-bottom:0;
-left:0;
-background-color:rgba(0,0,0,0.5);
-transition: background-color 400ms ease-in;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(0,0,0,0.5);
+    transition: background-color 400ms ease-in;
 }
 .modal {
-background:#fff;
-margin:100px auto;
-text-align:center;
-border-radius:3px;
+    background: #fff;
+    margin: 100px auto;
+    text-align: center;
+    border-radius: 3px;
 }
 .modal h3 {
-margin:0;
-padding:40px 0 10px 0;
+    margin: 0;
+    padding: 40px 0 10px 0;
 }
 .modal section {
-text-align:left;
+    text-align: left
 }
 .modal .link-close-modal {
-display:block;
-margin:10px;
+    display: block;
+    margin: 10px;
 }
+
 
 /* MODAL - CREATE ACCOUNT */
 #createAccountModal {
-width:600px;
-height:480px;
+    width: 600px;
+    height: 480px;
 }
 #createAccountModal #createForm {
-display:none; /* show later, in js... */
-margin:30px 50px;
+    display: none; /* show later, in js... */
+    margin: 30px 50px;
 }
 #createAccountModal input[type=submit] {
-margin-left:150px;
-width:160px;
+    margin-left: 150px;
+    width: 160px;
 }
 #createAccountModal label {
-white-space:nowrap;
+    white-space: nowrap
 }
 #createAccountModal input[type=submit] {
-width:160px;
+    width: 160px
 }
+
 
 /* MODAL - KEYBOARD SHORTCUTS */
 #kbShortcutsModal {
-width:400px;
-height:360px;
+    width: 400px;
+    height: 360px;
 }
 #kbShortcutsModal label {
-font:bold 14px monospace;
+    font: bold 14px monospace
 }
-
 
 
 /* SIDEBAR */
 #sidebar {
-position:absolute;
-top:0;
-left:0;
-bottom:0;
-width:300px;
-border-right:1px solid #ddd;
-padding:6px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 300px;
+    border-right: 1px solid #ddd;
+    padding: 6px;
 }
 #sidebar .warning {
-color:red;
+    color: red
 }
 #sidebar .welcome {
-margin:8px 0;
-font-weight:bold;
+    margin: 8px 0;
+    font-weight: bold;
 }
 #sidebar .address, #sidebar .pubHash {
-font:9px monospace;
-margin:8px 0;
+    font: 9px monospace;
+    margin: 8px 0;
 }
 #sidebar .tab {
-display:block;
-font-size:24px;
-font-weight:bold;
-margin:3px 0;
-color:#03a;
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 3px 0;
+    color: #03a;
 }
 #sidebar .tab.selected {
-color:#000;
+    color: #000
 }
-
 
 
 /* INBOX */
 .box-items {
-list-style-type:none;
-padding:0px;
-margin:0px;
+    list-style-type: none;
+    padding: 0px;
+    margin: 0px;
 }
 .box-items li {
-border-top:1px solid #ddd;
-padding:6px 0;
-white-space:nowrap;
-overflow:hidden;
-text-overflow:ellipsis;
-cursor:pointer;
+    border-top: 1px solid #ddd;
+    padding: 6px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
 }
 .box-items li:hover, .box-items li.current {
-background:#eee;
+    background: #eee
+}
+.box-pagination {
+    font-size: 0.8em;
+    text-align: center;
 }
 
-.box-pagination {
-font-size: 0.8em;
-text-align: center;
-}
 
 /* THREAD */
-
 #thread {
     position: absolute;
     top: 0px;
@@ -242,7 +235,6 @@ text-align: center;
     left: 0px;
     right: 0px;
 }
-
 #thread-subject {
     position: absolute;
     top: 0px;
@@ -253,7 +245,6 @@ text-align: center;
     padding-left: 10px;
     border-bottom: 1px solid #ddd;
 }
-
 #thread-emails {
     position: absolute;
     top: 90px;
@@ -265,131 +256,124 @@ text-align: center;
     padding-top: 10px;
     padding-bottom: 50px;
 }
-
-.controlButtons .archiveButton,
-.controlButtons .moveToInboxButton,
-.controlButtons .deleteButton {
-    margin:0 0 0 10px;
+.controlButtons .archiveButton, .controlButtons .moveToInboxButton, .controlButtons .deleteButton {
+    margin: 0 0 0 10px
 }
+
 
 /* SINGLE EMAIL */
 .email {
-margin-bottom: 10px;
+    margin-bottom: 10px
 }
 .email .received {
-float: right;
-color: #888;
+    float: right;
+    color: #888;
 }
 .email .addr-name {
-font-weight:bold;
-cursor:pointer;
+    font-weight: bold;
+    cursor: pointer;
 }
 .email .addr-name > .addr {
-font-weight:normal;
+    font-weight: normal
 }
 .email .to {
-vertical-align:text-top;
-display:inline-block;
-color: #888;
+    vertical-align: text-top;
+    display: inline-block;
+    color: #888;
 }
 .email .to-address:not(:last-child):after {
-content: ", ";
+    content: ", "
 }
 .email .to label {
-display:inline;
+    display: inline
 }
 .email .body {
-padding:10px 0;
-white-space:pre-wrap;
-border-bottom: 1px solid #eee;
-font:11px monospace;
+    padding: 10px 0;
+    white-space: pre-wrap;
+    border-bottom: 1px solid #eee;
+    font: 11px monospace;
 }
-
 
 
 /* TOOLTIPS */
 .tooltip {
-display: inline;
-position: relative;
-cursor: pointer;
+    display: inline;
+    position: relative;
+    cursor: pointer;
 }
 .tooltip:hover:after {
-background: #fff;
-/*background: rgba(238,238,238,.8);*/
-border:1px solid #333;
-border-radius: 5px;
-top: 26px;
-content: attr(data-tooltip);
-left: 20%;
-padding: 5px 15px;
-position: absolute;
-z-index: 98;
+    background: #fff;
+    /*background: rgba(238,238,238,.8);*/
+    border: 1px solid #333;
+    border-radius: 5px;
+    top: 26px;
+    content: attr(data-tooltip);
+    left: 20%;
+    padding: 5px 15px;
+    position: absolute;
+    z-index: 98;
 }
 .tooltip:hover:before {
-border: solid;
-border-color: #ddd transparent;
-border-width: 0 6px 6px 6px;
-top: 20px;
-content: "";
-left: 50%;
-position: absolute;
-z-index: 99;
+    border: solid;
+    border-color: #ddd transparent;
+    border-width: 0 6px 6px 6px;
+    top: 20px;
+    content: "";
+    left: 50%;
+    position: absolute;
+    z-index: 99;
 }
 
 
 /* COMPOSE */
 .compose {
-padding-top: 10px;
-bottom:0px;
+    padding-top: 10px;
+    bottom: 0px;
 }
 .compose label {
-width: 80px;
+    width: 80px
 }
 .compose.inline label {
-width: 40px; /* no subject */
+    width: 40px; /* no subject */
 }
 .compose .prompt input {
-width:400px;
+    width: 400px
 }
 .compose textarea {
-width:600px;
-height:400px;
-margin:8px;
-background:#f8f8f8;
+    width: 600px;
+    height: 400px;
+    margin: 8px;
+    background: #f8f8f8;
 }
 .compose .sendButton {
-display:block;
-margin:8px;
+    display: block;
+    margin: 8px;
 }
-
 
 
 /* CONTACTS */
 .contacts ul {
-list-style-type:none;
-padding:0px;
-margin:6px 0;
-width:600px;
+    list-style-type: none;
+    padding: 0px;
+    margin: 6px 0;
+    width: 600px;
 }
 .contacts li {
-cursor:pointer;
-height:30px;
+    cursor: pointer;
+    height: 30px;
 }
 .contacts li input {
-display:inline-block;
-font-family:monospace;
-width:250px;
-margin:3px 3px 3px 0;
-padding:3px;
+    display: inline-block;
+    font-family: monospace;
+    width: 250px;
+    margin: 3px 3px 3px 0;
+    padding: 3px;
 }
-
 .contacts li input.name {
-width:120px;
+    width: 120px
 }
-
 .contacts li .pubHash {
-display: inline-block;
-width: 140px;
-color: #888;
+    display: inline-block;
+    width: 140px;
+    color: #888;
 }
-
