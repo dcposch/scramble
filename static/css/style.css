@@ -20,6 +20,9 @@ a, a:visited, a:hover {
     color: #03a;
     text-decoration: none;
 }
+button {
+    font-size: 80%;
+}
 #statusBar {
     position: absolute;
     top: 10px;
@@ -71,7 +74,7 @@ input[type=submit] {
     color: #03a;
 }
 .hint {
-    font-size: 9px
+    font-size: 70%;
 }
 
 
@@ -107,7 +110,7 @@ input[type=submit] {
 #login .footer {
     margin-top: 10px;
     text-align: center;
-    font-size: 10px;
+    font-size: 70%;
 }
 
 
@@ -180,6 +183,9 @@ input[type=submit] {
     width: 300px;
     border-right: 1px solid #ddd;
     padding: 6px;
+    background: #FBFBFB;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 #sidebar .warning {
     color: red
@@ -189,12 +195,12 @@ input[type=submit] {
     font-weight: bold;
 }
 #sidebar .address, #sidebar .pubHash {
-    font: 9px monospace;
+    font: 80% monospace;
     margin: 8px 0;
 }
 #sidebar .tab {
     display: block;
-    font-size: 24px;
+    font-size: 150%;
     font-weight: bold;
     margin: 3px 0;
     color: #03a;
@@ -222,7 +228,7 @@ input[type=submit] {
     background: #eee
 }
 .box-pagination {
-    font-size: 0.8em;
+    font-size: 80%;
     text-align: center;
 }
 
@@ -240,21 +246,25 @@ input[type=submit] {
     top: 0px;
     left: 0px;
     right: 0px;
-    height: 70px;
-    padding-bottom: 10px;
+    height: 64px;
+    padding-bottom: 5px;
     padding-left: 10px;
     border-bottom: 1px solid #ddd;
 }
+#thread-subject h2 {
+    font-weight: normal;
+    margin: 5px 0 10px 0;
+    font-size: 130%;
+}
 #thread-emails {
     position: absolute;
-    top: 90px;
+    top: 74px;
     bottom: 0px;
-    left: 10px;
-    right: 10px;
+    left: 0px;
+    right: 0px;
     overflow-x: auto;
     overflow-y: auto;
-    padding-top: 10px;
-    padding-bottom: 50px;
+    padding: 10px 10px 50px 10px;
 }
 .controlButtons .archiveButton, .controlButtons .moveToInboxButton, .controlButtons .deleteButton {
     margin: 0 0 0 10px
@@ -268,18 +278,33 @@ input[type=submit] {
 .email .received {
     float: right;
     color: #888;
+    font-size: 70%;
+}
+.email .from {
+    font-size: 100%;
+}
+.email .to {
+    font-size: 80%;
+    vertical-align: text-top;
+    display: inline-block;
+    opacity: 0.5;
 }
 .email .addr-name {
     font-weight: bold;
-    cursor: pointer;
 }
-.email .addr-name > .addr {
-    font-weight: normal
+.email .addr.named {
+    font-weight: normal;
 }
-.email .to {
-    vertical-align: text-top;
-    display: inline-block;
+.email .addr.named:before {
+    content: "‹";
     color: #888;
+}
+.email .addr.named:after {
+    content: "›";
+    color: #888;
+}
+.email .addr.noname {
+    font-weight: bold;
 }
 .email .to-address:not(:last-child):after {
     content: ", "
@@ -291,7 +316,7 @@ input[type=submit] {
     padding: 10px 0;
     white-space: pre-wrap;
     border-bottom: 1px solid #eee;
-    font: 11px monospace;
+    font: 90% monospace;
 }
 
 
@@ -344,6 +369,8 @@ input[type=submit] {
     height: 400px;
     margin: 8px;
     background: #f8f8f8;
+    padding: 10px;
+    font: 90% monospace;
 }
 .compose .sendButton {
     display: block;

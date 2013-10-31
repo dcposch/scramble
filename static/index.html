@@ -169,7 +169,7 @@
 <div class="email" data-msg-id="{{msgID}}">
     <div class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</div>
     <div class="from">
-    {{> email-address-partial fromAddress}}
+        {{> email-address-partial fromAddress}}
     </div>
     <div class="to">to 
         {{#each toAddresses}}
@@ -200,11 +200,10 @@
 
 <script id="email-address-partial" type="text/x-handlebars-template">
     {{#if name}}
-        <span class="addr-name">{{name}}
-            <span class="addr">&lt;{{address}}&gt;</span>
-        </span>
+        <span class="addr-name">{{name}}</span>
+        <span class="addr named">{{address}}</span>
     {{else}}
-        <span class="addr"><a href="#" data-addr="{{address}}" class="enterAddContactButton">{{address}}</a></span>
+        <span class="addr noname"><a href="#" data-addr="{{address}}" class="enterAddContactButton">{{address}}</a></span>
     {{/if}}
 </script>
 
@@ -220,7 +219,7 @@
     <div class="prompt"><label for="subject">Subject</label><input type="text" name="subject" value="{{subject}}"></span></div>
     {{/if}}
     <div class="prompt"><label for="to">To</label><input type="text" name="to" value="{{to}}"></span></div>
-    <div><label>&nbsp;</label><span class="hint">Email addresses and contact names are both OK, eg "bob, joe, mgnvdy6mrhwmdfys@scramble.io"</span></div>
+    <div><label>&nbsp;</label><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
     <textarea name="body">{{body}}</textarea>
     <input type="submit" class="sendButton" value="Send"></input>
 </div>
