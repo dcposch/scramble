@@ -12,7 +12,7 @@ test:
 
 lint:
 	go get github.com/golang/lint/golint
-	../../bin/golint *.go
+	$(GOPATH)/bin/golint *.go
 
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)

@@ -586,6 +586,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 			// if host is an external host
 			counter += 1
 			go func(mxHost string, request *PerMxHostRequest) {
+				defer Recover()
 				u := url.URL{}
 				u.Scheme = "https"
 				u.Host = mxHost
@@ -711,6 +712,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	// drain ch
 	go func() {
+		defer Recover()
 		for counter > 0 {
 			select {
 			case mxHostRespErr := <-ch:

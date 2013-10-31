@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"strings"
+	"crypto/rand"
+	"encoding/hex"
 )
 
 type EmailAddress struct {
@@ -31,7 +33,7 @@ func (addr *EmailAddress) NameAndHash() (string, string) {
 }
 
 // "foo@bar.com" -> EmailAddress
-func ParseEmailAddress(addr string) EmailAddress {
+func ParseEmailAddress(addr string) *EmailAddress {
 	parsed, ok := ParseEmailAddressSafe(addr)
 	if !ok {
 		log.Panicf("Invalid email address %s", addr)
@@ -39,21 +41,21 @@ func ParseEmailAddress(addr string) EmailAddress {
 	return parsed
 }
 
-func ParseEmailAddressSafe(addr string) (EmailAddress, bool) {
+func ParseEmailAddressSafe(addr string) (*EmailAddress, bool) {
 	match := regexAddress.FindStringSubmatch(addr)
 	if match == nil {
-		return EmailAddress{}, false
+		return &EmailAddress{}, false
 	}
-	return EmailAddress{match[1], match[2]}, true
+	return &EmailAddress{match[1], match[2]}, true
 }
 
-// "foo@bar.com,baz@boo.com" -> []EmailAddress
+// "foo@bar.com,baz@boo.com" -> []*EmailAddress
 func ParseEmailAddresses(addrList string) EmailAddresses {
 	if addrList == "" {
 		return nil
 	}
 	addrParts := strings.Split(addrList, ",")
-	addrs := make([]EmailAddress, 0)
+	addrs := EmailAddresses{}
 	for _, addrPart := range addrParts {
 		addrs = append(addrs, ParseEmailAddress(addrPart))
 	}
@@ -61,13 +63,13 @@ func ParseEmailAddresses(addrList string) EmailAddresses {
 }
 
 // Parses a string list of email addresses (eg To or CC)
-// "<foo@bar.com>,<baz@boo.com>" -> []EmailAddress
+// "<foo@bar.com>,<baz@boo.com>" -> []*EmailAddress
 func ParseAngledEmailAddresses(addrList string, delim string) EmailAddresses {
 	if addrList == "" {
 		return nil
 	}
 	addrParts := strings.Split(addrList, delim)
-	addrs := make([]EmailAddress, 0)
+	addrs := EmailAddresses{}
 	for _, addrPart := range addrParts {
 		if addrPart[0:1] != "<" || addrPart[len(addrPart)-1:] != ">" {
 			log.Panicf("Invalid angled email address %s", addrPart)
@@ -81,7 +83,7 @@ func ParseAngledEmailAddresses(addrList string, delim string) EmailAddresses {
 // Maps a string list of email addresses (eg To or CC) to MX hosts.
 // Performs DNS lookup as needed.
 //
-// "foo@bar.com,baz@boo.com" -> {<mxHost>:[]EmailAddress}
+// "foo@bar.com,baz@boo.com" -> {<mxHost>:[]*EmailAddress}
 //
 // Note mxHost is not the same as emailHost. For example:
 // "larry@gmail.com" -> {"smtp-in.l.gmail.com": [...]}
@@ -125,8 +127,8 @@ func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, EmailAddres
 	return mxHostAddrs, failedAddrs
 }
 
-// This lets us add convenience methods to []EmailAddress
-type EmailAddresses []EmailAddress
+// This lets us add convenience methods to []*EmailAddress
+type EmailAddresses []*EmailAddress
 
 // -> "foo@bar.com,baz@boo.com"
 func (addrs EmailAddresses) String() string {
@@ -171,7 +173,7 @@ func (addrs EmailAddresses) Strings() []string {
 
 // Returns those addresses that have given host
 func (addrs EmailAddresses) FilterByHost(host string) EmailAddresses {
-	filtered := []EmailAddress{}
+	filtered := EmailAddresses{}
 	for _, addr := range addrs {
 		if addr.Host == host {
 			filtered = append(filtered, addr)
@@ -184,11 +186,18 @@ func (addrs EmailAddresses) FilterByHost(host string) EmailAddresses {
 func (addrs EmailAddresses) Unique() EmailAddresses {
 	unique := map[EmailAddress]struct{}{}
 	for _, addr := range addrs {
-		unique[addr] = struct{}{}
+		unique[*addr] = struct{}{}
 	}
 	uniqued := EmailAddresses{}
 	for addr := range unique {
-		uniqued = append(uniqued, addr)
+		uniqued = append(uniqued, &addr)
 	}
 	return uniqued
+}
+
+func GenerateMessageID() *EmailAddress {
+	// generate a message id
+	bytes := &[20]byte{}
+	rand.Read(bytes[:])
+	return &EmailAddress{hex.EncodeToString(bytes[:]), GetConfig().SMTPMxHost}
 }

@@ -31,10 +31,15 @@ func StartSMTPSaver() {
 func saveEmails() {
 	//  receives values from the channel repeatedly until it is closed.
 	for {
-		msg := <-SaveMailChan
-		log.Println("Saving mail from " + msg.mailFrom + " to " + strings.Join(msg.rcptTo, ","))
-		success := saveEmail(msg)
-		msg.saveSuccess <- success
+		// wrap in func to Recover per saveEmail operation,
+		// such that this loop never dies.
+		func() {
+			defer Recover()
+			msg := <-SaveMailChan
+			log.Println("Saving mail from " + msg.mailFrom + " to " + strings.Join(msg.rcptTo, ","))
+			success := saveEmail(msg)
+			msg.saveSuccess <- success
+		}()
 	}
 }
 

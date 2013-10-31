@@ -41,8 +41,8 @@ type Email struct {
 type OutgoingEmail struct {
 	Email
 	IsPlaintext      bool
-	PlaintextBody    string
 	PlaintextSubject string
+	PlaintextBody    string
 }
 
 // BoxSummary represents one page from a box (inbox, sent, etc),

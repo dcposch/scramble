@@ -35,6 +35,7 @@ func init() {
 }
 
 func ping() {
+	defer Recover()
 	ticker := time.Tick(time.Minute)
 	for {
 		<-ticker

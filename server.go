@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
+	"strings"
 )
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 	// Serve HTTP on localhost only. Let Nginx terminate HTTPS for us.
 	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HTTPPort)
 	log.Printf("Listening on http://%s\n", address)
-	log.Fatal(http.ListenAndServe(address, recoverAndLog(http.DefaultServeMux)))
+	log.Fatal(http.ListenAndServe(address, recoverAndLogHandler(http.DefaultServeMux)))
 }
 
 // Wraps an HTTP handler, adding cookie authentication.
@@ -56,7 +57,7 @@ func auth(handler func(http.ResponseWriter, *http.Request, *UserID)) http.Handle
 //
 // If the inner function panics, the outer function recovers, logs, sends an
 // HTTP 500 error response.
-func recoverAndLog(handler http.Handler) http.Handler {
+func recoverAndLogHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Wrap the ResponseWriter to remember the status
 		rww := &ResponseWriterWrapper{-1, w}
@@ -93,4 +94,32 @@ type ResponseWriterWrapper struct {
 func (w *ResponseWriterWrapper) WriteHeader(status int) {
 	w.Status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+// Stick it as a deferred statement in gouroutines to prevent the program from crashing.
+func Recover() {
+	if e := recover(); e != nil {
+		stack := string(debug.Stack())
+		errorString := fmt.Sprintf("%s:\n%s", e, stack)
+		log.Println("<!> "+errorString)
+		messageID := GenerateMessageID().String()
+		if len(GetConfig().AdminEmails) > 0 {
+			go smtpSendSafe(&OutgoingEmail{
+				Email: Email {
+					EmailHeader: EmailHeader {
+						MessageID:     messageID,
+						ThreadID:      messageID,
+						UnixTime:      time.Now().Unix(),
+						From:          "daemon@"+GetConfig().SMTPMxHost,
+						To:            strings.Join(GetConfig().AdminEmails, ","),
+					},
+				},
+				IsPlaintext:   true,
+				PlaintextSubject: "Panic from Scramble server "+GetConfig().SMTPMxHost,
+				PlaintextBody: errorString,
+			})
+		} else {
+			log.Printf("Set AdminEmails: ['your_email@host',...] in config to receive alerts")
+		}
+	}
 }

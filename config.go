@@ -27,6 +27,8 @@ type Config struct {
 	ReservedNames []string // reserved usernames
 
 	AncestorIDsMaxBytes int // should match the VARCHAR() limit of email > ancestor_ids
+
+	AdminEmails []string // alerted for server issues
 }
 
 // Gets the cotents of the Scramble config file, ~/.scramble/config.json
@@ -50,6 +52,7 @@ var defaultConfig = Config{
 		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 		"mailer", "daemon", "postmaster"},
 	10240,
+	[]string{},
 }
 
 var config = Config{
@@ -65,6 +68,7 @@ var config = Config{
 		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
 		"mailer", "daemon", "postmaster"},
 	10240,
+	[]string{},
 }
 
 func init() {

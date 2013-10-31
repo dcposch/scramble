@@ -24,7 +24,6 @@ import (
 	_ "code.google.com/p/go.crypto/ripemd160"
 	"compress/zlib"
 	"crypto/md5"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -57,8 +56,8 @@ type SMTPMessage struct {
 }
 
 type SMTPMessageData struct {
-	messageID   EmailAddress
-	threadID    EmailAddress
+	messageID   *EmailAddress
+	threadID    *EmailAddress
 	ancestorIDs EmailAddresses
 
 	from     *mail.Address
@@ -153,6 +152,7 @@ func handleClients(listener net.Listener) {
 }
 
 func handleClient(client *client) {
+	defer Recover()
 	defer closeClient(client)
 	// TODO: is it safe to show the clientID counter & sem?
 	//  it is nice debug info
@@ -328,10 +328,7 @@ func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 	messageIDStr := strings.Trim(parsed.Header.Get("Message-ID"), "<>")
 	messageID, ok := ParseEmailAddressSafe(messageIDStr)
 	if !ok {
-		// generate a message id
-		bytes := &[20]byte{}
-		rand.Read(bytes[:])
-		messageID = EmailAddress{hex.EncodeToString(bytes[:]), GetConfig().SMTPMxHost}
+		messageID = GenerateMessageID()
 	}
 
 	// [<thread_id>?,...,<grandparent_message_id>,<parent_message_id>]
@@ -651,7 +648,7 @@ func sanitizeAncestorIDs(headers mail.Header) EmailAddresses {
 
 // Generally the ancestorIDs[0], we do a lookup in our db
 //  to see if we can find an older ancestor.
-func computeThreadID(messageID EmailAddress, ancestorIDs EmailAddresses) EmailAddress {
+func computeThreadID(messageID *EmailAddress, ancestorIDs EmailAddresses) *EmailAddress {
 	if len(ancestorIDs) > 0 {
 		var ancestors []interface{}
 		for _, messageID := range ancestorIDs {

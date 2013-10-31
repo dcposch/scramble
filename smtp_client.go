@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"runtime/debug"
 )
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
@@ -50,7 +51,6 @@ func mxLookUp(host string) (string, error) {
 	return bestServer, nil
 }
 
-// TODO: log errors
 func smtpSend(msg *OutgoingEmail) error {
 	mxHostAddrs, failedAddrs := GroupAddrsByMxHost(msg.To)
 	if len(failedAddrs) != 0 {
@@ -70,6 +70,24 @@ func smtpSend(msg *OutgoingEmail) error {
 	}
 	log.Printf("Email sent!\n")
 	return nil
+}
+
+// Must not panic, because Recover() calls this.
+func smtpSendSafe(msg *OutgoingEmail) (success bool) {
+	defer func() {
+		if e := recover(); e != nil {
+			errorString := fmt.Sprintf("%s:\n%s", e, string(debug.Stack()))
+			log.Println("<!> "+errorString)
+			success = false
+		}
+	}()
+	err := smtpSend(msg)
+	if err != nil {
+		log.Printf("SMTP failure: %v", err)
+	} else {
+		success = true
+	}
+	return
 }
 
 const smtpTemplate = `Message-ID: <%s>%s

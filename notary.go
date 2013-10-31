@@ -156,6 +156,7 @@ func SeedUserToNotaries(user *User) {
 			continue
 		}
 		go func(notary string) {
+			defer Recover()
 			log.Println("Seeding new user " + user.EmailAddress + " to " + notary)
 			u := url.URL{}
 			u.Scheme = "https"
