@@ -26,7 +26,7 @@ static/doc/slideshow.html: doc/slideshow.html
 	mkdir -p static/doc
 	cp doc/slideshow.html static/doc/slideshow.html
 
-static/doc/%.html: doc/%.md
+static/doc/%.html: doc/%.md doc/head.html
 	mkdir -p static/doc
 	cat doc/head.html > $@
 	markdown doc/$*.md >> $@
