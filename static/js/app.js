@@ -71,6 +71,10 @@ viewState.getLastEmail = function() {
 viewState.contacts = null; // plaintext address book, must *always* be good data.
 viewState.notaries = null; // notaries that client trusts.
 
+// Maps email addresses to OpenPGP public key objects
+var cache = {};
+cache.keyMap = {};
+
 
 
 //
@@ -862,10 +866,11 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
         return;
     }
 
-    // extract the recipient public key hashes
-    lookupPublicKeys(toAddresses, function(keyMap, newResolutions) {
-        var pubKeys = {}; // {toAddress: <pubKey>}
+    // find a public key for each recipient
+    var pubKeys = {}; // {toAddress: <pubKey>}
 
+    // otherwise, do a full notary lookup
+    lookupPublicKeys(toAddrsForLookup, function(keyMap, newResolutions) {
         // Save new addresses to contacts
         if (newResolutions.length > 0) {
             trySaveContacts(addContacts(viewState.contacts, newResolutions));
@@ -873,16 +878,11 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 
         // Verify all recipient public keys from keyMap
         var missingKeys = [];
-        for (var i = 0; i < toAddresses.length; i++) {
+        toAddrsForLookup.forEach(function(toAddr){
             var toAddr = toAddresses[i];
             var result = keyMap[toAddr];
-            if (!result.pubKey) {
-                //errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
-                missingKeys.push(toAddr);
-                continue;
-            }
-            pubKeys[toAddr] = result.pubKey;
-        }
+            cache.pubKeys[toAddr] = pubKeys[toAddr] = result.pubKey || "";
+        })
 
         // If errors, abort.
         if (errors.length > 0) {
@@ -890,17 +890,30 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
             return;
         }
 
-        if (missingKeys.length > 0) {
-            if (confirm("Could not find public keys for: "+missingKeys.join(", ")
-                +" \nSend unencrypted to all recipients?")) {
-                sendEmailUnencrypted(msgID, threadID, ancestorIDs, toAddresses.join(","), subject, body, cb);
-            }
-        } else {
-            sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
-        }
+        sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
     })
 
     return false;
+}
+
+// Send an email, encryyted if psossibie.
+// If we don't have pub keys for all recipients, warn the uesr
+// and confirm if they want to send the message unencrypted
+function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb){
+    if (!result.pubKey) {
+        //errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
+        missingKeys.push(toAddr);
+        continue;
+    }
+    if (missingKeys.length > 0) {
+        if (confirm("Could not find public keys for: "+missingKeys.join(", ")
+            +" \nSend unencrypted to all recipients?")) {
+            var to = Object.keys(pubKeys).join(",")
+            sendEmailUnencrypted(msgID, threadID, ancestorID, to, subject, body, cb);
+        }
+    } else {
+        sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
+    }
 }
 
 /**
@@ -937,13 +950,35 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 
 */
 function lookupPublicKeys(addresses, cb) {
+    // first, try the cache
+    var addrsForLookup = [];
+    addresses.forEach(function(addr){
+        if(cache.keyMap.hasOwnProperty(addr)){
+            keyMap[addr] = cache.keyMap[addr];
+        } else {
+            addrsForLookup.push(addr);
+        }
+    });
+
+    // all cached? great!
+    if(addrsForLookup.length == 0){
+        return cb(keyMap, []);
+    }
+
+    // not cached? do a notary lookup
+    lookupPublicKeysFromNotaries(addresses, function(keyMap, newResolutions){
+        for(var addr in keyMap){
+            cache.keyMap[addr] = keyMap[addr];
+        }
+
+        cb(keyMap, newResolutions);
+    });
+}
+
+function lookupPublicKeysFromNotaries(addresses, cb) {
 
     var keyMap = {};         // {<address>: {pubHash, pubKeyArmor, pubKey || error}
     var newResolutions = []; // [{address,pubHash}]
-
-    if (addresses.length == 0) {
-        return cb(keyMap, newResolutions);
-    }
 
     loadNotaries(function(notaryKeys) {
 
@@ -958,11 +993,12 @@ function lookupPublicKeys(addresses, cb) {
             if (contact) {
                 if (contact.pubHash) {
                     var parts = addr.split("@");
+                    // TODO: cleaner way to represent (address, pubhash) pairs
                     hashAddresses.push(parts[0]+"#"+contact.pubHash+"@"+parts[1]);
                     knownHashes[addr] = contact.pubHash;
                 } else {
                     knownHashes[addr] = undefined;
-                    keyMap[addr] = {
+                    cache.keyMap[addr] = keyMap[addr] = {
                         pubHash:     undefined,
                         pubKeyArmor: undefined,
                         pubKey:      undefined,
@@ -977,7 +1013,7 @@ function lookupPublicKeys(addresses, cb) {
         if (nameAddresses.length == 0 && hashAddresses.length == 0) {
             return cb(keyMap, newResolutions);
         }
-        
+
         var params = {
             nameAddresses: nameAddresses.join(","),
             hashAddresses: hashAddresses.join(","),
