@@ -503,28 +503,7 @@ function bindEmailEvents() {
     $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}));
     $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}));
     $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}));
-    $(".email .enterAddContactButton").click(function(){
-        var addr = $(this).data("addr");
-        var name = prompt("Contact name for "+addr);
-        if (!name) {
-            return;
-        }
-        lookupPublicKeys([addr], function(keyMap) {
-            var error =   keyMap[addr].error;
-            var pubHash = keyMap[addr].pubHash;
-            if (error) {
-                alert(error);
-                return;
-            }
-            var contacts = addContacts(
-                viewState.contacts,
-                {name:name, address:addr, pubHash:pubHash}
-            );
-            trySaveContacts(contacts, function() {
-                displayStatus("Contact saved");
-            });
-        });
-    });
+    $(".email .enterAddContactButton").click(addContact);
 
     var withLastEmail = function(cb) {
         return function() {
@@ -539,6 +518,30 @@ function bindEmailEvents() {
     $(".threadControl .moveToInboxButton").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
     $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
 }
+
+function addContact() {
+    var addr = $(this).data("addr");
+    var name = prompt("Contact name for "+addr);
+    if (!name) {
+        return;
+    }
+    lookupPublicKeys([addr], function(keyMap) {
+        var error =   keyMap[addr].error;
+        var pubHash = keyMap[addr].pubHash;
+        if (error) {
+            alert(error);
+            return;
+        }
+        var contacts = addContacts(
+            viewState.contacts,
+            {name:name, address:addr, pubHash:pubHash}
+        );
+        trySaveContacts(contacts, function() {
+            displayStatus("Contact saved");
+        });
+    });
+}
+
 
 /**
     Takes an email header, selects its box-item, shows the thread.
@@ -585,28 +588,33 @@ function displayEmail(emailHeader) {
         };
 
         cachedLoadEmail(params, function(emailDatas) {
-            var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
-            lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
-                // First, save new pubHashes to contacts so future lookups are faster.
-                if (newResolutions.length > 0) {
-                    trySaveContacts(addContacts(viewState.contacts, newResolutions));
-                }
+            viewState.emails = emailDatas; // for keyboard shortcuts & thread control
 
-                // Construct array of email objects.
-                var emails = emailDatas.map(function(emailData) {
-                    decryptAndVerifyEmail(emailData, privateKey, keyMap);
-                    return createEmailViewModel(emailData, box, subject);
-                });
-
-                // Construct thread element, insert emails
-                showEmailThread(emails);
-
-                // Update view state
-                bindEmailEvents();
-                viewState.emails = emails; // for keyboard shortcuts & thread control
-            })
+            showCurrentThread();
         });
     });
+}
+
+function showEmailThread(){
+    var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
+    lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
+        // First, save new pubHashes to contacts so future lookups are faster.
+        if (newResolutions.length > 0) {
+            trySaveContacts(addContacts(viewState.contacts, newResolutions));
+        }
+
+        // Construct array of email objects.
+        var emails = emailDatas.map(function(emailData) {
+            decryptAndVerifyEmail(emailData, privateKey, keyMap);
+            return createEmailViewModel(emailData, box, subject);
+        });
+
+        // Construct thread element, insert emails
+        showEmailThread(emails);
+
+        // Update view state
+        bindEmailEvents();
+    })
 }
 
 function cachedLoadEmail(params, cb){
