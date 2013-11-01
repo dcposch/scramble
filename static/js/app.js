@@ -74,7 +74,8 @@ viewState.notaries = null; // notaries that client trusts.
 // Maps email addresses to OpenPGP public key objects
 var cache = {};
 cache.keyMap = {};
-
+cache.emailCache = {};
+cache.plaintextCache = {};
 
 
 //
@@ -451,7 +452,7 @@ function decryptAndDisplayBox(inboxSummary, box) {
 function decryptSubjects(headers, privateKey) {
     for (var i = 0; i < headers.length; i++) {
         var h = headers[i];
-        h.Subject = tryDecodePgp(h.CipherSubject, privateKey);
+        h.Subject = cachedDecodePgp(h.MessageID+" subject", h.CipherSubject, privateKey);
         if (h.Subject == null) {
             h.Subject = "(Decryption failed)";
         } else if (trim(h.Subject)=="") {
@@ -583,7 +584,7 @@ function displayEmail(emailHeader) {
             box:      box,
         };
 
-        $.get("/email/", params, function(emailDatas) {
+        cachedLoadEmail(params, function(emailDatas) {
             var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
             lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
                 // First, save new pubHashes to contacts so future lookups are faster.
@@ -604,8 +605,19 @@ function displayEmail(emailHeader) {
                 bindEmailEvents();
                 viewState.emails = emails; // for keyboard shortcuts & thread control
             })
-        }, "json");
+        });
     });
+}
+
+function cachedLoadEmail(params, cb){
+    if(cache.emailCache.hasOwnProperty(params.msgID)){
+        cb(cache.emailCache[params.msgID]);
+    } else {
+        $.get("/email/", params, function(emailData) {
+            cache.emailCache[params.msgID] = emailData;
+            cb(emailData);
+        }, "json");
+    }
 }
 
 // Decrypts an email. Checks the signature, if there is one.
@@ -618,7 +630,7 @@ function decryptAndVerifyEmail(data, privateKey, keyMap) {
         console.log("No key found for "+from+". This email is unverifiable "+
             "regardless of whether it has a signature.");
     }
-    data.plaintextBody = tryDecodePgp(data.CipherBody, privateKey, fromKey);
+    data.plaintextBody = cachedDecodePgp(data.MessageID+" body", data.CipherBody, privateKey, fromKey);
 }
 
 function createEmailViewModel(data, box, threadSubject) {
@@ -868,9 +880,7 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 
     // find a public key for each recipient
     var pubKeys = {}; // {toAddress: <pubKey>}
-
-    // otherwise, do a full notary lookup
-    lookupPublicKeys(toAddrsForLookup, function(keyMap, newResolutions) {
+    lookupPublicKeys(toAddresses, function(keyMap, newResolutions) {
         // Save new addresses to contacts
         if (newResolutions.length > 0) {
             trySaveContacts(addContacts(viewState.contacts, newResolutions));
@@ -878,10 +888,9 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 
         // Verify all recipient public keys from keyMap
         var missingKeys = [];
-        toAddrsForLookup.forEach(function(toAddr){
-            var toAddr = toAddresses[i];
+        toAddresses.forEach(function(toAddr){
             var result = keyMap[toAddr];
-            cache.pubKeys[toAddr] = pubKeys[toAddr] = result.pubKey || "";
+            pubKeys[toAddr] = result.pubKey || "";
         })
 
         // If errors, abort.
@@ -899,12 +908,12 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 // Send an email, encryyted if psossibie.
 // If we don't have pub keys for all recipients, warn the uesr
 // and confirm if they want to send the message unencrypted
-function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb){
-    if (!result.pubKey) {
-        //errors.push("Failed to fetch public key for address "+toAddr+":\n  "+result.error);
-        missingKeys.push(toAddr);
-        continue;
-    }
+function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb){
+    var addrs = Object.keys(pubKeysByAddr);
+    var missingKeys = addrs.filter(function(addr){
+        return pubKeysByAddr[addr] == "";
+    });
+
     if (missingKeys.length > 0) {
         if (confirm("Could not find public keys for: "+missingKeys.join(", ")
             +" \nSend unencrypted to all recipients?")) {
@@ -912,7 +921,7 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, sub
             sendEmailUnencrypted(msgID, threadID, ancestorID, to, subject, body, cb);
         }
     } else {
-        sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
+        sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb);
     }
 }
 
@@ -1807,7 +1816,18 @@ function getPublicKey(fn) {
     })
 }
 
-// if publicKey exists, it is used to verify the signature.
+function cachedDecodePgp(cacheKey, armoredText, privateKey, publicKey){
+    var plain = cache.plaintextCache[cacheKey];
+    if (typeof(plain) === "undefined"){
+        plain = tryDecodePgp(armoredText, privateKey, publicKey);
+        cache.plaintextCache[cacheKey] = plain;
+    }
+    return plain;
+}
+
+// Decrypts a PGP message destined for our user, given their private key
+// If publicKey exists, it is used to verify the sender's signature.
+// This is a slow operation (60ms)
 function tryDecodePgp(armoredText, privateKey, publicKey) {
     try {
         return decodePgp(armoredText, privateKey, publicKey);
