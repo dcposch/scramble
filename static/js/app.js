@@ -43,6 +43,7 @@ var CONTACTS_VERSION = 1;
 // sessionStorage["emailAddress"] is <token>@<host>
 // sessionStorage["passHash"] is the auth key
 // sessionStorage["passHashOld"] is for backwards compatibility
+// sessionStorage["/publickeys/notary"] is the cached /publickeys/notary response
 //
 // These are never seen by the server, and never go in cookies or localStorage
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
@@ -63,11 +64,12 @@ var CONTACTS_VERSION = 1;
 //
 
 var viewState = {};
-viewState.emails = null // all emails in the current thread
+viewState.emails = null; // all emails in the current thread
 viewState.getLastEmail = function() {
     return this.emails == null ? null : this.emails[this.emails.length-1];
 }
 viewState.contacts = null; // plaintext address book, must *always* be good data.
+viewState.notaries = null; // notaries that client trusts.
 
 
 
@@ -1573,18 +1575,34 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
 // Load list of notaries.
 // cb: function(notaries), notaries: {<host>:<publicKey>, ...}
 function loadNotaries(cb) {
-    $.getJSON("/publickeys/notary", function(data) {
-        if (!data.notaries) {
-            alert("Failed to retrieve default notaries from server!");
-            return;
-        }
-        var notaries = {};
-        for (var notary in data.notaries) {
-            var pubKey = data.notaries[notary];
-            notaries[notary] = openpgp.read_publicKey(pubKey);
-        }
+    if (viewState.notaries) {
+        cb(viewState.notaries);
+    } else if (sessionStorage["/publickeys/notary"]) {
+        var data = JSON.parse(sessionStorage["/publickeys/notary"]);
+        var notaries = parseNotaries(data.notaries);
         cb(notaries);
-    });
+    } else {
+        $.getJSON("/publickeys/notary", function(data) {
+            var notaries = parseNotaries(data.notaries);
+            if (!notaries) {
+                alert("Failed to retrieve default notaries from server!");
+                return;
+            }
+            sessionStorage["/publickeys/notary"] = JSON.stringify(data);
+            cb(notaries);
+        });
+    }
+}
+
+// notaries: {<notaryName>:<pubKeyArmor>}
+// returns {<notaryName>:<pubKey>}
+function parseNotaries(notaries) {
+    var parsed = {};
+    for (var host in notaries) {
+        var pubKey = notaries[host];
+        parsed[host] = openpgp.read_publicKey(pubKey);
+    }
+    return parsed;
 }
 
 // Ensure that notaryRes is properly signed with notaryPublicKey.
