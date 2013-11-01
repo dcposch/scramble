@@ -17,18 +17,17 @@ type Config struct {
 	DbPassword string
 	DbCatalog  string
 
-	SMTPMxHost string
-	SMTPPort   int // internal, nginx handles TLS and forwards
+	SMTPMxHost   string
+	SMTPPort     int // internal, nginx handles TLS and forwards
+	MaxEmailSize int
 
 	HTTPPort int // internal, nginx handles SSL and forwards
 
 	Notaries map[string]string // for seeding new accounts, and clients to query
 
-	ReservedNames []string // reserved usernames
-
-	AncestorIDsMaxBytes int // should match the VARCHAR() limit of email > ancestor_ids
-
-	AdminEmails []string // alerted for server issues
+	ReservedNames       []string // reserved usernames
+	AncestorIDsMaxBytes int      // should match the VARCHAR() limit of email > ancestor_ids
+	AdminEmails         []string // alerted for server issues
 }
 
 // Gets the cotents of the Scramble config file, ~/.scramble/config.json
@@ -42,8 +41,11 @@ var defaultConfig = Config{
 	"scramble",
 	"scramble",
 	"scramble",
+
 	"local.scramble.io",
 	8825,
+	15728640, // 15 MB max email size
+
 	8888,
 	map[string]string{
 		"local.scramble.io": "notaries/local.scramble.io",
@@ -55,21 +57,7 @@ var defaultConfig = Config{
 	[]string{},
 }
 
-var config = Config{
-	"127.0.0.1",
-	"scramble",
-	"scramble",
-	"scramble",
-	"local.scramble.io",
-	8825,
-	8888,
-	map[string]string{},
-	[]string{"admin", "administrator", "root", "support", "help", "spam",
-		"info", "contact", "webmaster", "abuse", "security", "mailer-daemon",
-		"mailer", "daemon", "postmaster"},
-	10240,
-	[]string{},
-}
+var config = defaultConfig
 
 func init() {
 	configFile := os.Getenv("HOME") + "/.scramble/config.json"

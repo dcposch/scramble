@@ -108,7 +108,7 @@ func configure() {
 	// SMTP port that nginx forwards to
 	listenAddress = fmt.Sprintf("127.0.0.1:%d", GetConfig().SMTPPort)
 	// max email size
-	maxSize = 131072
+	maxSize = GetConfig().MaxEmailSize
 	// timeout for reads
 	timeout = time.Duration(20)
 	// currently active client list, 500 is maxClients
