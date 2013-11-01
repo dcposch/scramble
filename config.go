@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"path/filepath"
 )
 
 // All configuration for a Scramble server+notary.
@@ -82,6 +83,10 @@ func init() {
 func writeDefaultConfig(configFile string) {
 	log.Printf("Creating default configration file %s", configFile)
 	configBytes, err := json.MarshalIndent(defaultConfig, "", "    ")
+	if err != nil {
+		panic(err)
+	}
+	err = os.MkdirAll(filepath.Dir(configFile), 0700)
 	if err != nil {
 		panic(err)
 	}
