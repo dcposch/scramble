@@ -80,6 +80,20 @@ func ParseAngledEmailAddresses(addrList string, delim string) EmailAddresses {
 	return addrs
 }
 
+// More flexible than ParseAngledEmailAddresses, just looks for <...>
+// Useful for parsing dirty data like the References header.
+func ParseAngledEmailAddressesSmart(addrList string) EmailAddresses {
+	found := regexAngledAddress.FindAllStringSubmatch(addrList, -1)
+	if len(found) == 0 {
+		return nil
+	}
+	addrs := EmailAddresses{}
+	for _, addr := range found {
+		addrs = append(addrs, &EmailAddress{addr[1],addr[2]})
+	}
+	return addrs
+}
+
 // Maps a string list of email addresses (eg To or CC) to MX hosts.
 // Performs DNS lookup as needed.
 //

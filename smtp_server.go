@@ -638,8 +638,8 @@ func md5hex(str string) string {
 func sanitizeAncestorIDs(headers mail.Header) EmailAddresses {
 	inReplyToStr := headers.Get("In-Reply-To")
 	referencesStr := headers.Get("References")
-	inReplyTo := ParseAngledEmailAddresses(inReplyToStr, " ")
-	references := ParseAngledEmailAddresses(referencesStr, " ")
+	inReplyTo := ParseAngledEmailAddressesSmart(inReplyToStr)
+	references := ParseAngledEmailAddressesSmart(referencesStr)
 	if len(inReplyTo) > 0 && (len(references) == 0 || references[len(references)-1] != inReplyTo[0]) {
 		references = append(references, inReplyTo[0])
 	}
