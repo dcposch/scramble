@@ -64,22 +64,48 @@ var CONTACTS_VERSION = 1;
 //
 
 var viewState = {};
-viewState.emails = null; // all emails in the current thread
+
+// current box (e.g. inbox, sent, archive)
+viewState.box = null;
+
+// all emails in the current thread.
+// [{
+//     From,
+//     To,
+//     CipherBody,
+//     ...,
+//     viewModel?: { # only exists if decrypted.
+//         from,
+//         to,...
+//     }
+// },...]
+viewState.emails = null;
+// Returns the last email
 viewState.getLastEmail = function() {
-    return this.emails == null ? null : this.emails[this.emails.length-1];
+    return this.emails == null ? null : this.emails[this.emails.length-1].viewModel;
 }
+// Returns the last email from another user.
 viewState.getLastEmailFromAnother = function() {
     if (!this.emails) {
         return null;
     }
     for (var i=this.emails.length-1; 0 <= i; i--) {
-        if (trimToLower(this.emails[i].from) != sessionStorage["emailAddress"]) {
-            return this.emails[i];
+        var email = this.emails[i];
+        if (!email.viewModel) {
+            continue;
+        }
+        if (email.from != sessionStorage["emailAddress"]) {
+            return email.viewModel;
         }
     }
     // just return the last email even from self.
-    return this.emails[this.emails.length-1];
+    return this.getLastEmail();
 }
+viewState.clearEmails = function() {
+    this.box = null;
+    this.emails = null;
+}
+
 viewState.contacts = null; // plaintext address book, must *always* be good data.
 viewState.notaries = null; // notaries that client trusts.
 
@@ -425,27 +451,26 @@ function loadDecryptAndDisplayBox(box, page) {
     );
 }
 
-function decryptAndDisplayBox(inboxSummary, box) {
+function decryptAndDisplayBox(boxSummary, box) {
     box = box || "inbox";
-    sessionStorage["pubHash"] = inboxSummary.PublicHash;
-    sessionStorage["emailAddress"] = inboxSummary.EmailAddress;
+    sessionStorage["pubHash"] = boxSummary.PublicHash;
+    sessionStorage["emailAddress"] = boxSummary.EmailAddress;
 
     console.log("Decrypting and displaying "+box);
     getPrivateKey(function(privateKey) {
-        console.log("Got private key");
         getContacts(function() {
-            decryptSubjects(inboxSummary.EmailHeaders, privateKey);
+            decryptSubjects(boxSummary.EmailHeaders, privateKey);
             var data = {
                 token:        sessionStorage["token"],
-                emailAddress: inboxSummary.EmailAddress,
-                pubHash:      inboxSummary.PublicHash,
-                box:          inboxSummary.Box,
-                offset:       inboxSummary.Offset,
-                limit:        inboxSummary.Limit,
-                total:        inboxSummary.Total,
-                page:         Math.floor(inboxSummary.Offset / inboxSummary.Limit)+1,
-                totalPages:   Math.ceil(inboxSummary.Total / inboxSummary.Limit),
-                emailHeaders: inboxSummary.EmailHeaders,
+                box:          box,
+                emailAddress: boxSummary.EmailAddress,
+                pubHash:      boxSummary.PublicHash,
+                offset:       boxSummary.Offset,
+                limit:        boxSummary.Limit,
+                total:        boxSummary.Total,
+                page:         Math.floor(boxSummary.Offset / boxSummary.Limit)+1,
+                totalPages:   Math.ceil(boxSummary.Total / boxSummary.Limit),
+                emailHeaders: boxSummary.EmailHeaders,
             };
             var pages = [];
             for (var i=0; i<data.totalPages; i++) {
@@ -457,6 +482,7 @@ function decryptAndDisplayBox(inboxSummary, box) {
             setSelectedTab($("#tab-"+box));
             $("#"+box).html(render("box-template", data));
             bindBoxEvents(box);
+            viewState.box = box;
         });
     });
 }
@@ -561,15 +587,16 @@ function addContact() {
 
 
 /**
-    Takes an email header, selects its box-item, shows the thread.
+    Takes an email, selects its box-item, shows the entire thread.
     For convenience, you can pass in the li.box-item jquery element,
      which has the relevant .data() attributes.
 
     emailHeader => {
         msgID (id of the selected email)
         threadID (thread id of the selected email)
-        box (location of the selected email: 'inbox', 'sent', etc)
     }
+
+    Also uses viewState.box to determine current box.
 */
 function displayEmail(emailHeader) {
 
@@ -580,8 +607,6 @@ function displayEmail(emailHeader) {
         emailHeader = {
             msgID:     emailHeader.data("msgId"),
             threadID:  emailHeader.data("threadId"),
-            box:       emailHeader.data("box"),
-            subject:   emailHeader.text(),
         };
     } else if (!emailHeader) {
         return;
@@ -589,53 +614,52 @@ function displayEmail(emailHeader) {
 
     var msgID    = emailHeader.msgID;
     var threadID = emailHeader.threadID;
-    var box      = emailHeader.box;
-    var subject  = emailHeader.subject;
 
     $("#content").empty();
     $("li.box-item.current").removeClass("current");
     $("li.box-item[data-thread-id='"+threadID+"']").addClass("current");
 
-    getPrivateKey(function(privateKey) {
-
-        var params = {
-            msgID:    msgID,
-            threadID: threadID,
-            box:      box,
-        };
-
-        cachedLoadEmail(params, function(emailDatas) {
-            viewState.emails = emailDatas; // for keyboard shortcuts & thread control
-
-            showCurrentThread();
-        });
+    var params = {
+        msgID: msgID,
+        threadID: threadID,
+        box: viewState.box // not used now, but maybe used in the future.
+    };
+    cachedLoadEmail(params, function(emailDatas) {
+        viewState.emails = emailDatas; // for keyboard shortcuts & thread control
+        showCurrentThread();
     });
 }
 
-function showEmailThread(){
-    var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
-    lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
-        // First, save new pubHashes to contacts so future lookups are faster.
-        if (newResolutions.length > 0) {
-            trySaveContacts(addContacts(viewState.contacts, newResolutions));
-        }
+function showCurrentThread(){
+    getPrivateKey(function(privateKey) {
+        var fromAddrs = viewState.emails.map("From").map(trimToLower).unique();
+        lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
+            // First, save new pubHashes to contacts so future lookups are faster.
+            if (newResolutions.length > 0) {
+                trySaveContacts(addContacts(viewState.contacts, newResolutions));
+            }
 
-        // Construct array of email objects.
-        var emails = emailDatas.map(function(emailData) {
-            decryptAndVerifyEmail(emailData, privateKey, keyMap);
-            return createEmailViewModel(emailData, box, subject);
-        });
+            // Construct array of email objects.
+            // Also sets the view model on viewState.emails
+            var emails = viewState.emails.map(function(emailData) {
+                decryptAndVerifyEmail(emailData, privateKey, keyMap);
+                var model = createEmailViewModel(emailData);
+                emailData.viewModel = model;
+                return model;
+            });
 
-        // Construct thread element, insert emails
-        showEmailThread(emails);
+            // Construct thread element, insert emails
+            showEmailThread(emails);
 
-        // Update view state
-        bindEmailEvents();
-    })
+            // Update view state
+            bindEmailEvents();
+        })
+    });
 }
 
 function cachedLoadEmail(params, cb){
     if(cache.emailCache.hasOwnProperty(params.msgID)){
+        // NOTE: we may want to use params.box in the future.
         cb(cache.emailCache[params.msgID]);
     } else {
         $.get("/email/", params, function(emailData) {
@@ -658,7 +682,7 @@ function decryptAndVerifyEmail(data, privateKey, keyMap) {
     data.plaintextBody = cachedDecodePgp(data.MessageID+" body", data.CipherBody, privateKey, fromKey);
 }
 
-function createEmailViewModel(data, box, threadSubject) {
+function createEmailViewModel(data) {
     // Parse From, To, etc
     var fromAddress = namedAddrFromAddress(data.From);
     var toAddresses = data.To.split(",").map(namedAddrFromAddress);
@@ -673,13 +697,12 @@ function createEmailViewModel(data, box, threadSubject) {
         threadID:    data.ThreadID,
         time:        new Date(data.UnixTime*1000),
         unixTime:    data.UnixTime,
-        from:        data.From,
+        from:        trimToLower(data.From),
         fromAddress: fromAddress,
-        to:          data.To,
+        to:          trimToLower(data.To),
         toAddresses: toAddresses,
-        subject:     parsedBody.subject || threadSubject,
+        subject:     parsedBody.subject,
         htmlBody:    createHyperlinks(parsedBody.body),
-        box:         box,
     };
 }
 
@@ -687,11 +710,12 @@ function showEmailThread(emails) {
     var thread = {
         threadID:    emails[emails.length-1].threadID,
         subject:     emails[emails.length-1].subject || "(No subject)",
-        box:         emails[emails.length-1].box,
+        box:         viewState.box,
     };
     var elThread = $(render("thread-template", thread)).data("thread", thread);
     for (var i=0; i<emails.length; i++) {
         var email = emails[i];
+        email._box = viewState.box; // used to determine which buttons to show
         var elEmail = $(render("email-template", email)).data("email", email);
         elThread.find("#thread-emails").append(elEmail);
     }
@@ -835,7 +859,7 @@ function bindComposeEvents(elCompose, cb) {
 function displayCompose(to, subject, body) {
     // clean up 
     $(".box").html("");
-    viewState.emails = null;
+    viewState.clearEmails();
     setSelectedTab($("#tab-compose"));
     var elCompose = $(render("compose-template", {
         to:      to,
@@ -865,7 +889,6 @@ function displayComposeInline(email, to, subject, body) {
     elEmail.find(".email-compose").empty().append(elCompose);
     bindComposeEvents(elCompose, function(emailData) {
         displayStatus("Sent");
-        emailData.box = email.box;
         displayEmail(emailData);
     });
 
@@ -1195,7 +1218,8 @@ function sendEmailPost(data, cb) {
 function parseBody(plaintextBody) {
     var parts = REGEX_BODY.exec(plaintextBody);
     if (parts == null) {
-        return {body:plaintextBody, ok:false};
+        // for legacy emails
+        return {subject:"(Unknown subject)", body:plaintextBody, ok:false};
     } else {
         return {subject:parts[1], body:parts[2], ok:true};
     }
@@ -1211,7 +1235,7 @@ function displayContacts() {
     loadAndDecryptContacts(function(contacts) {
         // clean up 
         $(".box").html("");
-        viewState.emails = [];
+        viewState.clearEmails();
         setSelectedTab($("#tab-contacts"));
 
         // render compose form into #content
@@ -1820,6 +1844,7 @@ function getPrivateKey(fn) {
         if (!privateKeyArmored) return;
         sessionStorage["privateKeyArmored"] = privateKeyArmored;
         var privateKey = openpgp.read_privateKey(privateKeyArmored);
+        console.log("Got private key");
         fn(privateKey);
     }, "text").fail(function(xhr) {
         alert("Failed to retrieve our own encrypted private key: "+xhr.responseText);

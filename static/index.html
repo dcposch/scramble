@@ -104,7 +104,6 @@
         <li class="box-item"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
-            data-box="{{../box}}"
             data-time="{{UnixTime}}"
             data-from="{{From}}"
             data-to="{{To}}">{{Subject}}</li>
@@ -181,10 +180,10 @@
         <button class="replyButton">Reply</button>
         <button class="replyAllButton">Reply All</button>
         <button class="forwardButton">Forward</button>
-        {{#ifCond box '==' "inbox"}}
+        {{#ifCond _box '==' "inbox"}}
         <button class="archiveButton">Archive</button>
         {{/ifCond}}
-        {{#ifCond box '==' "archive"}}
+        {{#ifCond _box '==' "archive"}}
         <button class="moveToInboxButton">Move to Inbox</button>
         {{/ifCond}}
         <button class="deleteButton">Delete</button>

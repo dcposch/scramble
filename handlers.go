@@ -136,10 +136,10 @@ func computeEmailHost(requestHost string) string {
 // INBOX ROUTE
 //
 
-// Takes no arguments, returns all the metadata about a user's inbox.
+// Takes no arguments, returns all the metadata about a user's (in)box.
 // Encrypted subjects are returned, but no message bodies.
 // The caller must have auth cookies set.
-func inboxHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+func boxHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	box := r.URL.Path[len("/box/"):]
 	query := r.URL.Query()
 	offset, err := strconv.Atoi(query.Get("offset"))

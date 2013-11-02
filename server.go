@@ -22,7 +22,7 @@ func main() {
 	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts
 	http.HandleFunc("/user/me/key", auth(privateKeyHandler))    // load encrypted privkey
 	http.HandleFunc("/email/", auth(emailHandler))              // load email body
-	http.HandleFunc("/box/", auth(inboxHandler))                // load email headers
+	http.HandleFunc("/box/", auth(boxHandler))                  // load email headers
 
 	// Resources
 	http.HandleFunc("/", staticHandler) // html, js, css
