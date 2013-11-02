@@ -68,6 +68,18 @@ viewState.emails = null; // all emails in the current thread
 viewState.getLastEmail = function() {
     return this.emails == null ? null : this.emails[this.emails.length-1];
 }
+viewState.getLastEmailFromAnother = function() {
+    if (!this.emails) {
+        return null;
+    }
+    for (var i=this.emails.length-1; 0 <= i; i--) {
+        if (trimToLower(this.emails[i].from) != sessionStorage["emailAddress"]) {
+            return this.emails[i];
+        }
+    }
+    // just return the last email even from self.
+    return this.emails[this.emails.length-1];
+}
 viewState.contacts = null; // plaintext address book, must *always* be good data.
 viewState.notaries = null; // notaries that client trusts.
 
@@ -113,7 +125,7 @@ var keyMap = {
         "s":function(){loadDecryptAndDisplayBox("sent")},
         "a":function(){loadDecryptAndDisplayBox("archive")}
     },
-    "r":function(){emailReply(viewState.getLastEmail())},
+    "r":function(){emailReply(viewState.getLastEmailFromAnother())},
     "a":function(){emailReplyAll(viewState.getLastEmail())},
     "f":function(){emailForward(viewState.getLastEmail())},
     "y":function(){emailMove(viewState.getLastEmail(), "archive", true)},
@@ -510,8 +522,13 @@ function bindEmailEvents() {
             cb(viewState.getLastEmail());
         };
     };
+    var withLastEmailFromAnother = function(cb) {
+        return function() {
+            cb(viewState.getLastEmailFromAnother());
+        };
+    };
 
-    $(".threadControl .replyButton").click(withLastEmail(emailReply));
+    $(".threadControl .replyButton").click(withLastEmailFromAnother(emailReply));
     $(".threadControl .replyAllButton").click(withLastEmail(emailReplyAll));
     $(".threadControl .forwardButton").click(withLastEmail(emailForward));
     $(".threadControl .archiveButton").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
