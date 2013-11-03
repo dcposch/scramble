@@ -68,7 +68,7 @@ func deliverMailLocally(msg *SMTPMessage) error {
 	email := new(Email)
 	email.MessageID = msg.data.messageID.String()
 	email.UnixTime = msg.time
-	email.From = msg.mailFrom
+	email.From = msg.data.from.String()
 	// TODO: separate To and CC, add BCC
 	email.To = joinAddresses(append(msg.data.toList, msg.data.ccList...))
 	email.CipherSubject = cipherSubject
