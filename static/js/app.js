@@ -965,7 +965,7 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAdd
     if (missingKeys.length > 0) {
         if (confirm("Could not find public keys for: "+missingKeys.join(", ")
             +" \nSend unencrypted to all recipients?")) {
-            var to = Object.keys(pubKeys).join(",")
+            var to = Object.keys(pubKeysByAddr).join(",")
             sendEmailUnencrypted(msgID, threadID, ancestorID, to, subject, body, cb);
         }
     } else {
