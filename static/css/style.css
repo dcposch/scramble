@@ -287,10 +287,6 @@ input[type=submit] {
     font-size: 80%;
     vertical-align: text-top;
     display: inline-block;
-    opacity: 0.5;
-}
-.email .addr-name {
-    font-weight: bold;
 }
 .email .addr.named {
     font-weight: normal;
@@ -302,9 +298,6 @@ input[type=submit] {
 .email .addr.named:after {
     content: "›";
     color: #888;
-}
-.email .addr.noname {
-    font-weight: bold;
 }
 .email .to-address:not(:last-child):after {
     content: ", "
