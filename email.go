@@ -204,7 +204,8 @@ func (addrs EmailAddresses) Unique() EmailAddresses {
 	}
 	uniqued := EmailAddresses{}
 	for addr := range unique {
-		uniqued = append(uniqued, &addr)
+		addrCopy := addr
+		uniqued = append(uniqued, &addrCopy)
 	}
 	return uniqued
 }

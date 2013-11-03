@@ -266,7 +266,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		localRecipients := EmailAddresses{ParseEmailAddress(userID.EmailAddress)}
 		for mxHost, addrs := range mxHostAddrs {
 			if mxHost == GetConfig().SMTPMxHost {
-				localRecipients = addrs
+				localRecipients = append(localRecipients, addrs...)
 			}
 		}
 		localRecipients = localRecipients.Unique()
