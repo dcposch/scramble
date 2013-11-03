@@ -505,6 +505,11 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// compile requests by mx host.
 	allRequests := map[string]*PerMxHostRequest{}
 	for mxHost, nameAddrs := range mxHostNameAddrs {
+		if userID == nil && mxHost != GetConfig().SMTPMxHost {
+			// don't try to fetch the public keys in this case,
+			// we're not supposed to dispatch any further.
+			continue
+		}
 		if mxHostInfos[mxHost] != nil && mxHostInfos[mxHost].IsScramble == false {
 			// no point asking a non-scramble mxHost for the key!
 			continue
@@ -584,6 +589,9 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 		} else {
 			// if host is an external host
+			if userID == nil {
+				log.Panic("Secondary notary requests can't make tertiary ones")
+			}
 			counter += 1
 			go func(mxHost string, request *PerMxHostRequest) {
 				defer Recover()
