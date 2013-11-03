@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"path/filepath"
+	"strings"
 )
 
 // All configuration for a Scramble server+notary.
@@ -74,6 +74,7 @@ func init() {
 	}
 
 	// try to parse configuration. on error, die
+	config = Config{}
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
 		log.Panicf("Invalid configuration file %s: %v", configFile, err)
