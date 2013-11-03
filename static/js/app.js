@@ -35,6 +35,17 @@ var DEFAULT_SIGNATURE = "\n\n--\n"+
 
 var CONTACTS_VERSION = 1;
 
+// If we get responses from all but n notaries for a given address,
+// and the responses all agree, we accept the public key.
+// 
+// This allow individual notary operators to have brief downtime 
+// (eg upgrading their server) without breaking Scramble, without
+// significantly impacting security.
+//
+// (To MITM a user, an adversary would have to commandeer (n-x)
+//  notaries and then take down the remaining x notaries.)
+var MAX_MISSING_NOTARIES = 1;
+
 
 //
 // SESSION VARIABLES
@@ -966,7 +977,7 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAdd
         if (confirm("Could not find public keys for: "+missingKeys.join(", ")
             +" \nSend unencrypted to all recipients?")) {
             var to = Object.keys(pubKeysByAddr).join(",")
-            sendEmailUnencrypted(msgID, threadID, ancestorID, to, subject, body, cb);
+            sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb);
         }
     } else {
         sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb);
@@ -1655,14 +1666,28 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
     // For now, make sure that all notaries were successful.
     // In the future we'll be more flexible with occasional errors,
     //  especially when we have more notaries serving.
+    var missingNotaries = [], missingAddresses = [];
     for (var i=0; i<addresses.length; i++) {
         var address = addresses[i];
-        if (!notarized[address] || notarized[address].length != notaries.length) {
-            errors.push("Error: missing notaries, could not resolve "+address
-                + ". Only heard from: "+(notarized[address]||[]).join(", "));
+        var missingNotariesForAddress = notaries.filter(function(notary){
+            return !notarized[address] || notarized[address].indexOf(notary) < 0;
+        });
+        if(missingNotariesForAddress.length > MAX_MISSING_NOTARIES){
+            missingAddresses.push(address);
+        } else {
+            // this address is *NOT* available from at least one notary, or
+            // at least one notary server is down
+            console.log("Warning: did NOT get a public key for "+address+
+                " from: "+missingNotariesForAddress.join(",")+". " +
+                "However, we got enough responses to proceed.");
         }
+        addAllToSet(missingNotariesForAddress, missingNotaries);
     }
-
+    if(missingAddresses.length > 0){
+        // for at least one address, we did not get enough notary responses to proceed
+        errors.push("Couldn't get a trusted public key for "+missingAddresses.join(", ")+". "+
+            "The following notaries are missing public keys: "+missingNotaries.join(", "));
+    }
     return {warnings:warnings, errors:errors, pubHashes:pubHashes};
 }
 
@@ -1934,6 +1959,15 @@ function decodePgp(armoredText, privateKey, publicKey) {
 //
 // UTILITY
 //
+
+// Adds all members of the first list to the second, avoiding duplicates.
+function addAllToSet(arrA, arrB){
+    for(var i = 0; i < arrA.length; i++){
+        if(arrB.indexOf(arrA[i]) == -1){
+            arrB.push(arrA[i]);
+        }
+    }
+}
 
 function initPGP() {
   if (window.crypto.getRandomValues) {
