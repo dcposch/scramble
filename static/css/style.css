@@ -1,3 +1,9 @@
+/* FONTS */
+@font-face {
+    font-family: "Inconsolata";
+    src: url(/css/Inconsolata-Regular.ttf) format("truetype");
+}
+
 /* EVERYWHERE */
 body {
     font-family: "Arial",sans-serif;
@@ -170,7 +176,7 @@ input[type=submit] {
     height: 360px;
 }
 #kbShortcutsModal label {
-    font: bold 14px monospace
+    font: bold 14px Inconsolata,monospace
 }
 
 
@@ -195,7 +201,7 @@ input[type=submit] {
     font-weight: bold;
 }
 #sidebar .address, #sidebar .pubHash {
-    font: 80% monospace;
+    font: 80% Inconsolata,monospace;
     margin: 8px 0;
 }
 #sidebar .tab {
@@ -309,7 +315,7 @@ input[type=submit] {
     padding: 10px 0;
     white-space: pre-wrap;
     border-bottom: 1px solid #eee;
-    font: 90% monospace;
+    font: 90% Inconsolata,monospace;
 }
 
 
@@ -363,7 +369,7 @@ input[type=submit] {
     margin: 8px;
     background: #f8f8f8;
     padding: 10px;
-    font: 90% monospace;
+    font: 90% Inconsolata,monospace;
 }
 .compose .sendButton {
     display: block;
@@ -384,7 +390,7 @@ input[type=submit] {
 }
 .contacts li input {
     display: inline-block;
-    font-family: monospace;
+    font-family: Inconsolata,monospace;
     width: 250px;
     margin: 3px 3px 3px 0;
     padding: 3px;
