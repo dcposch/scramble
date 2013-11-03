@@ -383,19 +383,19 @@ func publicKeySeedHandler(w http.ResponseWriter, r *http.Request) {
 		resp, err := http.Get("https://" + mxHost + "/publickeys/notary")
 		if err != nil {
 			log.Panicf("Cannot seed address %v,"+
-				" could not fetch mx host notary info", address.String())
+				" could not fetch mx host notary info. %v", address.String(), err)
 		}
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Panicf("Cannot seed address %v,"+
-				" could not read mx host notary info", address.String())
+				" could not read mx host notary info. %v", address.String(), err)
 		}
 		parsed := NotaryInfoResponse{}
 		err = json.Unmarshal(body, &parsed)
 		if err != nil {
 			log.Panicf("Cannot seed address %v,"+
-				" could not parse mx host notary info", address.String())
+				" could not parse mx host notary info. %v", address.String(), err)
 		}
 		mxHostInfo = SetMxHostInfo(mxHost, true, parsed.PubKey)
 	}
