@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"errors"
 )
 
 // All configuration for a Scramble server+notary.
@@ -29,6 +30,22 @@ type Config struct {
 	ReservedNames       []string // reserved usernames
 	AncestorIDsMaxBytes int      // should match the VARCHAR() limit of email > ancestor_ids
 	AdminEmails         []string // alerted for server issues
+
+	// When adding more config options, also update validateConfig!
+}
+
+func validateConfig(cfg *Config) error {
+	if cfg.DbServer == ""     { return errors.New("DbServer must be set") }
+	if cfg.DbUser == ""       { return errors.New("DbUser must be set") }
+	if cfg.DbCatalog == ""    { return errors.New("DbCatalog must be set") }
+	if cfg.SMTPMxHost == ""   { return errors.New("SMTPMxHost must be set") }
+	if cfg.SMTPPort == 0      { return errors.New("SMTPPort must be set") }
+	if cfg.MaxEmailSize == 0   { return errors.New("MaxEmailSize must be set") }
+	if cfg.HTTPPort == 0      { return errors.New("HTTPPort must be set") }
+	if len(cfg.Notaries) == 0 { return errors.New("Notaries must be set") }
+	if len(cfg.ReservedNames) == 0  { return errors.New("ReservedNames must be set") }
+	if cfg.AncestorIDsMaxBytes == 0 { return errors.New("AncestorIDsMaxBytes must be set") }
+	return nil
 }
 
 // Gets the cotents of the Scramble config file, ~/.scramble/config.json
@@ -58,7 +75,7 @@ var defaultConfig = Config{
 	[]string{},
 }
 
-var config = defaultConfig
+var config Config
 
 func init() {
 	configFile := os.Getenv("HOME") + "/.scramble/config.json"
@@ -76,6 +93,10 @@ func init() {
 	// try to parse configuration. on error, die
 	config = Config{}
 	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		log.Panicf("Invalid configuration file %s: %v", configFile, err)
+	}
+	err = validateConfig(&config)
 	if err != nil {
 		log.Panicf("Invalid configuration file %s: %v", configFile, err)
 	}
