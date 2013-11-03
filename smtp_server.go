@@ -375,11 +375,23 @@ func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 
 	// get the body as plain text. parse multipart mime if needed
 	contentType := parsed.Header.Get("Content-Type")
-	data.textBody, err = readPlainText(data.body, contentType)
+	contentEncoding := parsed.Header.Get("Content-Transfer-Encoding")
+	decodedBody := decodeContent(data.body, contentEncoding)
+	data.textBody, err = readPlainText(decodedBody, contentType)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
+}
+
+func decodeContent(str string, contentEncoding string) string {
+	if strings.EqualFold(contentEncoding, "base64") {
+		return fromBase64(str)
+	} else if strings.EqualFold(contentEncoding, "quoted-printable") {
+		return fromQuotedP(str)
+	} else {
+		return str
+	}
 }
 
 func readPlainText(body string, contentType string) (string, error) {
@@ -589,11 +601,7 @@ func mailTransportDecode(str string, encodingType string, charset string) string
 	} else {
 		charset = strings.ToUpper(charset)
 	}
-	if encodingType == "base64" {
-		str = fromBase64(str)
-	} else if encodingType == "quoted-printable" {
-		str = fromQuotedP(str)
-	}
+	str = decodeContent(str, encodingType)
 	if charset != "UTF-8" {
 		charset = fixCharset(charset)
 		// eg. charset can be "ISO-2022-JP"
