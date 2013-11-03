@@ -62,7 +62,7 @@ func deliverMailLocally(msg *SMTPMessage) error {
 		cipherBody = cipherPackets[1]
 	} else {
 		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
-		cipherBody = encryptForUsers(msg.data.textBody, msg.rcptTo)
+		cipherBody = encryptForUsers("Subject: "+msg.data.subject+"\n\n"+msg.data.textBody, msg.rcptTo)
 	}
 
 	email := new(Email)
