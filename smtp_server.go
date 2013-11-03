@@ -375,22 +375,43 @@ func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 
 	// get the body as plain text. parse multipart mime if needed
 	contentType := parsed.Header.Get("Content-Type")
-	mediaType, params, err := mime.ParseMediaType(contentType)
+	data.textBody, err = readPlainText(data.body, contentType)
 	if err != nil {
 		return nil, err
-	}
-	if mediaType == "text/plain" {
-		data.textBody = data.body
-	} else if strings.HasPrefix(mediaType, "multipart/") {
-		data.textBody, err = readPlainText(strings.NewReader(data.body), params["boundary"])
-		if err != nil {
-			return nil, err
-		}
 	}
 	return data, nil
 }
 
-func readPlainText(reader io.Reader, multiBoundary string) (string, error) {
+func readPlainText(body string, contentType string) (string, error) {
+	var mimeType string
+	var mimeParams map[string]string
+	var err error
+	if contentType == "" {
+		// no content-type header? assume plain text
+		mimeType = "text/plain"
+	} else {
+		mimeType, mimeParams, err = mime.ParseMediaType(contentType)
+		if err != nil {
+			return "", err
+		}
+	}
+	if mimeType == "text/plain" {
+		// plain text? read the entire thing
+		return body, nil
+	} else if strings.HasPrefix(mimeType, "multipart/") {
+		// multipart mime? extract just the parts that are plain text
+		multiBoundary := mimeParams["boundary"]
+		return readPlainTextFromMultipart(strings.NewReader(body), multiBoundary)
+	}
+	// neither plain text nor multipart? then there's no plain text here...
+	return "", nil
+}
+
+// Extract plain text from multipart mime email.
+// Note: most email is multipart (html + plain text) and some is *nested*
+// multipart---where one of the parts itself has a mimetype of "multipart/..."
+// Hence, this function is recursive. It concatenates and returns all the plain text.
+func readPlainTextFromMultipart(reader io.Reader, multiBoundary string) (string, error) {
 	multiReader := multipart.NewReader(reader, multiBoundary)
 	var plainTexts []string
 	for {
@@ -423,7 +444,7 @@ func readPlainText(reader io.Reader, multiBoundary string) (string, error) {
 			plainTexts = append(plainTexts, textBody)
 		} else if strings.HasPrefix(partMediaType, "multipart/") {
 			subBoundary := params["boundary"]
-			subPartText, err := readPlainText(part, subBoundary)
+			subPartText, err := readPlainTextFromMultipart(part, subBoundary)
 			if err != nil {
 				return "", err
 			}
