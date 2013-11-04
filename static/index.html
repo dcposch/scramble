@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Scramble.io</title>
-    <link rel="stylesheet" href="/css/normalize.css"></link>
     <link rel="stylesheet" href="/css/style.css"></link>
 </head>
 <body>
@@ -70,41 +69,69 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
-<div id="statusBar"></div>
-<div id="content"></div>
+    <div class="navbar navbar-inverse">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">Project name</a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a id="tab-compose" href="#" class="tab">Compose</a></li>
+                    <li><a id="tab-inbox" href="#" class="tab">Inbox</a></li>
+                    <li><a id="tab-sent" href="#" class="tab">Sent</a></li>
+                    <li><a id="tab-archive" href="#" class="tab">Archive</a></li>
+                    <li><a id="tab-contacts" href="#" class="tab">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
-<div id="sidebar">
-    <h1>Scramble</h1>
-    <div class="warning" id="warningBar"></div>
-    <div class="welcome">Welcome, {{token}}. <a href="/index.html" id="link-logout">Log Out</a></div>
-    <div class="address">{{emailAddress}}</div>
-    <a id="tab-compose" href="#" class="tab">Compose</a>
-    <a id="tab-inbox" href="#" class="tab">Inbox</a>
-    <div id="inbox" class="box"></div>
-    <a id="tab-sent" href="#" class="tab">Sent</a>
-    <div id="sent" class="box"></div>
-    <a id="tab-archive" href="#" class="tab">Archive</a>
-    <div id="archive" class="box"></div>
-    <a id="tab-contacts" href="#" class="tab">Contacts</a>
-    <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a>
-</div>
+    <div class="container">
+        <div id="sidebar" class="col-md-4 sidebar">
+{{!--             <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="warning" id="warningBar"></div>
+                    <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout" class="pull-right">Log Out</a></div>
+                </div>
+                <div class="panel-body">
+                    <code>{{emailAddress}}<br/>
+                    #{{pubHash}}</code>
+                </div>
+            </div> --}}
+            {{!-- <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a> --}}
+            <div class="lead capitalize">{{box}}</div class="lead">
+            <div id="inbox" class="box"></div>
+            <div id="sent" class="box"></div>
+            <div id="archive" class="box"></div>
+
+        </div>
+        <div class="col-md-7 col-md-push-4 main-panel">
+            <div id="statusBar"></div>
+            <div id="content"></div>
+        </div>
+    </div>
 </script>
 
 
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
 {{> box-pagination-partial}}
-<ul class="box-items">
+<div class="js-box-items list-group">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
-        <li class="box-item"
+        <a class="js-box-item list-group-item"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
             data-time="{{UnixTime}}"
             data-from="{{From}}"
-            data-to="{{To}}">{{Subject}}</li>
+            data-to="{{To}}">{{Subject}}</a>
     {{/each}}
-</ul>
+</div>
 {{> box-pagination-partial}}
 </script>
 
@@ -134,22 +161,24 @@
 <script id="thread-template" type="text/x-handlebars-template">
 <div id="thread" data-thread-id="{{threadID}}">
     <div id="thread-subject">
-        <h2>{{subject}}</h2>
-        <div class="threadControl controlButtons">
-            <button class="replyButton">Reply</button>
-            <button class="replyAllButton">Reply All</button>
-            <button class="forwardButton">Forward</button>
-            {{#ifCond box '==' "inbox"}}
-            <button class="archiveButton">Archive</button>
-            {{/ifCond}}
-            {{#ifCond box '==' "archive"}}
-            <button class="moveToInboxButton">Move to Inbox</button>
-            {{/ifCond}}
-            <button class="deleteButton">Delete</button>
-        </div>
+        <div class="lead">{{subject}}</div class="lead">
     </div>
     <div id="thread-emails">
     </div>
+
+    <div class="btn-group">
+        <button typ="button" class="btn btn-default">Reply</button>
+        <button typ="button" class="btn btn-default">Reply All</button>
+        <button typ="button" class="btn btn-default">Forward</button>
+        {{#ifCond box '==' "inbox"}}
+        <button typ="button" class="btn btn-default">Archive</button>
+        {{/ifCond}}
+        {{#ifCond box '==' "archive"}}
+        <button typ="button" class="btn btn-default">Move to Inbox</button>
+        {{/ifCond}}
+        <button typ="button" class="btn btn-default">Delete</button>
+    </div>
+
 </div>
 </script>
 
@@ -161,15 +190,17 @@
     For example, the buttons (ie replyButton, forwardButton) work
      by finding the context email data by .closest(".email").data("email").
 --}}
-<div class="email" data-msg-id="{{msgID}}">
-    <div class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</div>
-    <div class="from">
-        {{> email-address-partial fromAddress}}
-    </div>
-    <div class="to">to 
-        {{#each toAddresses}}
-            {{> email-address-partial}}
-        {{/each}}
+<div class="js-email panel panel-default" data-msg-id="{{msgID}}">
+    <div class="panel-heading">
+        <small class="received pull-right">{{formatDate time format="MMM D YYYY, hh:mm"}}</small>
+        <div class="from">
+            {{> email-address-partial fromAddress}}
+        </div>
+        <small class="to">to 
+            {{#each toAddresses}}
+                {{> email-address-partial}}
+            {{/each}}
+        </small>
     </div>
     {{!--
     <div class="emailControl controlButtons">
@@ -185,7 +216,7 @@
         <button class="deleteButton">Delete</button>
     </div>
     --}}
-    <div class="body">{{{htmlBody}}}</div>
+    <div class="body panel-body">{{{htmlBody}}}</div>
 
     {{!-- This is where the compose box goes when replying/forwarding this email --}}
     <div class="email-compose">
@@ -205,9 +236,13 @@
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-<div class="compose {{#if inline}}inline{{/if}}">
+{{!-- <div class="compose {{#if inline}}inline{{/if}}">
     <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
     <input type="hidden" name="threadID" value="{{threadID}}"/>
+
+    <div class="prompt"><label for="to">To</label><input type="text" name="to" value="{{to}}"></span></div>
+    <div><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
+
     {{#if inline}}
     <input type="hidden" name="subject" value="{{subject}}"/>
     {{else}}
@@ -217,6 +252,27 @@
     <div><label>&nbsp;</label><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
     <textarea name="body" data-default="{{bodyDefault}}" data-display-name="Body">{{body}}</textarea>
     <input type="submit" class="sendButton" value="Send"></input>
+</div>
+ --}}
+<div>
+    {{#if inline}}
+    <input type="hidden" name="subject" value="{{subject}}"/>
+    {{else}}
+    <input type="text" name="subject" value="{{subject}}" class="invis-input lead" placeholder="Subject"/>
+    {{/if}}
+    <div class="panel panel-default">
+        <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
+        <input type="hidden" name="threadID" value="{{threadID}}"/>
+
+        <div class="input-group invis-input-group">
+            <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" placeholder="You must choose at least one recipient."></input>
+        </div>
+        <div class="panel-body">
+            <textarea name="body" class="invis-input">{{body}}</textarea>
+        </div>
+    </div>
+
+    <input type="submit" class="js-send-button btn btn-default btn-lg" value="Send"></input>
 </div>
 </script>
 
