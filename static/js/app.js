@@ -351,6 +351,7 @@ function isLoggedIn() {
 //
 
 function displayCreateAccountModal() {
+    alert('hello')
     showModal("create-account-template");
 
     var keys;
