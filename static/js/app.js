@@ -458,7 +458,7 @@ function validateNewPassword() {
 
 function bindBoxEvents(box) {
     // Click on an email to open it
-    $("#"+box+" .box-items>li").click(function(e) {
+    $("#"+box+" .js-box-item").click(function(e) {
         displayEmail($(e.target));
     });
     // Click on a pagination link
@@ -563,7 +563,7 @@ function bindEmailEvents() {
     //  by finding the enclosed div.email
     var withEmail = function(cb) {
         return function() {
-            var emailDiv = $(this).closest(".email");
+            var emailDiv = $(this).closest(".js-email");
             cb(emailDiv.data("email"));
         };
     };
@@ -620,8 +620,8 @@ function addContact() {
 
 
 /**
-    Takes an email, selects its box-item, shows the entire thread.
-    For convenience, you can pass in the li.box-item jquery element,
+    Takes an email, selects its js-box-item, shows the entire thread.
+    For convenience, you can pass in the li.js-box-item jquery element,
      which has the relevant .data() attributes.
 
     emailHeader => {
@@ -649,8 +649,8 @@ function displayEmail(emailHeader) {
     var threadID = emailHeader.threadID;
 
     $("#content").empty();
-    $("li.box-item.current").removeClass("current");
-    $("li.box-item[data-thread-id='"+threadID+"']").addClass("current");
+    $(".js-box-item.active").removeClass("active");
+    $(".js-box-item[data-thread-id='"+threadID+"']").addClass("active");
 
     var params = {
         msgID: msgID,
@@ -829,7 +829,7 @@ function emailMove(email, box, moveThread) {
 }
 
 function getEmailElement(msgID) {
-    var elEmail = $(".email[data-msg-id='"+msgID+"']");
+    var elEmail = $(".js-email[data-msg-id='"+msgID+"']");
     if (elEmail.length != 1) {
         console.log("Failed to find exactly 1 email element with msgID:"+msgID);
         return;
@@ -844,7 +844,7 @@ function removeEmailFromThread(email) {
     var elThread = elEmail.closest("#thread");
     elEmail.remove();
     // If this thread has no emails left, then show the next thread.
-    if (elThread.find("#thread-emails .email").length == 0) {
+    if (elThread.find("#thread-emails .js-email").length == 0) {
         showNextThread();
     }
 }
@@ -867,7 +867,9 @@ function showNextThread() {
 // cb: function(emailData), emailData has plaintext components including
 //  msgID, threadID, ancestorIDs, subject, to, body...
 function bindComposeEvents(elCompose, cb) {
-    elCompose.find(".sendButton").click(function() {
+    console.log(elCompose)
+    elCompose.find(".js-send-button").on('click', function() {
+        alert("js-send-button");
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
         var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
