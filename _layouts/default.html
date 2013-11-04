@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{% if page.title %} {{ page.title }} - {% endif %}Scramble</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
+    <link href='http://fonts.googleapis.com/css?family=Droid+Sans+Mono' rel='stylesheet' type='text/css'>
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="stylesheet" href="{{ site.baseurl }}/css/style.css">
+    <!--[if IE 7]>
+      <html class="ie7"> 
+      <link rel="stylesheet" type="text/css" href="/css/font-awesome-ie7.min.css">
+    <![endif]-->
+    <!--[if IE 8]><html class="ie8"> <![endif]-->   
+      <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+      <![endif]-->
+
+    <!-- <link rel="shortcut icon" href="./ico/favicon.ico">      -->
+  </head>
+  <body>
+  <a href="https://github.com/dcposch/scramble">
+      <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub">
+  </a>
+  {{ content }}
+
+  <div class="container">
+    <footer role="contentinfo">
+      <p class="pull-right"><a href="#">Back to top</a></p>
+      <p>&copy; 2013 Your Mom, Inc.</p>
+    </footer>
+  </div>
+
+  <!-- Footer
+      ================================================== -->
+
+<!-- Modal -->
+  <div class="modal fade" id="signUp" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+          <h4 class="modal-title">Take back your town</h4>
+        </div>
+        <div class="modal-body">
+          <form role="form">
+            <p class="help-block">Donec id elit non mi porta gravida at eget metus. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+            <div class="form-group">
+              <label for="signUpInputFirst">First Name</label>
+              <input type="email" class="form-control" id="signUpInputFirst" placeholder="Enter first name">
+            </div>
+
+            <div class="form-group">
+              <label for="signUpInputLast">Last Name</label>
+              <input type="text" class="form-control" id="signUpInputLast" placeholder="Enter last name">
+            </div>
+
+            <div class="form-group row">
+              <div class="col-md-8">
+                <label for="signUpInputCity">City</label>
+                <input type="text" class="form-control" id="signUpInputCity" placeholder="Enter city">
+              </div>
+
+              <div class="col-md-4">
+                <label for="signUpInputState">State</label>
+                <input type="text" class="form-control" id="signUpInputState" placeholder="Enter state">
+              </div>
+            </div>
+
+            <div class="checkbox">
+              <label>
+                <input type="checkbox"> Sign up for the monthly newsletter
+              </label>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-primary">Submit</button>
+            </div>
+
+          </form>
+        </div>
+        </div>
+      </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+  </div><!-- /.modal -->
+
+  <!-- Javascripts 
+      ================================================= -->
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script>if (!window.jQuery) {document.write('<script src="{{ site.baseurl }}/js/jquery.min.js"><\/script>');}</script>
+  <script src="{{ site.baseurl }}/js/bootstrap.min.js"></script>
+  <script src="{{ site.baseurl }}/js/jquery.squishy.js"></script>
+  <script src="{{ site.baseurl }}/js/custom.js"></script>
+
+
+    <!-- Analytics
+    ================================================== -->
+    <script>
+    // analytics code
+    </script> 
+  </body>
+</html>

@@ -1,0 +1,219 @@
+<section data-scroll="diagonal-seperator" class="diagonal-seperator--reveal big-padding color-section diagonal-seperator -left -red">
+  <div class="container">
+    <h1 class="sectitle">Build</h1>
+    <div class="col-md-4 col-md-push-8 large-icon">
+      <i data-scroll class="icon-comments slide-in-right"></i>
+    </div>
+    <div class="col-md-8 col-md-pull-4">
+      <h3>Your team</h3>
+      <p>Start small. Hand out a basic flyer to coworkers, family, and friends, and ask them to join you in defending liberty and justice. Gather a core team of at least 4 people, ready to stand with you to stop the NDAA in your community.</p>
+      <h3>Your coalition</h3>
+      <p>Go to local Tea Party meetings, occupy assemblies, and activist groups. Reach out to neighborhood groups, local parties, and activists groups. Show them how this endangers their group. Ask them to join your coalition.</p>
+    </div>
+  </div>
+</section>
+
+<section data-scroll="diagonal-seperator" class="color-section big-padding diagonal-seperator -right -blue">
+  <div class="container">
+    <h1 class="sectitle">Act</h1>
+    <div class="col-md-4 large-icon">
+      <i data-scroll class="icon-bullhorn slide-in-left"></i>
+    </div>
+    <div class="col-md-8">
+      <h3>Inform</h3>
+      <p>Flyer your neighborhood with your core team. Write letters to the editor. Create a website: takeback(yourcity).com</p>
+      <h3>Pressure</h3>
+      <p>Meet with your representatives/commissioners/councilmen. Speak out at public comment. Videotape it. <a href="">Upload the video</a> and inspire the nation. The law of war is the backbone of the NDAA.  Pressure your officials until they introduce, and vote on, a law blocking it in your community. A prewritten sample is below.</p>
+    </div>
+  </div>
+</section>
+
+<section data-scroll="diagonal-seperator" class="diagonal-seperator small-padding -left -white">
+  <div class="container">
+    <h1 class="sectitle">Win</h1>
+    <div class="col-md-12">
+      <p>Win. Get your city council, county commission, or sheriff to pass a law blocking the NDAA, protecting activists, families, and businesses everywhere in your city/county. Hold your representatives accountable. They will try to trick you. They will ridicule you. They will try to refer it to committee. They will stall. The police will refuse to enforce it. Go back. Over and over again. Never give up. If they try to weaken your law, stop them. Do not compromise. Do not accept defeat. Know that you are on the cutting edge of the revolution.</p>
+    </div>
+    <hr/>
+    <div class="col-md-6">
+      <iframe width="100%" height="315" src="//www.youtube.com/embed/pzcL5sSeUyo" frameborder="0" allowfullscreen></iframe>
+      <p><a data-toggle="modal" class="pull-right" href="#upload">Get your video featured on this site.</a>
+    </div>
+    <div class="col-md-6">
+      <p>That’s how we win. It’s that simple. Learn, Build, Act. You have been looking for something that works. You see the path our country has traveled down. You want a future for your children. You are ready.</p>
+      <p>We’ll provide extra support when you need it. We’ll provide advice, and you have the power to take back your town. Thousands of people stand behind you.</p>
+      <p>With liberty and justice for all.</p>
+      <hr class="clear"/>
+
+      <!-- Button trigger modal -->
+      <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Take back your town</a>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h1 class="sectitle">Across America, people are taking back their towns</h1>
+    <h3>Citizens<small><a data-toggle="modal" class="pull-right" href="#upload">Add your picture.</a></small></h3>
+    <!-- Carousel -->
+    <div id="carousel-example-generic" class="row-carousel carousel slide">
+
+        <!-- Wrapper for slides -->
+        <div class="carousel-inner">
+          <div class="item active">
+           <div class="row">
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+             <hr class="clear gutter">
+             </div>
+
+
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+           </div>
+          </div>
+        </div>
+
+      <!-- Controls -->
+      <a class="left carousel-control" href="#carousel-example-generic" data-slide="prev">
+        <span class="icon-prev"></span>
+      </a>
+      <a class="right carousel-control" href="#carousel-example-generic" data-slide="next">
+        <span class="icon-next"></span>
+      </a>
+    </div>
+
+    <p>Maecenas sed diam eget risus varius blandit sit amet non magna. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Curabitur blandit tempus porttitor. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Curabitur blandit tempus porttitor.</p>
+
+    <hr/>
+
+    <h3>Organizations<small><a data-toggle="modal" class="pull-right" href="#contact">Support our effort.</a></small></h3>
+    <!-- Carousel -->
+    <div id="carousel-example-generic" class="row-carousel carousel slide">
+
+        <!-- Wrapper for slides -->
+        <div class="carousel-inner">
+          <div class="item active">
+           <div class="row">
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+           </div>
+          </div>
+        </div>
+
+      <!-- Controls -->
+      <a class="left carousel-control" href="#carousel-example-generic" data-slide="prev">
+        <span class="icon-prev"></span>
+      </a>
+      <a class="right carousel-control" href="#carousel-example-generic" data-slide="next">
+        <span class="icon-next"></span>
+      </a>
+    </div>
+      
+    <hr class="clear"/>
+
+    <p>Maecenas sed diam eget risus varius blandit sit amet non magna. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Curabitur blandit tempus porttitor. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Curabitur blandit tempus porttitor.</p>
+
+    <hr/>
+
+    <h3>Candidates<small><a data-toggle="modal" class="pull-right" href="#contact">Stand with us.</a></small></h3>
+    <!-- Carousel -->
+    <div id="carousel-example-generic" class="row-carousel carousel slide">
+
+        <!-- Wrapper for slides -->
+        <div class="carousel-inner">
+          <div class="item active">
+           <div class="row">
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+             </div>
+             <div class="col-xs-6 col-sm-6 col-md-3">
+               <a class="thumbnail">
+                 <img src="http://placehold.it/300x300">
+               </a>
+               <hr class="clear gutter">
+             </div>
+           </div>
+          </div>
+        </div>
+
+      <!-- Controls -->
+      <a class="left carousel-control" href="#carousel-example-generic" data-slide="prev">
+        <span class="icon-prev"></span>
+      </a>
+      <a class="right carousel-control" href="#carousel-example-generic" data-slide="next">
+        <span class="icon-next"></span>
+      </a>
+    </div>
+      
+    <hr class="clear"/>
+
+    <p>Maecenas sed diam eget risus varius blandit sit amet non magna. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Curabitur blandit tempus porttitor. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Curabitur blandit tempus porttitor.</p>
+
+    <div class="text-center">
+      <hr class="clear"/>
+
+      <!-- Button trigger modal -->
+      <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Take back your town</a>
+
+      <hr class="clear"/>
+    </div>
+
+
+  </div>
+</section>

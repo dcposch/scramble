@@ -1,0 +1,64 @@
+//
+// SASS Style media queries 
+// Source (http://thesassway.com/intermediate/responsive-web-design-in-sass-using-media-queries-in-sass-32)
+// ---------------------------------------------------------------------------------------------------------
+//
+
+
+$screenSmallest: 20em; //320px
+$screenSmallest: 25em; //400px
+$screenSmall: 30em; //480px
+$screenMedSml: 35em; //560px
+$screenMed: 40em; //640px
+$screenMedBig: 45em; //720px
+$screenBig: 60em; //960px
+$screenBigger: 65em; //1040px
+$screenBiggest: 75em; //1200px
+$screenSuper: 100em; //1600px
+
+
+@mixin respond-to($media) {
+  @if $media == smallscr {
+    @media (max-width: $screenSmall) { @-ms-viewport { width: $screenSmall } @content; }
+  }
+  @else if $media == smallscr-medsml {
+    @media only screen and (min-width: $screenSmall + 1) and (max-width: $screenMedSml - 1) { @-ms-viewport { width: $screenSmall } @content; }
+  }
+  @else if $media == medscr {
+    @media (max-width: $screenMed) { @-ms-viewport { width: $screenMed } @content; }
+  }
+  @else if $media == medbig {
+    @media only screen and (max-width: $screenMedBig) { @-ms-viewport { width: $screenMedBig } @content; }
+  }  
+  @else if $media == medbig-bigscr {
+    @media only screen and (min-width: $screenMedBig + 1) and (max-width: $screenBig - 1) { @-ms-viewport { width: $screenMedBig } @content; }
+  } 
+  @else if $media == bigscr {
+    @media (max-width: $screenBig) { @-ms-viewport { width: $screenBig } @content; }
+  }   
+}
+
+// Example 1
+// ------------------
+//
+//.profile-pic {
+//  float: left;
+//  width: 250px;
+//  @include respond-to(smallscr) { width: 100% ;}
+//  @include respond-to(small-medsml) { width: 125px; }
+//  @include respond-to(medscr) { float: none; }
+//}
+//
+// Eample 2
+// -----------------
+//.profile-pic {
+//  float: left;
+//  width: 250px;
+//  @media screen and (max-width: $screenSmall) {
+//    width: 100px;
+//    float: none;
+//  }
+//  @media screen and (min-width: $screenBig) {
+//    float: right;
+//  }
+//}

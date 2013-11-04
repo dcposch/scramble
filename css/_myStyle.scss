@@ -1,0 +1,149 @@
+@mixin vendor-prefix($name, $argument) {
+  -webkit-#{$name}: #{$argument};
+  -ms-#{$name}: #{$argument};
+  -moz-#{$name}: #{$argument};
+  -o-#{$name}: #{$argument};
+  #{$name}: #{$argument};
+}
+p {
+  @include vendor-prefix(hyphens, auto)
+}
+
+
+/* GLOBAL STYLES
+-------------------------------------------------- */
+/* Padding below the footer and lighter body text */
+
+:focus, :active { outline: none !important;}
+
+// body {
+//   padding-bottom: 40px;
+//   color: $text-color;
+// }
+
+section {
+  padding-top: 3em;
+  padding-bottom: 4em;
+}
+
+.blue-bg {
+  background: $myLightBlue;
+}
+
+.white-bg {
+  background: $body-bg;
+}
+
+img {
+  max-width: 100%;
+}
+
+hr.gutter {
+  margin-top: ($grid-gutter-width / 2);
+  margin-bottom: ($grid-gutter-width / 2);
+}
+
+.jumbotron {
+  margin-bottom: 0;
+  position: relative;
+  background-image: url("../img/night_sky_bright.jpg");
+  @include vendor-prefix(background-size, cover);
+  @include vendor-prefix(background-attachment, fixed);
+  @include vendor-prefix(background-position, center);
+}
+
+.jumbotron-sign {
+  background: rgba(#000, 0.5);
+  color: $white;
+  text-align: center;
+  padding: $grid-gutter-width;
+  h1, h2 {
+    font-family: $font-family-monospace !important;
+  }
+  @media (max-width: $screen-xs) {
+    font-size: $font-size-base;
+  }
+}
+
+.moar-margin {
+  margin: 20px;
+}
+
+.chrontainer {
+  overflow: hidden;
+  // margin-left: 25%;
+  // width: 50%;
+}
+
+.large-icon {
+  text-align: center;
+  text-shadow: $blatant-shadow;
+  font-size: 180px;
+  height: 100%;
+}
+
+
+.btn-lg {
+  box-shadow: $blatant-shadow;
+}
+
+.sectitle {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.section-pad {
+  padding-bottom: 80px;
+}
+
+section.big-padding {
+  padding-bottom: 150px;
+}
+
+section.small-padding {
+  padding-bottom: 50px !important;
+}
+
+
+.row-carousel {
+  .carousel-control {
+    color: $text-color;
+    &.left, &.right {
+      background-image: none !important;
+    }
+  }
+  .row {
+    width: 80%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
+.bullet-image {
+  text-align: center;
+  text-shadow: $blatant-shadow;
+  margin-bottom: $grid-gutter-width;
+  img {
+    max-width: 180px;
+  }
+}
+
+.bg-image {
+  background-image: url("../img/night_sky_bright.jpg");
+  @include vendor-prefix(background-size, cover);
+  @include vendor-prefix(background-attachment, fixed);
+  @include vendor-prefix(background-position, center);
+}
+
+
+hr.clear {
+  border-color: transparent !important;
+}
+
+.page-header {
+  text-align: center;
+}
+
+h1.page-title {
+  font-size: 100px;
+}
