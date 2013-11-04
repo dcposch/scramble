@@ -7570,7 +7570,7 @@ function openpgp_encoding_deArmor(text) {
 		// splittedtext[0] - should be the empty string
 		// splittedtext[1] - should be BEGIN...
 		// splittedtext[2] - the message and checksum
-		// splittedtest[3] - should be END...
+		// splittedtext[3] - should be END...
 
 		// chunks separated by blank lines
 		var splittedChunks = splittedtext[2]
@@ -7585,8 +7585,8 @@ function openpgp_encoding_deArmor(text) {
 		var checksum;
 		if(messageAndChecksum.length == 1){
 			// blank line
-			checksum = splittedtext[2]
-				.replace(/[\n=]/g, "");
+			var parts = splittedtext[2].split("\n=");
+			checksum = parts[parts.length-1];
 		} else {
 			// no blank line
 			checksum = messageAndChecksum[1]
