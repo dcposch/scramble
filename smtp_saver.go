@@ -62,7 +62,14 @@ func deliverMailLocally(msg *SMTPMessage) error {
 		cipherBody = cipherPackets[1]
 	} else {
 		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
-		cipherBody = encryptForUsers("Subject: "+msg.data.subject+"\n\n"+msg.data.textBody, msg.rcptTo)
+		var textBody string
+		if msg.data.textBody == "" && msg.data.body != "" {
+			// HTML email, blank body with file attachments, etc
+			textBody = "(Sorry, Scramble only supports plain text email for now.)"
+		} else {
+			textBody = msg.data.textBody
+		}
+		cipherBody = encryptForUsers("Subject: "+msg.data.subject+"\n\n"+textBody, msg.rcptTo)
 	}
 
 	email := new(Email)
