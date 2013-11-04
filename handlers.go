@@ -272,7 +272,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		localRecipients = localRecipients.Unique()
 		// Populate outgoingEmail
 		email.CipherSubject = encryptForUsers(r.FormValue("subject"), localRecipients.Strings())
-		email.CipherBody = encryptForUsers(r.FormValue("body"), localRecipients.Strings())
+		email.CipherBody = encryptForUsers("Subject: "+r.FormValue("subject")+"\n\n"+r.FormValue("body"), localRecipients.Strings())
 		outgoingEmail.Email = *email
 		outgoingEmail.PlaintextSubject = r.FormValue("subject")
 		outgoingEmail.PlaintextBody = r.FormValue("body")
