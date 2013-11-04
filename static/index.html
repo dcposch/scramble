@@ -97,7 +97,7 @@
 
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
-{{> box-pagination}}
+{{> box-pagination-partial}}
 <ul class="box-items">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
@@ -109,7 +109,7 @@
             data-to="{{To}}">{{Subject}}</li>
     {{/each}}
 </ul>
-{{> box-pagination}}
+{{> box-pagination-partial}}
 </script>
 
 <script id="box-pagination-partial" type="text/x-handlebars-template">

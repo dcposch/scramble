@@ -120,11 +120,20 @@ viewState.clearEmails = function() {
 viewState.contacts = null; // plaintext address book, must *always* be good data.
 viewState.notaries = null; // notaries that client trusts.
 
+
+
+//
+// IN-MEMORY CACHE
+// Don't decrypt the same email twice.
+// Don't resolve the same email address -> public key twice.
+//
+
 // Maps email addresses to OpenPGP public key objects
 var cache = {};
 cache.keyMap = {};
 cache.emailCache = {};
 cache.plaintextCache = {};
+
 
 
 //
@@ -134,7 +143,20 @@ cache.plaintextCache = {};
 
 function main() {
     console.log("Hello World");
-    if (!initPGP()) return;
+
+    // initialize browser crypto
+    if (!initPGP()) {
+        alert("Sorry, your browser doesn't support cryptography.\n"+
+            "You'll need a recent version of Chrome, Firefox, or Safari.\n\n"+
+            "The Tor Browser Bundle unfortunately ships an old version of FF :(\n"+
+            "To use Scramble thru Tor, we recommend using Chrome in Incognito mode "+
+            "through the SOCKS proxy which the Tor Browser Bundle / Vidalia provides.");
+        return;
+    }
+
+    // initialize the ui
+    initHandlebars();
+    initAjaxAuth();
     bindKeyboardShortcuts();
 
     // are we logged in?
@@ -1990,52 +2012,53 @@ function showMessages(msg) {
 }
 
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
-var templates = null;
+var templates = {};
 function render(templateID, data) {
     if (!templates) {
-        templates = {};
-        $("script").each(function() {
-            var source = this.textContent;
-            if (!this.id) {
-                return;
-            } else if (this.id.endsWith("-template")) {
-                templates[this.id] = Handlebars.compile(source);
-            } else if (this.id.endsWith("-partial")) {
-                Handlebars.registerPartial(this.id, source);
-            }
-        });
     }
 
     return templates[templateID](data);
 }
 
-// Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"
-Handlebars.registerHelper('formatDate', function(context, block) {
-    var str = block.hash.format || "YYYY-MM-DD";
-    return moment(context).format(str);
-})
+function initHandlebars() {
+    // Usage: {{formatDate myDate format="MMM YY"}} for "Aug 2013"
+    Handlebars.registerHelper('formatDate', function(context, block) {
+        var str = block.hash.format || "YYYY-MM-DD";
+        return moment(context).format(str);
+    });
 
-// Usage: {{ifCond something '==' other}}
-Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
-    switch (operator) {
-        case '==':
-            return (v1 == v2) ? options.fn(this) : options.inverse(this);
-        case '===':
-            return (v1 === v2) ? options.fn(this) : options.inverse(this);
-        case '<':
-            return (v1 < v2) ? options.fn(this) : options.inverse(this);
-        case '<=':
-            return (v1 <= v2) ? options.fn(this) : options.inverse(this);
-        case '>':
-            return (v1 > v2) ? options.fn(this) : options.inverse(this);
-        case '>=':
-            return (v1 >= v2) ? options.fn(this) : options.inverse(this);
-        default:
-            return options.inverse(this);
-    }
-});
+    // Usage: {{ifCond something '==' other}}
+    Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
+        switch (operator) {
+            case '==':
+                return (v1 == v2) ? options.fn(this) : options.inverse(this);
+            case '===':
+                return (v1 === v2) ? options.fn(this) : options.inverse(this);
+            case '<':
+                return (v1 < v2) ? options.fn(this) : options.inverse(this);
+            case '<=':
+                return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+            case '>':
+                return (v1 > v2) ? options.fn(this) : options.inverse(this);
+            case '>=':
+                return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+            default:
+                return options.inverse(this);
+        }
+    });
 
-Handlebars.registerPartial("box-pagination", $('#box-pagination-partial').html());
+    // Read and compile all Handlebars templates and partials
+    $("script").each(function() {
+        var source = this.textContent;
+        if (!this.id) {
+            return;
+        } else if (this.id.endsWith("-template")) {
+            templates[this.id] = Handlebars.compile(source);
+        } else if (this.id.endsWith("-partial")) {
+            Handlebars.registerPartial(this.id, source);
+        }
+    });
+}
 
 // The Scramble email address of the currently logged-in user
 function getUserEmail() {
@@ -2062,9 +2085,7 @@ function trimToLower(str) {
     return trim(str).toLowerCase();
 }
 
-// Code that must run in the browser goes in here, so we can run tests in console.
-// For example, code that require jQuery.
-if (typeof window != "undefined") {
+function initAjaxAuth() {
     // Adds cookie-like headers for every request...
     $.ajaxSetup({
         // http://stackoverflow.com/questions/7686827/how-can-i-add-a-custom-http-header-to-ajax-request-with-js-or-jquery
