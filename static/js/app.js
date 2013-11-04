@@ -462,7 +462,7 @@ function bindBoxEvents(box) {
         displayEmail($(e.target));
     });
     // Click on a pagination link
-    $('#'+box+" .box-pagination a").click(function(e) {
+    $("#"+box+" .box-pagination a").click(function(e) {
         var box = $(this).data("box");
         var page = $(this).data("page");
         loadDecryptAndDisplayBox(box, page);
@@ -1072,8 +1072,8 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
 
     loadNotaries(function(notaryKeys) {
 
-        var hashAddresses = []; // addresses for which we know the hash
-        var nameAddresses = []; // remaining addresses
+        var needResolution = []; // addresses that need to be notarized
+        var needPubKey = []; // addresses for which we need pubkeys
         var notaries = Object.keys(notaryKeys);
         var knownHashes = {};   // {<address>: <pubHash>}
 
@@ -1082,9 +1082,7 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
             var contact = getContact(addr);
             if (contact) {
                 if (contact.pubHash) {
-                    var parts = addr.split("@");
-                    // TODO: cleaner way to represent (address, pubhash) pairs
-                    hashAddresses.push(parts[0]+"#"+contact.pubHash+"@"+parts[1]);
+                    needPubKey.push(addr);
                     knownHashes[addr] = contact.pubHash;
                 } else {
                     knownHashes[addr] = undefined;
@@ -1095,18 +1093,19 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                     };
                 }
             } else {
-                nameAddresses.push(addr);
+                needResolution.push(addr);
+                needPubKey.push(addr);
             }
         }
 
         // Nothing to look up
-        if (nameAddresses.length == 0 && hashAddresses.length == 0) {
+        if (needResolution.length == 0 && needPubKey.length == 0) {
             return cb(keyMap, newResolutions);
         }
 
         var params = {
-            nameAddresses: nameAddresses.join(","),
-            hashAddresses: hashAddresses.join(","),
+            needResolution: needResolution.join(","),
+            needPubKey:    needPubKey.join(","),
             notaries:      notaries.join(","),
         };
         $.post("/publickeys/query", params, function(data) {
@@ -1115,8 +1114,8 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
             var publicKeys =     data.publicKeys;
 
             // verify notary responses
-            if (nameAddresses.length > 0) {
-                var res = verifyNotaryResponses(notaryKeys, nameAddresses, nameResolution);
+            if (needResolution.length > 0) {
+                var res = verifyNotaryResponses(notaryKeys, needResolution, nameResolution);
                 // TODO improve error handling
                 if (res.errors.length > 0) {
                     alert(res.errors.join("\n\n"));
@@ -1149,7 +1148,7 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                         alert(error);
                         return; // halt, do not call cb.
                     }
-                    if (nameAddresses.indexOf(addr) != -1) {
+                    if (needResolution.indexOf(addr) != -1) {
                         newResolutions.push({address:addr, pubHash:computedHash});
                     }
                     // parse publicKey
@@ -1174,7 +1173,7 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                 }
             }
 
-            // ensure that we have public keys for all the query addresses.
+            // ensure that we have results for all the query addresses.
             for (var i=0; i<addresses.length; i++) {
                 var addr = addresses[i];
                 if (keyMap[addr] == null) {
@@ -1708,7 +1707,7 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
     if(missingAddresses.length > 0){
         // for at least one address, we did not get enough notary responses to proceed
         errors.push("Couldn't get a trusted public key for "+missingAddresses.join(", ")+". "+
-            "The following notaries are missing public keys: "+missingNotaries.join(", "));
+            "The following notaries haven't signed: "+missingNotaries.join(", "));
     }
     return {warnings:warnings, errors:errors, pubHashes:pubHashes};
 }

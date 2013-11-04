@@ -16,21 +16,9 @@ func (addr *EmailAddress) String() string {
 	return addr.Name + "@" + addr.Host
 }
 
-// Return this address but with everything after '#' stripped from Name.
-func (addr *EmailAddress) StringNoHash() string {
-	if hashIndex := strings.Index(addr.Name, "#"); hashIndex != -1 {
-		return addr.Name[:hashIndex] + "@" + addr.Host
-	}
-	return addr.Name + "@" + addr.Host
-}
-
-// Splits the Name into what precedes the first '#' and what follows
-func (addr *EmailAddress) NameAndHash() (string, string) {
-	if hashIndex := strings.Index(addr.Name, "#"); hashIndex != -1 {
-		return addr.Name[:hashIndex], addr.Name[hashIndex+1:]
-	}
-	return addr.Name, ""
-}
+//
+// EMAIL PARSE
+//
 
 // "foo@bar.com" -> EmailAddress
 func ParseEmailAddress(addr string) *EmailAddress {
@@ -94,52 +82,9 @@ func ParseAngledEmailAddressesSmart(addrList string) EmailAddresses {
 	return addrs
 }
 
-// Maps a string list of email addresses (eg To or CC) to MX hosts.
-// Performs DNS lookup as needed.
 //
-// "foo@bar.com,baz@boo.com" -> {<mxHost>:[]*EmailAddress}
+// EMAIL ADDRESSES
 //
-// Note mxHost is not the same as emailHost. For example:
-// "larry@gmail.com" -> {"smtp-in.l.gmail.com": [...]}
-func GroupAddrsByHost(addrList string) map[string]EmailAddresses {
-	if addrList == "" {
-		return nil
-	}
-	addrs := strings.Split(addrList, ",")
-	hostAddrs := map[string]EmailAddresses{}
-	for _, addr := range addrs {
-		email := ParseEmailAddress(addr)
-		hostAddrs[email.Host] = append(hostAddrs[email.Host], email)
-	}
-	return hostAddrs
-}
-
-// Like GroupAddrsByHost, but resolves the hostname to Mx host.
-// The second return value is an array of all addresses that couldn't be resolved.
-func GroupAddrsByMxHost(addrList string) (map[string]EmailAddresses, EmailAddresses) {
-	hostAddrs := GroupAddrsByHost(addrList)
-	mxHostAddrs := map[string]EmailAddresses{}
-	failedAddrs := EmailAddresses{}
-	for host, addrs := range hostAddrs {
-		var mxHost string
-		// Skip lookup for self
-		// This helps with localhost testing
-		if host == GetConfig().SMTPMxHost {
-			mxHostAddrs[host] = append(mxHostAddrs[host], addrs...)
-			continue
-		}
-		// Lookup Mx record
-		mxHost, err := mxLookUp(host)
-		if err != nil {
-			for _, addr := range addrs {
-				failedAddrs = append(failedAddrs, addr)
-			}
-		} else {
-			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs...)
-		}
-	}
-	return mxHostAddrs, failedAddrs
-}
 
 // This lets us add convenience methods to []*EmailAddress
 type EmailAddresses []*EmailAddress
@@ -185,17 +130,6 @@ func (addrs EmailAddresses) Strings() []string {
 	return addrsList
 }
 
-// Returns those addresses that have given host
-func (addrs EmailAddresses) FilterByHost(host string) EmailAddresses {
-	filtered := EmailAddresses{}
-	for _, addr := range addrs {
-		if addr.Host == host {
-			filtered = append(filtered, addr)
-		}
-	}
-	return filtered
-}
-
 // Returns uniqued addresses. Does not modify self.
 func (addrs EmailAddresses) Unique() EmailAddresses {
 	unique := map[EmailAddress]struct{}{}
@@ -209,6 +143,50 @@ func (addrs EmailAddresses) Unique() EmailAddresses {
 	}
 	return uniqued
 }
+
+// Maps email addresses to MX hosts.
+// Performs DNS lookup as needed.
+//
+// returns {<mxHost>:[]*EmailAddress}
+//
+// Note mxHost is not the same as emailHost. For example:
+// [<larry@gmail.com>] -> {"smtp-in.l.gmail.com": [...]}
+func (addrs EmailAddresses) GroupByHost() map[string]EmailAddresses {
+	hostAddrs := map[string]EmailAddresses{}
+	for _, addr := range addrs {
+		hostAddrs[addr.Host] = append(hostAddrs[addr.Host], addr)
+	}
+	return hostAddrs
+}
+
+// Like GroupByHost, but resolves the hostname to Mx host.
+// The second return value is an array of all addresses that couldn't be resolved.
+func (addrs EmailAddresses) GroupByMxHost() (map[string]EmailAddresses, EmailAddresses) {
+	hostAddrs := addrs.GroupByHost()
+	mxHostAddrs := map[string]EmailAddresses{}
+	failedAddrs := EmailAddresses{}
+	for host, addrs := range hostAddrs {
+		var mxHost string
+		// Skip lookup for self
+		// This helps with localhost testing
+		if host == GetConfig().SMTPMxHost {
+			mxHostAddrs[host] = append(mxHostAddrs[host], addrs...)
+			continue
+		}
+		// Lookup Mx record
+		mxHost, err := mxLookUp(host)
+		if err != nil {
+			failedAddrs = append(failedAddrs, addrs...)
+		} else {
+			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs...)
+		}
+	}
+	return mxHostAddrs, failedAddrs
+}
+
+//
+// MISC
+//
 
 func GenerateMessageID() *EmailAddress {
 	// generate a message id

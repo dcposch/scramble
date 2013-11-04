@@ -26,7 +26,7 @@ func mxLookUp(host string) (string, error) {
 		return cachedServer, nil
 	}
 
-	log.Printf("looking up smtp server (mx record) for %s\n", host)
+	log.Printf("looking up smtp server (MX record) for %s\n", host)
 	mxs, err := net.LookupMX(host)
 	if err != nil {
 		log.Printf("lookup failed for %s\n", host)
@@ -52,10 +52,10 @@ func mxLookUp(host string) (string, error) {
 }
 
 func smtpSend(msg *OutgoingEmail) error {
-	mxHostAddrs, failedAddrs := GroupAddrsByMxHost(msg.To)
+	mxHostAddrs, failedAddrs := ParseEmailAddresses(msg.To).GroupByMxHost()
 	if len(failedAddrs) != 0 {
 		// This should never happen.
-		panic("Could not resolve some mx records in smtpSend: " + failedAddrs.String())
+		panic("Could not resolve some MX records in smtpSend: " + failedAddrs.String())
 	}
 	// TODO: parallel send?
 	for mxHost, addrs := range mxHostAddrs {

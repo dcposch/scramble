@@ -77,9 +77,9 @@ func TestPublicKeysHandler(t *testing.T) {
 		publicKeysHandler,
 		"POST", "publickeys/query",
 		url.Values{
-			"nameAddresses": {tUser.EmailAddress},
-			"hashAddresses": {"doesnotexist#2222222222222222@" + GetConfig().SMTPMxHost},
-			"notaries":      {GetConfig().SMTPMxHost},
+			"needResolution": {tUser.EmailAddress},
+			"needPubKey":     {tUser.EmailAddress+",doesnotexist@"+GetConfig().SMTPMxHost},
+			"notaries":       {GetConfig().SMTPMxHost},
 		},
 	)
 	//log.Println(record.Code, record.Body.String())
