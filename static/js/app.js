@@ -130,9 +130,9 @@ viewState.notaries = null; // notaries that client trusts.
 
 // Maps email addresses to OpenPGP public key objects
 var cache = {};
-cache.keyMap = {};
+cache.keyMap = {}; // email address -> notarized public key
 cache.emailCache = {};
-cache.plaintextCache = {};
+cache.plaintextCache = {}; 
 
 
 
@@ -756,14 +756,28 @@ function showEmailThread(emails) {
     $("#content").empty().append(elThread);
 }
 
-var linkRegex = new RegExp("^http(s)?://[a-z0-9-]+(.[a-z0-9-]+)*(:[0-9]+)?(\/.*)?$", "ig")
-
 // Turns URLS into links in the plaintext.
 // Returns HTML
 function createHyperlinks(text) {
-    var safeText =  Handlebars.Utils.escapeExpression(text);
     var exp = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-    return safeText.replace(exp,"<a href='$1'>$1</a>"); 
+    var match;
+    var safeParts = [], lastIx = 0;
+    while((match = exp.exec(text)) !== null){
+        var rawPart = text.substr(lastIx, match.index-lastIx);
+        var safePart = Handlebars.Utils.escapeExpression(rawPart);
+        safeParts.push(safePart);
+
+        var rawUrl = match[0];
+        var safeLink = "<a href='"+rawUrl+"' target='_blank'>"+rawUrl+"</a>";
+        safeParts.push(safeLink);
+
+        lastIx = match.index+match[0].length;
+    }
+    var rawPart = text.substr(lastIx);
+    var safePart = Handlebars.Utils.escapeExpression(rawPart);
+    safeParts.push(safePart);
+
+    return safeParts.join("");
 }
 
 function emailReply(email) {
