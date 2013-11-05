@@ -6389,13 +6389,18 @@ hr.gutter {
   background: rgba(0, 0, 0, 0.5);
   color: white;
   text-align: center;
-  padding: 30px; }
+  padding: 30px;
+  position: relative; }
   .jumbotron-sign .logoblock {
     max-width: 500px;
     margin-right: auto;
     margin-left: auto; }
   .jumbotron-sign h1, .jumbotron-sign h2 {
     font-family: Monaco, Menlo, Consolas, "Courier New", monospace !important; }
+  .jumbotron-sign .scroll-down-for-more {
+    font-size: 0.5em;
+    position: absolute;
+    right: 10px; }
   @media (max-width: 480px) {
     .jumbotron-sign {
       font-size: 18px; } }

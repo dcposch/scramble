@@ -57,6 +57,7 @@ hr.gutter {
   color: $white;
   text-align: center;
   padding: $grid-gutter-width;
+  position: relative;
   .logoblock {
     max-width: 500px;
     margin-right: auto;
@@ -64,6 +65,11 @@ hr.gutter {
   }
   h1, h2 {
     font-family: $font-family-monospace !important;
+  }
+  .scroll-down-for-more {
+    font-size:0.5em;
+    position:absolute;
+    right: 10px;
   }
   @media (max-width: $screen-xs) {
     font-size: $font-size-base;
