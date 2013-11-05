@@ -7,10 +7,11 @@ layout: default
 <!-- Main jumbotron for a primary marketing message or call to action -->
 <div class="jumbotron">
   <div data-scroll="jumbotron-sign" class="container jumbotron-sign">
-    <h1 class="page-title js-scramble js-responsive" data-compression="8" data-min="20" data-max="60">scramble.io</h1>
+    <img class="jumbotron-logo" src="{{ site.baseurl }}/img/white_rubik.svg"/>
+    <h1 class="page-title js-scramble js-responsive" data-compression="8" data-min="20" data-max="60">scramble</h1>
     <h2 class="js-scramble js-responsive">Secure webmail for everyone</h2 class="js-scramble">
-    <hr class="clear"/>
-    <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Sign Up</a>
+    {{!-- <hr class="clear"/> --}}
+    {{!-- <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Sign Up</a> --}}
   </div>
 </div>
 
@@ -23,14 +24,10 @@ layout: default
         <img src="{{ site.baseurl }}/img/arrow-lock.svg" />
       </div>
       <div class="col-md-8">
-        <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We plan to offer a browser extension soon, so that even if a Scramble server is compromised, your email will still be encrypted locally, completely secure.</p>
+        <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a bookmarklet which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
       </div>
     </div>
-  </section>
 
-  <div class="bg-image" style="height:100px;"></div>
-
-  <section class="blue-bg">
     <div class="container">
       <h1 class="sectitle">Easy to Use</h1>
       <div class="col-md-4 col-md-push-8 bullet-image">
@@ -40,11 +37,7 @@ layout: default
         <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere, even a library computer. Scramble also can exchange email with regular, insecure email addresses. This is obviously not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away.</p>
       </div>
     </div>
-  </section>
 
-  <div class="bg-image" style="height:100px;"></div>
-
-  <section class="blue-bg">
     <div class="container">
       <h1 class="sectitle">Open, Federated Protocol</h1>
       <div class="col-md-4 bullet-image">
@@ -62,29 +55,32 @@ layout: default
     <div class="container">
       <h1 class="sectitle">How it works</h1>
 
-      This is a work in progress.<br/>
-      Do check it out!<br/>
-      Don't use it for anything sensitive yet<br/>
-      Ideas, bug reports, and code reviews are much appreciated.<br/>
-      <a href="#">Are you highly technical? Read the whitepaper!</a>
-      
-      <h3>Encryption</h3>
-      
-      <p>Scramble is end-to-end encrypted webmail. Everything is stored on the server, but encrypted. For conversations between Scramble addresses, the servers never have access to the plaintext message of your mail. Messages are encrypted in the browser using OpenPGP before it reaches the server. So is your contacts list. Your OpenPGP private keys are also stored on the server, but encrypted with your passphrase. This way, as long as your passphrase remains a secret, so does everything else.</p>
+      <h3>Zero knowledge</h3>
 
-      <p>Until recently, it was common knowledge that the browser is not an ideal environment for cryptographic operations. OpenPGP was never available as a Javascript library until recently, and the pseudo-random-number-generator (PRNG) provided by Javascript wasn’t up to par. This has all changed only recently. OpenPGP.js is maturing (troll face), and a cryptographically secure PRNG is available in all modern browsers. As long as the browser & client javascript code can be trusted (and of course the underlying operating system and machine), it is in fact possible to provide strong security in webmail.</p>
+      <p>Most existing email systems only encrypt data during transmission, but get stored as plaintext on the mail-server. Other email systems like Lavabit also encrypt the email before storage, but are encrypted on the server and are vulnerable to government fiat or server-compromise. Scramble servers have zero-knowledge of the message contents, since encryption is always performed end-to-end on the clients.</p>
 
-      <h3>Identity</h3>
+      <p>When a user first registers on a Scramble server, an OpenPGP keypair is generated on the client. The public key is used by senders for encrypting messages for the key owner, and the private key is used for signing (authenticating) messages from the key owner. The user does not need to worry about managing their keys, because they are stored on the server.</p>
 
-      <p>A major pain-point of OpenPGP is knowing which OpenPGP public key is associated with an address. The established way is to have key-signing parties to build a web of trust, but this is cumbersome and few people actually do this. It would be better if email addresses could be securely resolved to a public key automatically. Scramble solves this with a novel federated notary system inspired by Moxie’s Perspectives project. You ask some trusted notaries (and each Scramble server is also a notary) what the corresponding public key is for a Scramble address, and you can be confident that you found the right key if all the notaries are in consensus. This way, Scramble users don’t have to understand OpenPGP web-of-trust or public key servers. You can just send to the Scramble address, just like regular email, and the client code will take care of the rest.</p>
+      <p>The users’ private keys are stored on the server in encrypted form. The key-derivation-function used is as follows:
+      <pre>K = scrypt(Passphrase, Nonce || Username)</pre>
+      where <code>Passphrase</code> is the user’s secret login passphrase, <code>Nonce</code> is a predetermined string, and <code>||</code> is the concatenation operator.</p>
 
-      <h3>Compatibility</h3>
+      <p>Keypair generation and ephemeral symmetric key generation depends on using the browser’s crypto.getRandomValues() cryptographic pseudo-random-number-generator function. The standard Javascript random() function is not cryptographically secure, but modern browsers now support the crypto API.</p>
 
-      <p>Some users will opt for less security and more convenience.</p>
+      <h3>No exchanging keys</h3>
 
-      <p>For compatibility, you can exchange email with addresses outside of Scramble. Those messages are sent in plaintext. Incoming plaintext messages are encrypted with your public key for storage, so nobody can obtain the records from Scramble after the fact.</p>
+      <p>A Scramble address is associated with a public key. In order to encrypt a message for a recipient (and in order to verify the authenticity of a message), the sender needs to resolve the Scramble address of the recipient and retrieve the public key.</p>
+        
+      <p>The established way to do this with PGP today is with the web-of-trust (WOT) model. Identities are endorsed by other identities via cryptographic signatures. It is encouraged to do this in person (e.g. at key signing parties) where you can see the person and her public key together. The problem with this approach is that the web is cumbersome to build up, and few people actually participate in such key-signing parties.</p>
+        
+      <p>Scramble uses an alternative federated trust model inspired by the Perspectives project. Assume there are many Scramble servers, just as there are many email-servers today. Each Scramble server provides a notary service that vouches for Scramble identities. Upon account creation on one Scramble server, all the notaries are seeded with the new identity. Later, anyone can fetch and verify the public key for this new address by querying all or some of the seeded notaries. Since the notary responses are cryptographically signed, an attacker would have to compromise all of the notaries in order to subvert the address-resolution process.</p>
 
-      <p>Be careful about doing this, especially if you want to keep your address anonymous. The security guarantees here are, of course, weaker than for conversations between Scramble users.</p>
+      <h3>Secure client-side code</h3>
+
+      <p>Scramble aims to provide strong security guarantees without compromising on usability. Webmail is the easiest way to reach a wide audience, but it comes with its own set of challenges. One problem is that the server cannot be trusted to serve uncompromised client-side code. To keep the user from needing to trust the server, we are developing a bookmarklet.</p>
+
+      <p>The bookmarklet code includes a set of SHA1 hashes of vetted Scramble resources. Upon execution, it loads the static resources from the server and checks that the hashes match. If all the hashes match, then the script includes the resources into the document for rendering and execution. The source of the bookmarklet itself is examined and vouched for by the members of a signing committee.</p>
+
     </div>
   </section>
 
