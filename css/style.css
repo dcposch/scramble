@@ -6365,6 +6365,10 @@ hr.gutter {
   margin-top: 15px;
   margin-bottom: 15px; }
 
+@font-face {
+  font-family: Inconsolata;
+  src: url("../font/Inconsolata-Bold.ttf"); }
+
 .jumbotron {
   margin-bottom: 0;
   position: relative;
@@ -6396,7 +6400,7 @@ hr.gutter {
     margin-right: auto;
     margin-left: auto; }
   .jumbotron-sign h1, .jumbotron-sign h2 {
-    font-family: Monaco, Menlo, Consolas, "Courier New", monospace !important; }
+    font-family: Inconsolata,monospace !important; }
   .jumbotron-sign .scroll-down-for-more {
     font-size: 0.5em;
     position: absolute;
