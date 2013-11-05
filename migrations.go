@@ -24,6 +24,7 @@ var migrations = []func() error{
 	migrateAddNotaryKey,
 	migrateAddNameResolutionTimestamp,
 	migrateBoxRemoveError,
+	migrateAddUserSecondaryEmail,
 }
 
 func migrateDb() {
@@ -431,5 +432,12 @@ func migrateAddNameResolutionTimestamp() error {
 
 func migrateBoxRemoveError() error {
 	_, err := db.Exec(`ALTER TABLE box DROP COLUMN error`)
+	return err
+}
+
+func migrateAddUserSecondaryEmail() error {
+	_, err := db.Exec(`ALTER TABLE user ADD COLUMN
+        secondary_email VARCHAR(254) NOT NULL
+	`)
 	return err
 }

@@ -6,6 +6,7 @@ type User struct {
 	UserID
 	PublicKey        string
 	CipherPrivateKey string
+	SecondaryEmail   string
 }
 
 // UserID represents a single user's identifying info

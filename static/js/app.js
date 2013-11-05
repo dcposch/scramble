@@ -385,6 +385,12 @@ function createAccount(keys) {
     if (token == null) return false;
     var pass = validateNewPassword();
     if (pass == null) return false;
+    var secondaryEmail = trim($("#secondaryEmail").val());
+    
+    if (secondaryEmail && !secondaryEmail.match(REGEX_EMAIL)) {
+        alert(secondaryEmail+" is not a valid email address");
+        return
+    }
 
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
@@ -403,6 +409,7 @@ function createAccount(keys) {
     // send it
     var data = {
         token:token,
+        secondaryEmail:secondaryEmail,
         passHash:passHash,
         publicKey:keys.publicKeyArmored,
         cipherPrivateKey:bin2hex(cipherPrivateKey)

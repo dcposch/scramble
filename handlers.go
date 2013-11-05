@@ -64,6 +64,10 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "That username is reserved", http.StatusBadRequest)
 		return
 	}
+	user.SecondaryEmail = r.FormValue("secondaryEmail")
+	if user.SecondaryEmail != "" {
+		validateAddress(user.SecondaryEmail)
+	}
 	user.PasswordHash = validatePassHash(r.FormValue("passHash"))
 	user.PublicKey = validatePublicKeyArmor(r.FormValue("publicKey"))
 	user.PublicHash = ComputePublicHash(user.PublicKey)
