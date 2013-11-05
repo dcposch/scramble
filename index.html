@@ -7,11 +7,17 @@ layout: default
 <!-- Main jumbotron for a primary marketing message or call to action -->
 <div class="jumbotron">
   <div data-scroll="jumbotron-sign" class="container jumbotron-sign">
-    <img class="jumbotron-logo" src="{{ site.baseurl }}/img/white_rubik.svg"/>
-    <h1 class="page-title js-scramble js-responsive" data-compression="8" data-min="20" data-max="60">scramble</h1>
-    <h2 class="js-scramble js-responsive">Secure webmail for everyone</h2 class="js-scramble">
-    {{!-- <hr class="clear"/> --}}
-    {{!-- <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Sign Up</a> --}}
+    <div class="logoblock">
+      <h1 class="page-title js-scramble js-responsive" data-compression="8" data-min="20" data-max="60">scramble</h1>
+      <h2 class="js-scramble js-responsive">Secure webmail for everyone</h2 class="js-scramble">
+    </div>
+    <hr class="clear gutter"/>
+    <div class="container">
+        <div class="lead text-center"><small>Scramble is an open-source webmail project that protects your email using OpenPGP. Plaintext is never stored on the server. Scramble removes one of the biggest hurdles to using PGP-  unlike other implementations, you do not have to manage keys.</small></div>
+    </div>
+
+    <hr class="clear gutter"/>
+    <a data-toggle="modal" href="#signUp" class="btn btn-primary btn-lg">Start Using Scramble</a>
   </div>
 </div>
 
@@ -19,33 +25,37 @@ layout: default
 
   <section class="blue-bg">
     <div class="container">
-      <h1 class="sectitle">End-to-End Encryption</h1>
-      <div class="col-md-4 bullet-image">
-        <img src="{{ site.baseurl }}/img/arrow-lock.svg" />
-      </div>
-      <div class="col-md-8">
-        <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a bookmarklet which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
-      </div>
-    </div>
 
-    <div class="container">
-      <h1 class="sectitle">Easy to Use</h1>
-      <div class="col-md-4 col-md-push-8 bullet-image">
-        <img src="{{ site.baseurl }}/img/heart.svg" />
+      <div class="row">
+        <h1 class="sectitle">End-to-End Encryption</h1>
+        <div class="col-md-4 bullet-image">
+          <img src="{{ site.baseurl }}/img/arrow-lock.svg" />
+        </div>
+        <div class="col-md-8">
+          <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a bookmarklet which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
+        </div>
       </div>
-      <div class="col-md-8 col-md-pull-4">
-        <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere, even a library computer. Scramble also can exchange email with regular, insecure email addresses. This is obviously not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away.</p>
-      </div>
-    </div>
 
-    <div class="container">
-      <h1 class="sectitle">Open, Federated Protocol</h1>
-      <div class="col-md-4 bullet-image">
-        <img src="{{ site.baseurl }}/img/network.svg" />
+      <div class="row">
+        <h1 class="sectitle">Easy to Use</h1>
+        <div class="col-md-4 col-md-push-8 bullet-image">
+          <img src="{{ site.baseurl }}/img/heart.svg" />
+        </div>
+        <div class="col-md-8 col-md-pull-4">
+          <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere, even a library computer. Scramble also can exchange email with regular, insecure email addresses. This is obviously not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away.</p>
+        </div>
       </div>
-      <div class="col-md-8">
-        <p>Scramble is an open-source protocol. Scramble.io makes it easy to get started, but for complete control, host your own Scramble server. This is an especially attractive option for enterprises and non-profit organizations that need to keep proprietary IP and communications safe from prying eyes. Unlike some other “secure” email services, our source is and will always be completely open and auditable.</p>
+
+      <div class="row">
+        <h1 class="sectitle">Open, Federated Protocol</h1>
+        <div class="col-md-4 bullet-image">
+          <img src="{{ site.baseurl }}/img/network.svg" />
+        </div>
+        <div class="col-md-8">
+          <p>Scramble is an open-source protocol. Scramble.io makes it easy to get started, but for complete control, host your own Scramble server. This is an especially attractive option for enterprises and non-profit organizations that need to keep proprietary IP and communications safe from prying eyes. Unlike some other “secure” email services, our source is and will always be completely open and auditable.</p>
+        </div>
       </div>
+
     </div>
   </section>
 
