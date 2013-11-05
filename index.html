@@ -24,7 +24,7 @@ layout: default
         <img src="{{ site.baseurl }}/img/arrow-lock.svg" />
       </div>
       <div class="col-md-8">
-        <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a bookmarklet which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
+        <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a browser extension which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
       </div>
     </div>
 
@@ -77,9 +77,9 @@ layout: default
 
       <h3>Secure client-side code</h3>
 
-      <p>Scramble aims to provide strong security guarantees without compromising on usability. Webmail is the easiest way to reach a wide audience, but it comes with its own set of challenges. One problem is that the server cannot be trusted to serve uncompromised client-side code. To keep the user from needing to trust the server, we are developing a bookmarklet.</p>
+      <p>Scramble aims to provide strong security guarantees without compromising on usability. Webmail is the easiest way to reach a wide audience, but it comes with its own set of challenges. Once you have a trusted client, our design doesn't require you to trust the server. However, the server cannot be trusted to serve uncompromised client-side code. To solve this problem, we are going to develop a browser extension that checks the integrity of the client code.</p>
 
-      <p>The bookmarklet code includes a set of SHA1 hashes of vetted Scramble resources. Upon execution, it loads the static resources from the server and checks that the hashes match. If all the hashes match, then the script includes the resources into the document for rendering and execution. The source of the bookmarklet itself is examined and vouched for by the members of a signing committee.</p>
+      <p>This is still a work in progress. For now you must assume that the server is uncompromised. Do not use Scramble.io for sensitive information just yet! </p>
 
     </div>
   </section>
