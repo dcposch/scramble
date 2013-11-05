@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 	"net/smtp"
-	"strings"
 	"runtime/debug"
+	"strings"
 )
 
 // Cache MX lookups, eg "gmail.com" -> "gmail-smtp-in.l.google.com"
@@ -64,7 +64,8 @@ func smtpSend(msg *OutgoingEmail) error {
 		}
 		err := smtpSendTo(msg, mxHost, addrs)
 		if err != nil {
-			err := fmt.Errorf("SMTP sending failed to mxHost %v for addrs %v\n", mxHost, addrs)
+			err := fmt.Errorf("SMTP sending failed to mxHost %v for addrs %v: %v\n",
+				mxHost, addrs, err)
 			return err
 		}
 	}
@@ -77,7 +78,7 @@ func smtpSendSafe(msg *OutgoingEmail) (success bool) {
 	defer func() {
 		if e := recover(); e != nil {
 			errorString := fmt.Sprintf("%s:\n%s", e, string(debug.Stack()))
-			log.Println("<!> "+errorString)
+			log.Println("<!> " + errorString)
 			success = false
 		}
 	}()
