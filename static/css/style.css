@@ -154,19 +154,37 @@ input[type=submit] {
     width: 600px;
     height: 480px;
 }
+#createAccountModal h2 {
+    text-align:center;
+    padding-top:50px;
+    padding-bottom:30px;
+}
+#createAccountModal h3 {
+    text-align:center;
+}
+#createAccountModal .hint {
+    font-size:13px;
+}
+#createAccountModal .prompt {
+    margin:10px 0;
+}
+#createAccountModal #spinner img {
+    margin:40px;
+}
 #createAccountModal #createForm {
     display: none; /* show later, in js... */
     margin: 30px 50px;
 }
+#createAccountModal input {
+    padding: 2px;
+}
 #createAccountModal input[type=submit] {
-    margin-left: 150px;
+    margin-left: 170px;
     width: 160px;
 }
 #createAccountModal label {
-    white-space: nowrap
-}
-#createAccountModal input[type=submit] {
-    width: 160px
+    width:160px;
+    white-space: nowrap;
 }
 
 

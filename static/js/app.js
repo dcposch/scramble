@@ -358,7 +358,6 @@ function displayCreateAccountModal() {
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
         // Change "Generating..." to "Done", explain what's going on to the user
-        $("#createAccountModal h3").text("Welcome!");
         $("#spinner").css("display", "none");
         $("#createForm").css("display", "block");
 
