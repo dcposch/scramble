@@ -13,6 +13,7 @@
 <script id="login-template" type="text/x-handlebars-template">
 <div id="login">
     <h1>Scramble</h1>
+    <h3>Encrypted email for everyone</h3>
 
     <div class="prompt"><label>User</label><input type="text" id="token"></input></div>
     <div class="prompt"><label>Passphrase</label><input type="password" id="pass"></input></div>
@@ -23,15 +24,12 @@
     <input type="submit" id="generateButton" value="Generate Account"></input>
 
     <div class="footer">
+        <a href="http://dcposch.github.com/scramble">How it works</a>
         <p>
-            <strong>Scramble.io now has easy-to-remember email addresses!</strong><br/>
-            Also, you can now send unencrypted mail to outside addresses.<br/>
-            As always, all mail between Scramble email addresses is encrypted and signed.<br/>
-            <a href="/doc/">How it works</a>
+            Questions? Feedback? Just testing a new account?
         </p>
         <p>
-            Questions? Feedback? Just testing a new account?<br/>
-            <a href="mailto:hello@scramble.io">Send us a note!</a>
+             Send us a note! To: hello@scramble.io 
         </p>
     </div>
 
@@ -57,7 +55,7 @@
         <div class="prompt"><label>Passphrase</label><input type="password" id="createPass"></input></div>
         <div class="prompt"><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
         <p class="hint">Please choose a strong passphrase and don't forget it.<br/>
-        The server won't know your passphrase or your private key, nor can it read your mail.<br/>
+        The server won't know your passphrase or your private key. It can't read your mail.<br/>
         This is sweet... but it also means that "password reset" is impossible!</p>
         <div class="prompt"><label>Optional other email</label><input type="text" id="secondaryEmail"></input></div>
         <p class="hint">If you give us your other email, we'll keep you updated on our progress.<br/>
