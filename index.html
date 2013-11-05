@@ -103,7 +103,7 @@ layout: default
 
       <p>Unforunately, while OpenPGP can encrypt the contents of your emails&mdash;and, the way Scramble uses it, even the subject lines&mdash;you still leak From and To. In other words, an adversary may not see what you're saying, but they can see who you're talking to.</p>
 
-      <p>Strong metadata secrecy does not seem possible over SMTP. At very least: the To header must be there for all to see, otherwise your email won't arrive. Brand-new protocols have been proposed, notably BitMessage. The Dark Mail Alliance is also attempting strong metadata secrecy, though they haven't described their approach yet. Staying interoperable with email and existing PGP users has lot of benefits, hence our decision.</p>
+      <p>Strong metadata secrecy does not seem possible over SMTP. At a minimum, the To header must be there for all to see, otherwise your email won't arrive. Brand-new protocols have been proposed, notably BitMessage. The Dark Mail Alliance is also attempting strong metadata secrecy, though they haven't described their approach yet. Staying interoperable with email and existing PGP users has lots of benefits, hence our decision.</p>
 
       <p>Users with strong security requirements can still have pseudo-anonymity. For example: a news organization might use <code>contact@&lt;news-organization&gt;.org</code> without revealing the journalist behind it. A famous example of a pseudo-anonymous address is <code>satoshi@gmx.com</code>, the creator of Bitcoin, whose real identity is not known. Such users could access Scramble over Tor, thus not revealing their physical location even assuming a compromised server.</p>
 
