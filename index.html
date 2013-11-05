@@ -14,9 +14,9 @@ layout: default
     </div>
     <hr class="clear gutter"/>
     <div class="container">
-        <div class="lead text-center"><small>Scramble is easy-to-use, open source encrypted webmail. It is compatible with regular email, and will soon be compatible with existing OpenPGP clients.<br/>
-                We have a working prototype. Feel free to try it out!<br/>
+        <div class="lead text-center"><small>Scramble is easy-to-use, open source encrypted email.<br/>
                 Scramble has not been widely vetted, so don't rely on it to protect you just yet.</small>
+                However, we have a working prototype. Feel free to try it out!<br/>
         </div>
     </div>
 
@@ -50,7 +50,7 @@ layout: default
         </div>
 
         <div class="col-md-8 col-md-pull-4">
-            <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere. Scramble can also exchange unencrypted email with existing email addresses. This is not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away. Even plaintext email is encrypted before being stored--so while an attacker could wiretap such mail going forward, nobody can email you've received after the fact.</p>
+            <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere. Scramble can also exchange unencrypted email with existing email addresses. This is not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away. Even plaintext email is encrypted before being stored--so while an attacker could wiretap such mail going forward, nobody can read email you've received after the fact.</p>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ layout: default
 
       <p>Most existing email systems only encrypt data during transmission, but get stored as plaintext on the mail-server. Other email systems like Lavabit also encrypt the email before storage, but are encrypted on the server in such a way that the server operator could obtain the plaintext. Scramble servers have no knowledge of the message contents, since encryption is always performed end-to-end on the clients.</p>
 
-      <p>When a user first registers on a Scramble server, an OpenPGP keypair is generated on the client. The public key of the recipient is used for encrypting email, and the key of the sender is used for authentication. The private key of the recipient is decrypts the message. Keys are stored because they are stored on the server.</p>
+      <p>When a user first registers on a Scramble server, an OpenPGP keypair is generated on the client. The public key of the recipient is used for encrypting email, and the key of the sender is used for authentication. The private key of the recipient is decrypts the message. Users don't have to manage and back up their keys---or even know what a key is. Scramble does it for them.</p>
 
       <p>Private keys are stored on the server in encrypted form. The key derivation function used is as follows:
       <pre>K = scrypt(Passphrase, Username)</pre>
@@ -87,7 +87,7 @@ layout: default
 
       <h3>No exchanging keys</h3>
 
-      <p>Each Scramble address is associated with a public key. In order to encrypt a message for a recipient, and in order to verify the authenticity of a received message, the Javascript client needs to resolve a Scramble address and retrieve the public key. Doing this securely is diffult!</p>
+      <p>Each Scramble address is associated with a public key. In order to encrypt a message for a recipient, and in order to verify the authenticity of a received message, the Javascript client needs to resolve a Scramble address and retrieve the public key. Doing this securely is difficult!</p>
         
       <p>The established way to do this with PGP today is with the web-of-trust model. Identities are endorsed by other identities via cryptographic signatures. You are encouraged to do this in person (e.g. at key signing parties) where you can see the person and her public key together. The problem with this approach is that the web-of-trust is cumbersome to build up. Existing OpenPGP clients have serious usability issues, so relatively few people bother to use them, and most people are left unprotected.</p>
         
@@ -113,7 +113,7 @@ layout: default
 
       <p>We're building a standard email client, designed for security. We're building a novel notary system so that OpenPGP key exchange can be effortless. We want encryption to be the default, not the exception. Join us!</p>
 
-      <p>--DC and Jaekwon<br \>
+      <p>Jaekwon and DC<br \>
       <code>{dcposch, jaekwon}@scramble.io</code>
       </p>
 
