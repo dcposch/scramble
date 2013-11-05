@@ -367,7 +367,7 @@ cite {
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6 {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-weight: 500;
+  font-weight: 300;
   line-height: 1.1; }
   h1 small, h2 small, h3 small, h4 small, h5 small, h6 small,
   .h1 small, .h2 small, .h3 small, .h4 small, .h5 small, .h6 small {
@@ -6389,8 +6389,11 @@ hr.gutter {
   background: rgba(0, 0, 0, 0.5);
   color: white;
   text-align: center;
-  padding: 30px;
-  max-width: 500px; }
+  padding: 30px; }
+  .jumbotron-sign .logoblock {
+    max-width: 500px;
+    margin-right: auto;
+    margin-left: auto; }
   .jumbotron-sign h1, .jumbotron-sign h2 {
     font-family: Monaco, Menlo, Consolas, "Courier New", monospace !important; }
   @media (max-width: 480px) {
