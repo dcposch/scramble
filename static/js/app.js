@@ -31,7 +31,7 @@ var SCRYPT_PARAMS = {
 };
 
 var DEFAULT_SIGNATURE = "\n\n--\n"+
-    "Encrypted with https://scramble.io";
+    "Sent with https://scramble.io";
 
 var CONTACTS_VERSION = 1;
 
