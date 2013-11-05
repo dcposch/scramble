@@ -223,10 +223,6 @@ input[type=submit] {
     margin: 8px 0;
     font-weight: bold;
 }
-#sidebar .address, #sidebar .pubHash {
-    font: 80% Inconsolata,monospace;
-    margin: 8px 0;
-}
 #sidebar .tab {
     display: block;
     font-size: 150%;
