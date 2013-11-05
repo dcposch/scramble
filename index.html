@@ -31,6 +31,7 @@ layout: default
         <div class="col-md-4 bullet-image">
           <img src="{{ site.baseurl }}/img/arrow-lock.svg" />
         </div>
+
         <div class="col-md-8">
           <p>Scramble servers receive and store only ciphertext. This means that nobody, not even the operators of the Scramble servers, or any entity that has gained control of the servers, can read your mail. We developing a bookmarklet which will verify the Javascript loaded from the server. In the event that it has been tampered with, the user is notified.</p>
         </div>
@@ -41,6 +42,7 @@ layout: default
         <div class="col-md-4 col-md-push-8 bullet-image">
           <img src="{{ site.baseurl }}/img/heart.svg" />
         </div>
+
         <div class="col-md-8 col-md-pull-4">
           <p>Scramble includes a user-friendly webmail interface. You can check your email from anywhere, even a library computer. Scramble also can exchange email with regular, insecure email addresses. This is obviously not as secure as communication between two Scramble servers, but it allows you to use Scramble as your email provider right away.</p>
         </div>
@@ -51,12 +53,12 @@ layout: default
         <div class="col-md-4 bullet-image">
           <img src="{{ site.baseurl }}/img/network.svg" />
         </div>
-        <div class="col-md-8">
-          <p>Scramble is an open-source protocol. Scramble.io makes it easy to get started, but for complete control, host your own Scramble server. This is an especially attractive option for enterprises and non-profit organizations that need to keep proprietary IP and communications safe from prying eyes. Unlike some other “secure” email services, our source is and will always be completely open and auditable.</p>
-        </div>
-      </div>
 
+        <div class="col-md-8">
+          <p>Scramble is an open-source protocol. Our site, Scramble.io, makes it easy to get started, but for complete control, host your own Scramble server. This is an especially attractive option for enterprises and non-profit organizations that need to keep proprietary IP and communications safe from prying eyes. Unlike some other “secure” email services, our source is and will always be completely open and auditable.</p>
+        </div>
     </div>
+
   </section>
 
   <div class="bg-image" style="height:100px;"></div>
@@ -67,9 +69,9 @@ layout: default
 
       <h3>Zero knowledge</h3>
 
-      <p>Most existing email systems only encrypt data during transmission, but get stored as plaintext on the mail-server. Other email systems like Lavabit also encrypt the email before storage, but are encrypted on the server and are vulnerable to government fiat or server-compromise. Scramble servers have zero-knowledge of the message contents, since encryption is always performed end-to-end on the clients.</p>
+      <p>Most existing email systems only encrypt data during transmission, but get stored as plaintext on the mail-server. Other email systems like Lavabit also encrypt the email before storage, but are encrypted on the server so the server operator could obtain access to plaintext. Scramble servers have zero-knowledge of the message contents, since encryption is always performed end-to-end on the clients.</p>
 
-      <p>When a user first registers on a Scramble server, an OpenPGP keypair is generated on the client. The public key is used by senders for encrypting messages for the key owner, and the private key is used for signing (authenticating) messages from the key owner. The user does not need to worry about managing their keys, because they are stored on the server.</p>
+      <p>When a user first registers on a Scramble server, an OpenPGP keypair is generated on the client. The public key of the recipient is used for encrypting the email, and the private key of the sender is also used for signing it. The user does not need to worry about managing their keys, because they are stored on the server.</p>
 
       <p>The users’ private keys are stored on the server in encrypted form. The key-derivation-function used is as follows:
       <pre>K = scrypt(Passphrase, Nonce || Username)</pre>
@@ -79,17 +81,17 @@ layout: default
 
       <h3>No exchanging keys</h3>
 
-      <p>A Scramble address is associated with a public key. In order to encrypt a message for a recipient (and in order to verify the authenticity of a message), the sender needs to resolve the Scramble address of the recipient and retrieve the public key.</p>
+      <p>A Scramble address is associated with a public key. In order to encrypt a message for a recipient (and in order to verify the authenticity of a message), the sender needs to resolve the Scramble address and retrieve the public key.</p>
         
-      <p>The established way to do this with PGP today is with the web-of-trust (WOT) model. Identities are endorsed by other identities via cryptographic signatures. It is encouraged to do this in person (e.g. at key signing parties) where you can see the person and her public key together. The problem with this approach is that the web is cumbersome to build up, and few people actually participate in such key-signing parties.</p>
+      <p>The established way to do this with PGP today is with the web-of-trust (WOT) model. Identities are endorsed by other identities via cryptographic signatures. You are encouraged to do this in person (e.g. at key signing parties) where you can see the person and her public key together. The problem with this approach is that the web of trust is cumbersome to build up, and few people actually partake in such key-signing parties.</p>
         
-      <p>Scramble uses an alternative federated trust model inspired by the Perspectives project. Assume there are many Scramble servers, just as there are many email-servers today. Each Scramble server provides a notary service that vouches for Scramble identities. Upon account creation on one Scramble server, all the notaries are seeded with the new identity. Later, anyone can fetch and verify the public key for this new address by querying all or some of the seeded notaries. Since the notary responses are cryptographically signed, an attacker would have to compromise all of the notaries in order to subvert the address-resolution process.</p>
+      <p>Scramble uses an alternative federated trust model inspired by the Perspectives project. Assume there are many Scramble servers, just as there are many email-servers today. Each Scramble server provides a notary service that vouches for Scramble identities. Upon account creation on one Scramble server, all the notaries are seeded with the new identity. Later, anyone can fetch and verify the public key for this new address by querying all of the seeded notaries. Since the notary responses are cryptographically signed, an attacker would have to compromise all of the notaries in order to subvert the address-resolution process.</p>
 
       <h3>Secure client-side code</h3>
 
-      <p>Scramble aims to provide strong security guarantees without compromising on usability. Webmail is the easiest way to reach a wide audience, but it comes with its own set of challenges. One problem is that the server cannot be trusted to serve uncompromised client-side code. To keep the user from needing to trust the server, we are developing a bookmarklet.</p>
+      <p>Scramble aims to provide strong security guarantees without compromising on usability. Webmail is the easiest way to reach a wide audience, but it comes with its own set of challenges. Once you have a trusted client, our design doesn't require you to trust the server. However, the server cannot be trusted to serve uncompromised client-side code. To solve this problem, we are going to develop a browser extension that checks the integrity of the client code.</p>
 
-      <p>The bookmarklet code includes a set of SHA1 hashes of vetted Scramble resources. Upon execution, it loads the static resources from the server and checks that the hashes match. If all the hashes match, then the script includes the resources into the document for rendering and execution. The source of the bookmarklet itself is examined and vouched for by the members of a signing committee.</p>
+      <p>This is still a work in progress. For now you must assume that the server is uncompromised. Do not use Scramble.io for sensitive information just yet! </p>
 
     </div>
   </section>
