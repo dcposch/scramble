@@ -4,4 +4,3 @@ Handlebars.registerHelper = function(){};
 Handlebars.registerPartial = function(){};
 navigator = {};
 navigator.appName = "yoloswag";
-

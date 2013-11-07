@@ -14,6 +14,16 @@ lint:
 	go get github.com/golang/lint/golint
 	$(GOPATH)/bin/golint *.go
 
+chrome:
+	rm -rf build/chrome_extension
+	mkdir -p build/chrome_extension
+	cp static/chrome_extension/* build/chrome_extension/
+	cp static/index.html build/chrome_extension/
+	cp static/favicon.ico build/chrome_extension/
+	cp -r static/js build/chrome_extension/js
+	cp -r static/css build/chrome_extension/css
+	echo "\nChrome extension built to ./build/chrome_extension!\n"
+
 MARKDOWN := $(shell ls doc/*.md)
 HTML := $(MARKDOWN:%.md=static/%.html)
 doc: $(HTML) static/doc/index.html

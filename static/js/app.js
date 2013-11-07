@@ -35,6 +35,8 @@ var DEFAULT_SIGNATURE = "\n\n--\n"+
 
 var CONTACTS_VERSION = 1;
 
+var HOST_PREFIX = ''; // for chrome extension
+
 // If we get responses from all but n notaries for a given address,
 // and the responses all agree, we accept the public key.
 // 
@@ -309,6 +311,7 @@ function bindLoginEvents() {
         var token = $("#token").val();
         var pass = $("#pass").val();
         login(token, pass);
+        loadDecryptAndDisplayBox('inbox');
     });
 
     var keys = null;
@@ -326,19 +329,7 @@ function login(token, pass) {
     sessionStorage["token"] = token;
     sessionStorage["passHash"] = computeAuth(token, pass);
     sessionStorage["passHashOld"] = computeAuthOld(token, pass);
-
-    // try fetching the inbox
-    $.get("/box/inbox",
-        { offset: 0, limit: BOX_PAGE_SIZE },
-        function(inbox) {
-            // logged in successfully!
-            decryptAndDisplayBox(inbox);
-        }, 'json').fail(function(xhr) {
-            alert(xhr.responseText || "Could not reach the server, try again");
-        }
-    )
 }
-
 
 
 //
@@ -413,8 +404,8 @@ function createAccount(keys) {
         publicKey:keys.publicKeyArmored,
         cipherPrivateKey:bin2hex(cipherPrivateKey)
     };
-    $.post("/user/", data, function() {
-        $.get("/box/inbox",
+    $.post(HOST_PREFIX+"/user/", data, function() {
+        $.get(HOST_PREFIX+"/box/inbox",
             { offset: 0, limit: BOX_PAGE_SIZE },
             function(inbox) {
                 decryptAndDisplayBox(inbox);
@@ -480,12 +471,12 @@ function loadDecryptAndDisplayBox(box, page) {
     box = box || "inbox";
     page = page || 1;
     console.log("Loading, decrypting and displaying "+box+", page "+page);
-    $.get("/box/"+box,
+    $.get(HOST_PREFIX+"/box/"+box,
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary) {
             decryptAndDisplayBox(summary, box);
         }, 'json').fail(function() {
-            displayLogin();
+            alert(xhr.responseText || "Could not reach the server, try again");
         }
     );
 }
@@ -701,7 +692,7 @@ function cachedLoadEmail(params, cb){
         // NOTE: we may want to use params.box in the future.
         cb(cache.emailCache[params.msgID]);
     } else {
-        $.get("/email/", params, function(emailData) {
+        $.get(HOST_PREFIX+"/email/", params, function(emailData) {
             cache.emailCache[params.msgID] = emailData;
             cb(emailData);
         }, "json");
@@ -832,7 +823,7 @@ function emailMove(email, box, moveThread) {
         moveThread: (moveThread || false)
     };
     $.ajax({
-        url: '/email/'+email.msgID,
+        url: HOST_PREFIX+'/email/'+email.msgID,
         type: 'PUT',
         data: params,
     }).done(function() {
@@ -1128,7 +1119,7 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
             needPubKey:    needPubKey.join(","),
             notaries:      notaries.join(","),
         };
-        $.post("/publickeys/query", params, function(data) {
+        $.post(HOST_PREFIX+"/publickeys/query", params, function(data) {
 
             var nameResolution = data.nameResolution;
             var publicKeys =     data.publicKeys;
@@ -1252,7 +1243,7 @@ function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, c
 }
 
 function sendEmailPost(data, cb) {
-    $.post("/email/", data, function() {
+    $.post(HOST_PREFIX+"/email/", data, function() {
         cb();
     }).fail(function(xhr) {
         alert("Sending failed: "+xhr.responseText);
@@ -1440,7 +1431,7 @@ function trySaveContacts(contacts, done) {
     if (!cipherContacts) return;
 
     // send it to the server
-    $.post("/user/me/contacts", bin2hex(cipherContacts), "text")
+    $.post(HOST_PREFIX+"/user/me/contacts", bin2hex(cipherContacts), "text")
         .done(done)
         .fail(function(xhr) {
             alert("Saving contacts failed: "+xhr.responseText)
@@ -1561,7 +1552,7 @@ function loadAndDecryptContacts(fn) {
         return;
     }
 
-    $.get("/user/me/contacts", function(cipherContactsHex) {
+    $.get(HOST_PREFIX+"/user/me/contacts", function(cipherContactsHex) {
         var cipherContacts = hex2bin(cipherContactsHex);
         var jsonContacts = passphraseDecrypt(cipherContacts);
         if (!jsonContacts) {
@@ -1615,7 +1606,7 @@ function migrateContactsReverseLookup(contacts, fn) {
     }
     if (lookup.length > 0) {
         var params = {pubHashes:lookup.join(",")};
-        $.post("/publickeys/reverse", params, function(pubHashToAddress) {
+        $.post(HOST_PREFIX+"/publickeys/reverse", params, function(pubHashToAddress) {
             var addresses = [], hashesDeleted = [];
             for (var hash in pubHashToAddress) {
                 if (pubHashToAddress[hash]=="") {
@@ -1742,7 +1733,7 @@ function loadNotaries(cb) {
         var notaries = parseNotaries(data.notaries);
         cb(notaries);
     } else {
-        $.getJSON("/publickeys/notary", function(data) {
+        $.getJSON(HOST_PREFIX+"/publickeys/notary", function(data) {
             var notaries = parseNotaries(data.notaries);
             if (!notaries) {
                 alert("Failed to retrieve default notaries from server!");
@@ -1904,7 +1895,7 @@ function getPrivateKey(fn) {
         return;
     }
 
-    $.get("/user/me/key", function(cipherPrivateKeyHex) {
+    $.get(HOST_PREFIX+"/user/me/key", function(cipherPrivateKeyHex) {
         var cipherPrivateKey = hex2bin(cipherPrivateKeyHex);
         var privateKeyArmored = passphraseDecrypt(cipherPrivateKey);
         if (!privateKeyArmored) return;
@@ -2116,3 +2107,6 @@ function initAjaxAuth() {
     });
 }
 
+function setHostPrefix(hostPrefix) {
+    HOST_PREFIX = hostPrefix;
+}
