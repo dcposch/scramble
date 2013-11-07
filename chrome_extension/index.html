@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scramble.io</title>
+    <link rel="stylesheet" href="/css/normalize.css"></link>
+    <link rel="stylesheet" href="/css/style.css"></link>
+</head>
+<body>
+<div id="wrapper"></div>
+
+
+<!-- LOGIN -->
+<script id="login-template" type="text/x-handlebars-template">
+<div id="login">
+    <h1>Scramble</h1>
+    <h3>Encrypted email for everyone</h3>
+
+    <div class="prompt"><label>User</label><input type="text" id="token"></input></div>
+    <div class="prompt"><label>Passphrase</label><input type="password" id="pass"></input></div>
+    <div><input type="submit" id="enterButton" value="Log In"></input></div>
+
+    <div class="strike"><hr /><span>or</span><hr /></div>
+
+    <input type="submit" id="generateButton" value="Generate Account"></input>
+
+    <div class="footer">
+        <a href="http://dcposch.github.com/scramble">How it works</a>
+        <p>
+            Questions? Feedback? Just testing a new account?
+        </p>
+        <p>
+             Send us a note! To: hello@scramble.io 
+        </p>
+    </div>
+
+    <a href="https://github.com/dcposch/scramble"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
+
+</div>
+</script>
+
+
+
+<!-- CREATE ACCOUNT MODAL -->
+<script id="create-account-template" type="text/x-handlebars-template">
+<div class="modal-bg">
+<div class="modal" id="createAccountModal">
+    <div id="spinner">
+        <h2>Generating PGP keys...</h2>
+        <img src="spinner.gif" />
+    </div>
+
+    <section id="createForm">
+        <h2>Welcome to Scramble!</h2>
+        <div class="prompt"><label>User</label><input type="text" id="createToken"></input></div>
+        <div class="prompt"><label>Passphrase</label><input type="password" id="createPass"></input></div>
+        <div class="prompt"><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
+        <p class="hint">Please choose a strong passphrase and don't forget it.<br/>
+        The server won't know your passphrase or your private key. It can't read your mail.<br/>
+        This is sweet... but it also means that "password reset" is impossible!</p>
+        <div class="prompt"><label>Optional other email</label><input type="text" id="secondaryEmail"></input></div>
+        <p class="hint">If you give us your other email, we'll keep you updated on our progress.<br/>
+        We'll also remind you to check Scramble when you receive messages.</p>
+        <div><input type="submit" id="createButton" value="Create Account"></input></div>
+    </section>
+</div>
+</div>
+</script>
+
+
+
+<!-- PAGE STRUCTURE -->
+<script id="page-template" type="text/x-handlebars-template">
+<div id="statusBar"></div>
+<div id="content"></div>
+
+<div id="sidebar">
+    <h1>Scramble</h1>
+    <div class="warning" id="warningBar"></div>
+    <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout">Log Out</a></div>
+    <div class="address">{{emailAddress}}</div>
+    <a id="tab-compose" href="#" class="tab">Compose</a>
+    <a id="tab-inbox" href="#" class="tab">Inbox</a>
+    <div id="inbox" class="box"></div>
+    <a id="tab-sent" href="#" class="tab">Sent</a>
+    <div id="sent" class="box"></div>
+    <a id="tab-archive" href="#" class="tab">Archive</a>
+    <div id="archive" class="box"></div>
+    <a id="tab-contacts" href="#" class="tab">Contacts</a>
+    <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a>
+</div>
+</script>
+
+
+<!-- BOX -->
+<script id="box-template" type="text/x-handlebars-template">
+{{> box-pagination-partial}}
+<ul class="box-items">
+    {{#each emailHeaders}}
+        {{!-- data-msg-id becomes .data("msgID") --}}
+        <li class="box-item"
+            data-msg-id="{{MessageID}}"
+            data-thread-id="{{ThreadID}}"
+            data-time="{{UnixTime}}"
+            data-from="{{From}}"
+            data-to="{{To}}">{{Subject}}</li>
+    {{/each}}
+</ul>
+{{> box-pagination-partial}}
+</script>
+
+<script id="box-pagination-partial" type="text/x-handlebars-template">
+<div class="box-pagination">
+{{#ifCond totalPages '>' 1}}
+    {{#ifCond 1 '<' page}}
+        <a href="#" data-page="0">&#171;</a>
+    {{/ifCond}}
+    {{#each pages}}
+        {{#ifCond ../page '==' page}}
+            <span class="page-link page-current">{{page}}</span>
+        {{else}}
+            <a class="page-link" href="#" data-page="{{page}}" data-box="{{../../box}}">{{page}}</a>
+        {{/ifCond}}
+    {{/each}}
+    {{#ifCond page '<' totalPages}}
+        <a href="#" data-page="{{totalPages}}">&#187;</a>
+    {{/ifCond}}
+{{/ifCond}}
+</div>
+</script>
+
+
+
+<!-- THREAD (MANY EMAILS) -->
+<script id="thread-template" type="text/x-handlebars-template">
+<div id="thread" data-thread-id="{{threadID}}">
+    <div id="thread-subject">
+        <h2>{{subject}}</h2>
+        <div class="threadControl controlButtons">
+            <button class="replyButton">Reply</button>
+            <button class="replyAllButton">Reply All</button>
+            <button class="forwardButton">Forward</button>
+            {{#ifCond box '==' "inbox"}}
+            <button class="archiveButton">Archive</button>
+            {{/ifCond}}
+            {{#ifCond box '==' "archive"}}
+            <button class="moveToInboxButton">Move to Inbox</button>
+            {{/ifCond}}
+            <button class="deleteButton">Delete</button>
+        </div>
+    </div>
+    <div id="thread-emails">
+    </div>
+</div>
+</script>
+
+
+<!-- SINGLE EMAIL -->
+<script id="email-template" type="text/x-handlebars-template">
+{{!--
+    This parent level div class "email" is functionally important.
+    For example, the buttons (ie replyButton, forwardButton) work
+     by finding the context email data by .closest(".email").data("email").
+--}}
+<div class="email" data-msg-id="{{msgID}}">
+    <div class="received">{{formatDate time format="MMM D YYYY, hh:mm"}}</div>
+    <div class="from">
+        {{> email-address-partial fromAddress}}
+    </div>
+    <div class="to">to 
+        {{#each toAddresses}}
+            {{> email-address-partial}}
+        {{/each}}
+    </div>
+    {{!--
+    <div class="emailControl controlButtons">
+        <button class="replyButton">Reply</button>
+        <button class="replyAllButton">Reply All</button>
+        <button class="forwardButton">Forward</button>
+        {{#ifCond _box '==' "inbox"}}
+        <button class="archiveButton">Archive</button>
+        {{/ifCond}}
+        {{#ifCond _box '==' "archive"}}
+        <button class="moveToInboxButton">Move to Inbox</button>
+        {{/ifCond}}
+        <button class="deleteButton">Delete</button>
+    </div>
+    --}}
+    <div class="body">{{{htmlBody}}}</div>
+
+    {{!-- This is where the compose box goes when replying/forwarding this email --}}
+    <div class="email-compose">
+    </div>
+</div>
+</script>
+
+<script id="email-address-partial" type="text/x-handlebars-template">
+    {{#if name}}
+        <span class="addr-name">{{name}}</span>
+        <span class="addr named">{{address}}</span>
+    {{else}}
+        <span class="addr noname"><a href="#" data-addr="{{address}}" class="enterAddContactButton">{{address}}</a></span>
+    {{/if}}
+</script>
+
+
+<!-- COMPOSE -->
+<script id="compose-template" type="text/x-handlebars-template">
+<div class="compose {{#if inline}}inline{{/if}}">
+    <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
+    <input type="hidden" name="threadID" value="{{threadID}}"/>
+    {{#if inline}}
+    <input type="hidden" name="subject" value="{{subject}}"/>
+    {{else}}
+    <div class="prompt"><label for="subject">Subject</label><input type="text" name="subject" value="{{subject}}"></span></div>
+    {{/if}}
+    <div class="prompt"><label for="to">To</label><input type="text" name="to" value="{{to}}"></span></div>
+    <div><label>&nbsp;</label><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
+    <textarea name="body">{{body}}</textarea>
+    <input type="submit" class="sendButton" value="Send"></input>
+</div>
+</script>
+
+
+
+<!-- CONTACTS -->
+<script id="contacts-template" type="text/x-handlebars-template">
+<div class="contacts">
+    <h2>Contacts</h2>
+    <ul>
+        {{#each this}}
+        <li>
+        <input type="text" class="name" placeholder="(name)" value="{{name}}" />
+        <input type="text" class="address" placeholder="(address)" value="{{address}}" />
+        <input type="text" class="pubHash" placeholder="(key hash)" value="{{pubHash}}" disabled="true" />
+        <a href="#" class="deleteButton">[X]</a>
+        </li>
+        {{/each}}
+    </ul>
+    <button class="addContactButton">Add Contact</button>
+    <button class="saveContactsButton">Save</button>
+</div>
+</script>
+
+<script id="new-contact-template" type="text/x-handlebars-template">
+<li class="new">
+<input type="text" class="name" placeholder="(name)"/>
+<input type="text" class="address" placeholder="(email address)"/>
+<a href="#" class="deleteButton">[X]</a>
+</li>
+</script>
+
+
+
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<script id="kb-shortcuts-template" type="text/x-handlebars-template">
+<div class="modal-bg">
+<div class="modal" id="kbShortcutsModal">
+    <h3>Keyboard shortcuts</h3>
+    <section>
+        <div><label>j</label>next email</div>
+        <div><label>k</label>previous email</div>
+        <div><label>y</label>archive</div>
+        <div><label>r</label>reply</div>
+        <div><label>a</label>reply to all</div>
+        <div><label>f</label>forward</div>
+        <div><label>g c</label>go to compose</div>
+        <div><label>g i</label>go to inbox</div>
+        <div><label>g s</label>go to sent mail</div>
+        <div><label>g a</label>go to archive</div>
+        <div><label>tab+enter</label>send email</div>
+        <div><label>esc</label>close</div>
+    </section>
+    <a href="#" class="link-close-modal" >close</a>
+</div>
+</div>
+</script>
+
+
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script type="text/javascript" src="/js/jquery.cookie.js"></script>
+<script type="text/javascript" src="/js/sugar.min.js"></script>
+<script type="text/javascript" src="/js/moment.min.js"></script>
+<script type="text/javascript" src="/js/handlebars.js"></script>
+<script type="text/javascript" src="/js/openpgp.js"></script>
+<script type="text/javascript" src="/js/scrypt.js"></script>
+<script type="text/javascript" src="/js/app.js"></script>
+<script type="text/javascript" src="/js/extension_start.js"></script>
+</body>
+</html>
