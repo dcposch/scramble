@@ -4,3 +4,5 @@ Handlebars.registerHelper = function(){};
 Handlebars.registerPartial = function(){};
 navigator = {};
 navigator.appName = "yoloswag";
+chrome = {};
+sessionStorage = {};

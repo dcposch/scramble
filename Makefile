@@ -8,7 +8,7 @@ build: doc $(shell find **/*.go *.go)
 
 test:
 	go test
-	cat static/js/stubs.js static/js/sugar.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
+	cat static/js/stubs.js static/js/sugar.min.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
 
 lint:
 	go get github.com/golang/lint/golint
