@@ -35,7 +35,7 @@ var DEFAULT_SIGNATURE = "\n\n--\n"+
 
 var CONTACTS_VERSION = 1;
 
-var HOST_PREFIX = ''; // for chrome extension
+var HOST_PREFIX = sessionStorage["hostPrefix"] || ''; // for chrome extension
 
 // If we get responses from all but n notaries for a given address,
 // and the responses all agree, we accept the public key.
@@ -57,6 +57,7 @@ var MAX_MISSING_NOTARIES = 1;
 // sessionStorage["passHash"] is the auth key
 // sessionStorage["passHashOld"] is for backwards compatibility
 // sessionStorage["/publickeys/notary"] is the cached /publickeys/notary response
+// sessionStorage["hostPrefix"] is the request prefix, like "https://scramble.io", for chrome
 //
 // These are never seen by the server, and never go in cookies or localStorage
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
@@ -162,7 +163,7 @@ function main() {
     bindKeyboardShortcuts();
 
     // are we logged in?
-    if (!sessionStorage["token"] || !sessionStorage["passKey"]) {
+    if (!isLoggedIn()) {
         console.log("Please log in.");
         displayLogin();
     } else {
@@ -252,7 +253,7 @@ function bindSidebarEvents() {
 
     // Log out: click a link, deletes sessionStorage and refreshes the page
     $("#link-logout").click(function() {
-        sessionStorage.clear();
+        clearCredentials();
     });
 
     // Explain keyboard shortcuts
@@ -297,9 +298,14 @@ function closeModal() {
 // LOGIN 
 //
 
+function clearCredentials() {
+    sessionStorage.clear();
+    sessionStorage["hostPrefix"] = HOST_PREFIX;
+}
+
 function displayLogin() {
     // not logged in. reset session state.
-    sessionStorage.clear();
+    clearCredentials();
 
     // show the login ui
     $("#wrapper").html(render("login-template"));
@@ -329,6 +335,10 @@ function login(token, pass) {
     sessionStorage["token"] = token;
     sessionStorage["passHash"] = computeAuth(token, pass);
     sessionStorage["passHashOld"] = computeAuthOld(token, pass);
+}
+
+function isLoggedIn() {
+    return Boolean(sessionStorage["token"] && sessionStorage["passKey"]);
 }
 
 
@@ -475,7 +485,7 @@ function loadDecryptAndDisplayBox(box, page) {
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary) {
             decryptAndDisplayBox(summary, box);
-        }, 'json').fail(function() {
+        }, 'json').fail(function(xhr) {
             alert(xhr.responseText || "Could not reach the server, try again");
         }
     );
@@ -2109,4 +2119,5 @@ function initAjaxAuth() {
 
 function setHostPrefix(hostPrefix) {
     HOST_PREFIX = hostPrefix;
+    sessionStorage["hostPrefix"] = hostPrefix;
 }

@@ -13,10 +13,15 @@
     </head>
     <body>
         <!-- TODO also handle registering -->
-        <div id="header">Login to Scramble</div>
-        <input id="token" type="text" />
-        <input id="passphrase" type="password" />
-        <button id="button">login</button>
+        Select host:
+        <select id="host">
+            <option value="https://scramble.io">Scramble.io</option>
+            <option value="https://hashed.im">Hashed.im</option>
+        </select>
+        <br />
+        Other:
+        <input id="other" type="text"/>
+        <button id="submit">Submit</button>
         <div id="footer"></div>
     </body>
 </html>

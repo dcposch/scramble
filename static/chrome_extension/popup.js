@@ -1,23 +1,21 @@
 $(function() {
-    $("#button").click(function() {
+    $("#submit").click(function() {
 
-        chrome.tabs.create({url:chrome.extension.getURL("/index.html")}, function(tab) {
+        var host = $("#other").val();
+        if (host && host.indexOf("http") != 0) {
+            host = "https://"+host;
+        } else if (!host) {
+            host = $("#host").val();
+        } else if (!host) {
+            $("#footer").text("Select a host or enter one, e.g. 'scramble.io'");
+            return
+        }
 
-            var token = $("#token").val();
-            var passphrase = $("#passphrase").val();
-
-            // TODO: login first so the UX doesn't require
-            //  the user to ever enter credentials on the window,
-            //  even if the login is incorrect.
-
-            var message = {
-                action:     "login",
-                host:       "https://scramble.io",
-                token:      token,
-                passphrase: passphrase
-            };
-            chrome.tabs.sendMessage(tab.id, message);
-        });
+        var message = {
+            action:     "load_page",
+            host:       host
+        };
+        chrome.runtime.sendMessage(message);
 
     });
 });
