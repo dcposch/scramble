@@ -119,6 +119,7 @@ viewState.clearEmails = function() {
 
 viewState.contacts = null; // plaintext address book, must *always* be good data.
 viewState.notaries = null; // notaries that client trusts.
+viewState.unsaved = false; // if there are unsaved changes in the window
 
 
 
@@ -226,31 +227,57 @@ function bindKeyboardShortcuts() {
 // SIDEBAR
 //
 
+//Warn the user that there are unsaved changes on the page before
+//navigating away.
+function checkUnsaved(){
+  if(viewState.unsaved){
+    if(!confirm('Message is not saved, continue?')){
+      return false;
+    }
+  }
+  viewState.unsaved = false;
+  return true;
+}
+
 function bindSidebarEvents() {
     // Navigate to Inbox, Sent, or Archive
     $("#tab-inbox").click(function(e) {
-        loadDecryptAndDisplayBox("inbox");
+        if(checkUnsaved()){
+          loadDecryptAndDisplayBox("inbox");
+        }
     });
     $("#tab-sent").click(function(e) {
-        loadDecryptAndDisplayBox("sent");
+        if(checkUnsaved()){
+          loadDecryptAndDisplayBox("sent");
+        }
     });
     $("#tab-archive").click(function(e) {
-        loadDecryptAndDisplayBox("archive");
+        if(checkUnsaved()){
+          loadDecryptAndDisplayBox("archive");
+        }
     });
 
     // Navigate to Compose
     $("#tab-compose").click(function(e) {
-        displayCompose();
+        if(checkUnsaved()){
+          displayCompose();
+        }
     });
 
     // Navigate to Contacts
     $("#tab-contacts").click(function(e) {
-        displayContacts();
+        if(checkUnsaved()){
+          displayContacts();
+        }
     });
 
     // Log out: click a link, deletes sessionStorage and refreshes the page
-    $("#link-logout").click(function() {
-        sessionStorage.clear();
+    $("#link-logout").click(function(e) {
+        if(checkUnsaved()){
+          sessionStorage.clear();
+        } else {
+          e.preventDefault();
+        }
     });
 
     // Explain keyboard shortcuts
@@ -465,14 +492,18 @@ function validateNewPassword() {
 function bindBoxEvents(box) {
     // Click on an email to open it
     $("#"+box+" .box-items>li").click(function(e) {
-        displayEmail($(e.target));
+        if(checkUnsaved()){
+          displayEmail($(e.target));
+        }
     });
     // Click on a pagination link
     $("#"+box+" .box-pagination a").click(function(e) {
-        var box = $(this).data("box");
-        var page = $(this).data("page");
-        loadDecryptAndDisplayBox(box, page);
-        return false;
+        if(checkUnsaved()){
+          var box = $(this).data("box");
+          var page = $(this).data("page");
+          loadDecryptAndDisplayBox(box, page);
+          return false;
+        }
     });
 }
 
@@ -887,6 +918,9 @@ function showNextThread() {
 // cb: function(emailData), emailData has plaintext components including
 //  msgID, threadID, ancestorIDs, subject, to, body...
 function bindComposeEvents(elCompose, cb) {
+    elCompose.find("input, textarea").on('input',function(){
+        viewState.unsaved = true;
+    })
     elCompose.find(".sendButton").click(function() {
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
@@ -896,6 +930,7 @@ function bindComposeEvents(elCompose, cb) {
         var subject     = elCompose.find("[name='subject']").val();
         var to          = elCompose.find("[name='to']").val();
         var body        = elCompose.find("[name='body']").val();
+        viewState.unsaved = false;
         sendEmail(msgID, threadID, ancestorIDs, to, subject, body, function() {
             cb({
                 msgID:       msgID,
