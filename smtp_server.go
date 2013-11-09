@@ -394,37 +394,38 @@ func decodeContent(str string, contentEncoding string) string {
 	}
 }
 
+// Extract plain text from mime body. Maybe be multipart.
+// Note: most email is multipart (html + plain text) and some is *nested*
+//  multipart---where one of the parts itself has a mimetype of "multipart/..."
+// Hence, this function is recursive. It concatenates and returns all the plain text.
 func readPlainText(body string, contentType string) (string, error) {
 	var mimeType string
 	var mimeParams map[string]string
 	var err error
 	if contentType == "" {
 		// no content-type header? assume plain text
-		mimeType = "text/plain"
-	} else {
-		mimeType, mimeParams, err = mime.ParseMediaType(contentType)
-		if err != nil {
-			return "", err
-		}
+		contentType = "text/plain"
+	}
+	mimeType, mimeParams, err = mime.ParseMediaType(contentType)
+	if err != nil {
+		return "", err
 	}
 	if mimeType == "text/plain" {
 		// plain text? read the entire thing
-		return body, nil
+		charset := mimeParams["charset"]
+		return convertToUTF8(body, charset), nil
 	} else if strings.HasPrefix(mimeType, "multipart/") {
 		// multipart mime? extract just the parts that are plain text
 		multiBoundary := mimeParams["boundary"]
-		return readPlainTextFromMultipart(strings.NewReader(body), multiBoundary)
+		return readPlainTextFromMultipart(body, multiBoundary)
 	}
 	// neither plain text nor multipart? then there's no plain text here...
 	return "", nil
 }
 
 // Extract plain text from multipart mime email.
-// Note: most email is multipart (html + plain text) and some is *nested*
-// multipart---where one of the parts itself has a mimetype of "multipart/..."
-// Hence, this function is recursive. It concatenates and returns all the plain text.
-func readPlainTextFromMultipart(reader io.Reader, multiBoundary string) (string, error) {
-	multiReader := multipart.NewReader(reader, multiBoundary)
+func readPlainTextFromMultipart(body string, multiBoundary string) (string, error) {
+	multiReader := multipart.NewReader(strings.NewReader(body), multiBoundary)
 	var plainTexts []string
 	for {
 		part, err := multiReader.NextPart()
@@ -433,37 +434,20 @@ func readPlainTextFromMultipart(reader io.Reader, multiBoundary string) (string,
 		} else if err != nil {
 			return "", err
 		}
-		partContentType := part.Header["Content-Type"][0]
-		var partMediaType string
-		var params map[string]string
-		if partContentType == "" {
-			// No Content-Type header altogether
-			// Assume plain text
-			partMediaType = "text/plain"
-		} else {
-			partMediaType, params, err = mime.ParseMediaType(partContentType)
-			if err != nil {
-				return "", err
-			}
+		partContentType := part.Header.Get("Content-Type")
+		partContentEncoding := part.Header.Get("Content-Transfer-Encoding")
+		partBodyBytes, err := ioutil.ReadAll(part)
+		if err != nil {
+			return "", err
 		}
-
-		if partMediaType == "text/plain" {
-			textBodyBytes, err := ioutil.ReadAll(part)
-			if err != nil {
-				return "", err
-			}
-			textBody := string(textBodyBytes)
-			plainTexts = append(plainTexts, textBody)
-		} else if strings.HasPrefix(partMediaType, "multipart/") {
-			subBoundary := params["boundary"]
-			subPartText, err := readPlainTextFromMultipart(part, subBoundary)
-			if err != nil {
-				return "", err
-			}
-			plainTexts = append(plainTexts, subPartText)
+		partBody := string(partBodyBytes)
+		partDecodedBody := decodeContent(partBody, partContentEncoding)
+		partPlainText, err := readPlainText(partDecodedBody, partContentType)
+		if err != nil {
+			return "", err
 		}
+		plainTexts = append(plainTexts, partPlainText)
 	}
-
 	return strings.Join(plainTexts, ""), nil
 }
 
@@ -596,12 +580,16 @@ func mimeHeaderDecode(str string) string {
 // decode from 7bit to 8bit UTF-8
 // encodingType can be "base64" or "quoted-printable"
 func mailTransportDecode(str string, encodingType string, charset string) string {
+	str = decodeContent(str, encodingType)
+	return convertToUTF8(str, charset)
+}
+
+func convertToUTF8(str string, charset string) string {
 	if charset == "" {
 		charset = "UTF-8"
 	} else {
 		charset = strings.ToUpper(charset)
 	}
-	str = decodeContent(str, encodingType)
 	if charset != "UTF-8" {
 		charset = fixCharset(charset)
 		// eg. charset can be "ISO-2022-JP"
@@ -651,10 +639,7 @@ func fixCharset(charset string) string {
 	fixedCharset = strings.Replace(fixedCharset, "ibm", "cp", -1)
 	// iso-8859-8-i -> iso-8859-8
 	fixedCharset = strings.Replace(fixedCharset, "iso-8859-8-i", "iso-8859-8", -1)
-	if charset != fixedCharset {
-		return fixedCharset
-	}
-	return charset
+	return fixedCharset
 }
 
 func md5hex(str string) string {
