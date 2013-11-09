@@ -252,7 +252,11 @@ function bindSidebarEvents() {
     });
 
     // Log out: click a link, deletes sessionStorage and refreshes the page
-    $("#link-logout").click(function() {
+    $("#link-logout").click(function(e) {
+        if (keepUnsavedWork()) {
+            e.preventDefault();
+            return;
+        }
         clearCredentials();
     });
 
@@ -478,6 +482,7 @@ function bindBoxEvents(box) {
 }
 
 function loadDecryptAndDisplayBox(box, page) {
+    if (keepUnsavedWork()) { return; }
     box = box || "inbox";
     page = page || 1;
     console.log("Loading, decrypting and displaying "+box+", page "+page);
@@ -639,6 +644,7 @@ function addContact() {
     Also uses viewState.box to determine current box.
 */
 function displayEmail(emailHeader) {
+    if (keepUnsavedWork()) { return; }
 
     if (emailHeader instanceof jQuery) {
         if (emailHeader.length == 0) {
@@ -743,6 +749,7 @@ function createEmailViewModel(data) {
         toAddresses: toAddresses,
         subject:     parsedBody.subject,
         htmlBody:    createHyperlinks(parsedBody.body),
+        plainBody:   parsedBody.body,
     };
 }
 
@@ -790,7 +797,7 @@ function createHyperlinks(text) {
 function emailReply(email) {
     if (!email) return;
     var replyTo = email.fromAddress.name || email.fromAddress.address;
-    displayComposeInline(email, replyTo, email.subject, "");
+    displayComposeInline(email, replyTo, email.subject, undefined);
 }
 
 function emailReplyAll(email) {
@@ -809,18 +816,19 @@ function emailReplyAll(email) {
     var replyTo = allRecipientsExceptMe.map(function(addr) {
         return addr.name || addr.address;
     }).join(",");
-    displayComposeInline(email, replyTo, email.subject, "");
+    displayComposeInline(email, replyTo, email.subject, undefined);
 }
 
 function emailForward(email) {
     if (!email) return;
-    displayComposeInline(email, "", email.subject, email.body);
+    displayComposeInline(email, "", email.subject, email.plainBody);
 }
 
 // email: the email object
 // moveThread: if true, moves all emails in box for thread up to email.unixTime.
 //  (that way, server doesn't move new emails that the user hasn't seen)
 function emailMove(email, box, moveThread) {
+    if (keepUnsavedWork()) { return; }
     if (box == "trash") {
         if (moveThread) {
             if (!confirm("Are you sure you want to delete this thread?")) return;
@@ -911,14 +919,18 @@ function bindComposeEvents(elCompose, cb) {
 }
 
 function displayCompose(to, subject, body) {
-    // clean up 
+    if (keepUnsavedWork()) { return; }
+    if (body === undefined) {
+        body = DEFAULT_SIGNATURE;
+    }
     $(".box").html("");
     viewState.clearEmails();
     setSelectedTab($("#tab-compose"));
     var elCompose = $(render("compose-template", {
-        to:      to,
-        subject: subject,
-        body:    body || DEFAULT_SIGNATURE,
+        to:          to,
+        subject:     subject,
+        body:        body,
+        bodyDefault: body,
     }));
     $("#content").empty().append(elCompose);
     bindComposeEvents(elCompose, function(emailData) {
@@ -929,6 +941,21 @@ function displayCompose(to, subject, body) {
 
 function displayComposeInline(email, to, subject, body) {
     var elEmail = getEmailElement(email.msgID);
+    var bodyDefault;
+    if (body !== undefined) {
+        if (keepUnsavedWork()) { return; }
+        bodyDefault = body;
+    } else {
+        var elBodyTextarea = elEmail.find(".email-compose textarea[name='body']");
+        if (elBodyTextarea.length > 0 && trim(elBodyTextarea.val()) != trim(elBodyTextarea.data("default"))) {
+            // User has written something.
+            // Try to keep whatever body already exists (for this email)
+            body = elBodyTextarea.val() || DEFAULT_SIGNATURE;
+            bodyDefault = elBodyTextarea.data("default") || body;
+        } else {
+            bodyDefault = body = DEFAULT_SIGNATURE;
+        }
+    }
     var newAncestorIDs = email.ancestorIDs ?
         email.ancestorIDs+" <"+email.msgID+">" :
         "<"+email.msgID+">";
@@ -938,7 +965,8 @@ function displayComposeInline(email, to, subject, body) {
         ancestorIDs: newAncestorIDs,
         to:          to,
         subject:     subject,
-        body:        body || DEFAULT_SIGNATURE,
+        body:        body,
+        bodyDefault: bodyDefault,
     }));
     elEmail.find(".email-compose").empty().append(elCompose);
     bindComposeEvents(elCompose, function(emailData) {
@@ -946,6 +974,19 @@ function displayComposeInline(email, to, subject, body) {
         displayEmail(emailData);
     });
 
+}
+
+function keepUnsavedWork() {
+    var keepUnsaved = false;
+    $("input[data-default], textarea[data-default]").each(function() {
+        var el = $(this);
+        if (trim(el.val()) != trim(el.data("default"))) {
+            if(!confirm(el.data("displayName")+" is not saved, continue?")) {
+                keepUnsaved = true;
+            }
+        }
+    });
+    return keepUnsaved;
 }
 
 function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
@@ -1285,6 +1326,7 @@ function parseBody(plaintextBody) {
 //
 
 function displayContacts() {
+    if (keepUnsavedWork()) { return; }
     loadAndDecryptContacts(function(contacts) {
         // clean up 
         $(".box").html("");
