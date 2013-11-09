@@ -1828,6 +1828,7 @@ function passphraseEncrypt(plainText) {
         return null;
     }
     var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128);
+    plainText = util.encode_utf8(plainText);
     return openpgp_crypto_symmetricEncrypt(
         prefixRandom, 
         ALGO_AES128, 
@@ -1856,6 +1857,7 @@ function passphraseDecrypt(cipherText) {
             cipherText);
         console.log("Warning: old account, used backcompat AES key");
     }
+    plain = util.decode_utf8(plain);
     return plain;
 }
 
@@ -1993,6 +1995,14 @@ function decodePgp(armoredText, privateKey, publicKey) {
     } else {
         var text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
     }
+
+    // HACK:
+    // openpgp.js will only call util.decode_utf8 if the filehint is 'u',
+    //  while golang's openpgp library only encodes to 't'.
+    // For now, let's just always call util.decode_utf8.
+    //  this will cause util.decode_utf8 to get double called for messages
+    //  from openpgp.js, which will most likely do nothing.
+    text = util.decode_utf8(text);
     return text;
 }
 
