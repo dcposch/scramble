@@ -549,54 +549,48 @@ func extractEmail(str string) string {
 	return email
 }
 
-// Decode strings in Mime header format
+// Decode strings in MIME header format (RFC 2047)
 // eg. =?ISO-2022-JP?B?GyRCIVo9dztSOWJAOCVBJWMbKEI=?=
 func mimeHeaderDecode(str string) string {
-	matched := mimeHeaderRegex.FindAllStringSubmatch(str, -1)
-	var charset, encoding, payload string
-	if matched == nil {
+	// Find and decode all RFC-2047-encoded substrings
+	return mimeHeaderRegex.ReplaceAllStringFunc(str, func(encoded string) string {
+		matched := mimeHeaderRegex.FindStringSubmatch(encoded)
+		if len(matched) <= 2 {
+			panic("regex was already matched, and now it doesn't match?")
+		}
+
+		// Find the specified encoding and charset
+		charset := matched[1]
+		encodingChar := strings.ToUpper(matched[2])
+		encodedPayload := matched[3]
+		var encoding string
+		switch encodingChar {
+		case "B":
+			encoding = "base64"
+		case "Q":
+			encoding = "quoted-printable"
+		}
+
+		// Decode encoded->bytes using encoded (eg "quoted-printable")
+		payload := decodeContent(encodedPayload, encoding)
+
+		// Decode bytes->string using charset (eg "utf-8")
+		return convertToUTF8(payload, charset)
+	})
+}
+
+// Decode, for example, "ISO-2022-JP" to UTF-8
+func convertToUTF8(str string, charset string) string {
+	charset = fixCharset(charset)
+
+	if charset == "utf-8" {
 		return str
 	}
-	var ret string
-	for i := 0; i < len(matched); i++ {
-		if len(matched[i]) <= 2 {
-			continue
-		}
-		charset = matched[i][1]
-		encoding = strings.ToUpper(matched[i][2])
-		payload = matched[i][3]
-		switch encoding {
-		case "B":
-			ret = strings.Replace(str, matched[i][0],
-				mailTransportDecode(payload, "base64", charset), 1)
-		case "Q":
-			ret = strings.Replace(str, matched[i][0],
-				mailTransportDecode(payload, "quoted-printable", charset), 1)
-		}
-	}
-	return ret
-}
 
-// decode from 7bit to 8bit UTF-8
-// encodingType can be "base64" or "quoted-printable"
-func mailTransportDecode(str string, encodingType string, charset string) string {
-	str = decodeContent(str, encodingType)
-	return convertToUTF8(str, charset)
-}
-
-func convertToUTF8(str string, charset string) string {
-	if charset == "" {
-		charset = "UTF-8"
-	} else {
-		charset = strings.ToUpper(charset)
-	}
-	if charset != "UTF-8" {
-		charset = fixCharset(charset)
-		// eg. charset can be "ISO-2022-JP"
-		convstr, err := iconv.Conv(str, "UTF-8", charset)
-		if err == nil {
-			return convstr
-		}
+	// eg. charset can be "ISO-2022-JP"
+	convstr, err := iconv.Conv(str, "UTF-8", charset)
+	if err == nil {
+		return convstr
 	}
 	return str
 }
@@ -624,7 +618,12 @@ func compress(s string) string {
 }
 
 func fixCharset(charset string) string {
-	fixedCharset := charsetIllegalCharRegex.ReplaceAllString(charset, "-")
+	fixedCharset := strings.ToLower(charset)
+	if fixedCharset == "" {
+		fixedCharset = "utf-8"
+	}
+
+	fixedCharset = charsetIllegalCharRegex.ReplaceAllString(charset, "-")
 	// Fix charset
 	// borrowed from http://squirrelmail.svn.sourceforge.net/viewvc/squirrelmail/trunk/squirrelmail/include/languages.php?revision=13765&view=markup
 	// OE ks_c_5601_1987 > cp949
