@@ -990,6 +990,12 @@ function displayComposeInline(email, to, subject, body) {
         bodyDefault: bodyDefault,
     }));
     elEmail.find(".email-compose").empty().append(elCompose);
+
+    // Scroll down to the Compose box
+    var y = $(elCompose).position().top;
+    $("#thread-emails").scrollTop(y);
+
+    // Bind events (eg Send button)
     bindComposeEvents(elCompose, function(emailData) {
         displayStatus("Sent");
         displayEmail(emailData);
