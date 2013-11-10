@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -58,37 +59,46 @@ func smtpSend(msg *OutgoingEmail) error {
 		panic("Could not resolve some MX records in smtpSend: " + failedAddrs.String())
 	}
 	// TODO: parallel send?
+
+	errs := []string{}
 	for mxHost, addrs := range mxHostAddrs {
 		if mxHost == GetConfig().SMTPMxHost {
 			continue // don't send to self, local deliveries use different logic.
 		}
 		err := smtpSendTo(msg, mxHost, addrs)
 		if err != nil {
-			err := fmt.Errorf("SMTP sending failed to mxHost %v for addrs %v: %v\n",
-				mxHost, addrs, err)
-			return err
+			errMsg := err.Error()
+			if strings.HasPrefix(errMsg, "550 5.1.1 ") {
+				errMsg = errMsg[len("550 5.1.1 "):]
+			}
+			if strings.HasSuffix(errMsg, ". Please try") {
+				// Make the message a bit nicer for nonexistent email recipients
+				errMsg = errMsg[:len(errMsg)-len(". Please try")]
+			}
+			errs = append(errs, fmt.Sprintf("Couldn't send mail to %v: %s\n",
+				addrs, errMsg))
+		} else {
+			log.Printf("Email sent to \n", mxHost)
 		}
 	}
-	log.Printf("Email sent!\n")
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "\n"))
+	}
 	return nil
 }
 
 // Must not panic, because Recover() calls this.
-func smtpSendSafe(msg *OutgoingEmail) (success bool) {
+func smtpSendSafe(msg *OutgoingEmail) {
 	defer func() {
 		if e := recover(); e != nil {
 			errorString := fmt.Sprintf("%s:\n%s", e, string(debug.Stack()))
 			log.Println("<!> " + errorString)
-			success = false
 		}
 	}()
 	err := smtpSend(msg)
 	if err != nil {
 		log.Printf("SMTP failure: %v", err)
-	} else {
-		success = true
 	}
-	return
 }
 
 const smtpTemplate = `Message-ID: <%s>%s
@@ -158,7 +168,7 @@ func smtpSendTo(email *OutgoingEmail, smtpHost string, addrs EmailAddresses) err
 	log.Println("starting tls")
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err = c.StartTLS(nil); err != nil {
-			log.Printf("Warning: STARTTLS failed: %v\n", err)
+			log.Printf("warning: STARTTLS failed: %v\n", err)
 			c.Text.Close()
 
 			// Try again...

@@ -276,7 +276,8 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		localRecipients = localRecipients.Unique()
 		// Populate outgoingEmail
 		email.CipherSubject = encryptForUsers(r.FormValue("subject"), localRecipients.Strings())
-		email.CipherBody = encryptForUsers("Subject: "+r.FormValue("subject")+"\n\n"+r.FormValue("body"), localRecipients.Strings())
+		email.CipherBody = encryptForUsers("Subject: "+r.FormValue("subject")+"\n\n"+
+			r.FormValue("body"), localRecipients.Strings())
 		outgoingEmail.Email = *email
 		outgoingEmail.PlaintextSubject = r.FormValue("subject")
 		outgoingEmail.PlaintextBody = r.FormValue("body")
@@ -288,11 +289,11 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		outgoingEmail.IsPlaintext = false
 	}
 
-	// TODO: consider if transactions are required.
-	// TODO: saveMessage may fail if messageID is not unique.
+	// This will fail if the client tried to send the same
+	// message twice---because at the point there will be a dupe Message-ID
 	SaveMessage(email)
 
-	// add message to sender's sent box
+	// Add message to sender's sent box
 	AddMessageToBox(email, userID.EmailAddress, "sent")
 
 	// TODO: separate goroutine?
@@ -315,7 +316,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	// In the future we may want more advanced logic.
 	err := smtpSend(outgoingEmail)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
 }
 
@@ -452,14 +453,14 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Parse & prepare parameters
 	needResolution := ParseEmailAddresses(r.FormValue("needResolution"))
-	needPubKey     := ParseEmailAddresses(r.FormValue("needPubKey"))
+	needPubKey := ParseEmailAddresses(r.FormValue("needPubKey"))
 	needPubKeyByMxHost, needPubKeyFailedAddrs := needPubKey.GroupByMxHost()
 	notaries := strings.Split(r.FormValue("notaries"), ",")
 	for _, notary := range notaries {
 		validateHost(notary)
 	}
-	isPrimary  := userID != nil // Request came from a user
-	isSecondary := !isPrimary   // Request came from another scramble server.
+	isPrimary := userID != nil // Request came from a user
+	isSecondary := !isPrimary  // Request came from another scramble server.
 
 	// Validate
 	if isSecondary {
@@ -654,7 +655,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, addr := range needPubKeyFailedAddrs {
 			if res.PublicKeys[addr.String()] == nil {
-				res.PublicKeys[addr.String()] = &PublicKeysPubKeyError{PublicKeysStatusError, "", "Failed to look up mx record for "+addr.String()}
+				res.PublicKeys[addr.String()] = &PublicKeysPubKeyError{PublicKeysStatusError, "", "Failed to look up mx record for " + addr.String()}
 			}
 		}
 	}
