@@ -1,7 +1,7 @@
 run: build
 	$(GOPATH)/bin/scramble
 
-build: doc $(shell find **/*.go *.go)
+build: doc $(shell find . -name '*.go')
 	go get .
 	go install .
 	cp $(GOPATH)/bin/scramble static/bin/scramble

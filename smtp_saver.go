@@ -86,7 +86,27 @@ func deliverMailLocally(msg *SMTPMessage) error {
 
 	// TODO: consider if transactions are required.
 	// TODO: saveMessage may fail if messageID is not unique.
-	SaveMessage(email)
+	err := SaveMessage(email)
+	if err == nil {
+		// all good
+	} else if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+		// tried to save mail, but the MessageID already exists
+		oldEmail := LoadMessage(email.MessageID)
+		if oldEmail.From != email.From ||
+			oldEmail.To != email.To ||
+			oldEmail.CipherSubject != email.CipherSubject {
+			log.Panicf("Same MessageID, different headers! Email %s from %s to %s\n",
+				email.MessageID, email.To, email.From)
+		} else if oldEmail.CipherBody != email.CipherBody {
+			log.Panicf("Same MessageID, different body! Email %s from %s to %s\n",
+				email.MessageID, email.To, email.From)
+		}
+		// got an existing email forwarded to us again,
+		// and it matches pefectly. all good!
+	} else {
+		// unknown error trying to save mail
+		panic(err)
+	}
 	log.Printf("Saved new email %s from %s to %s\n",
 		email.MessageID, email.From, email.To)
 

@@ -299,7 +299,7 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 // A single mail server only needs one email for all recipients & sender.
 // Associating emails to boxes are done in a join table.
 // Outgoing emails for external servers also require an entry in the 'email' table.
-func SaveMessage(e *Email) {
+func SaveMessage(e *Email) error {
 	_, err := db.Exec("insert into email "+
 		"(message_id, unix_time, from_email, to_email, "+
 		" cipher_subject, cipher_body, "+
@@ -314,9 +314,7 @@ func SaveMessage(e *Email) {
 		e.AncestorIDs,
 		e.ThreadID,
 	)
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
 // Retrieves a single message, by id
