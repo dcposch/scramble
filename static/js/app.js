@@ -923,6 +923,7 @@ function bindComposeEvents(elCompose, cb) {
         var to          = elCompose.find("[name='to']").val();
         var body        = elCompose.find("[name='body']").val();
         sendEmail(msgID, threadID, ancestorIDs, to, subject, body, function() {
+            elCompose.find("[data-default]").removeAttr("data-default");
             cb({
                 msgID:       msgID,
                 threadID:    threadID,
