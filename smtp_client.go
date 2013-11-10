@@ -158,7 +158,19 @@ func smtpSendTo(email *OutgoingEmail, smtpHost string, addrs EmailAddresses) err
 	log.Println("starting tls")
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err = c.StartTLS(nil); err != nil {
-			return err
+			log.Printf("Warning: STARTTLS failed: %v\n", err)
+			c.Text.Close()
+
+			// Try again...
+			log.Println("Connection closed. Trying again.")
+			c, err = smtp.Dial(smtpHost + ":25")
+			if err != nil {
+				return err
+			}
+			log.Println("hello")
+			if err = c.Hello(mxHost); err != nil {
+				return err
+			}
 		}
 	}
 	log.Println("from")
