@@ -829,6 +829,11 @@ function emailForward(email) {
 //  (that way, server doesn't move new emails that the user hasn't seen)
 function emailMove(email, box, moveThread) {
     if (keepUnsavedWork()) { return; }
+    // Do nothing if already moved.
+    if (email._movedThread || (email._moved && !moveThread)) {
+        return;
+    }
+    // Confirm if deleting
     if (box == "trash") {
         if (moveThread) {
             if (!confirm("Are you sure you want to delete this thread?")) return;
@@ -836,6 +841,17 @@ function emailMove(email, box, moveThread) {
             if (!confirm("Are you sure you want to delete this email?")) return;
         }
     }
+    // Disable buttons while moving
+    email._moved = true;
+    email._movedThread = moveThread;
+    var elEmail = getEmailElement(email.msgID);
+    var elThread = elEmail.closest("#thread");
+    if (moveThread) {
+        elThread.find(".threadControl button").prop("disabled", true);
+    } else {
+        elEmail.find(".emailControl button").prop("disabled", true);
+    }
+    // Send request
     var params = {
         box: box,
         moveThread: (moveThread || false)
@@ -897,6 +913,7 @@ function showNextThread() {
 //  msgID, threadID, ancestorIDs, subject, to, body...
 function bindComposeEvents(elCompose, cb) {
     elCompose.find(".sendButton").click(function() {
+        $(this).prop("disabled", true);
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
         var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
@@ -914,6 +931,9 @@ function bindComposeEvents(elCompose, cb) {
                 to:          to,
                 body:        body,
             });
+        }, function(error) {
+            alert(error);
+            elCompose.find(".sendButton").prop("disabled", false);
         });
     });
 }
@@ -989,12 +1009,11 @@ function keepUnsavedWork() {
     return keepUnsaved;
 }
 
-function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
+function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) {
     // validate email addresses
-    var toAddresses = to.split(",").map(trimToLower);
+    var toAddresses = to.split(",").map(trimToLower).filter(Boolean);
     if (toAddresses.length == 0) {
-        alert("Enter an email address to send to");
-        return;
+        return failCb("Enter an email address to send to");
     }
 
     // lookup nicks from contacts
@@ -1017,8 +1036,7 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
         }
     }
     if (errors.length > 0) {
-        alert("Error:\n"+errors.join("\n"));
-        return;
+        return failCb("Error:\n"+errors.join("\n"));
     }
 
     // find a public key for each recipient
@@ -1038,11 +1056,10 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 
         // If errors, abort.
         if (errors.length > 0) {
-            alert("Error:\n"+errors.join("\n"));
-            return;
+            return failCb("Error:\n"+errors.join("\n"));
         }
 
-        sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb);
+        sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb, failCb);
     })
 
     return false;
@@ -1051,7 +1068,7 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb) {
 // Send an email, encryyted if psossibie.
 // If we don't have pub keys for all recipients, warn the uesr
 // and confirm if they want to send the message unencrypted
-function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb){
+function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb, failCb){
     var addrs = Object.keys(pubKeysByAddr);
     var missingKeys = addrs.filter(function(addr){
         return pubKeysByAddr[addr] == "";
@@ -1061,10 +1078,10 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAdd
         if (confirm("Could not find public keys for: "+missingKeys.join(", ")
             +" \nSend unencrypted to all recipients?")) {
             var to = Object.keys(pubKeysByAddr).join(",")
-            sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb);
+            sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb);
         }
     } else {
-        sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb);
+        sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb, failCb);
     }
 }
 
@@ -1250,7 +1267,7 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
 }
 
 // addrPubKeys: {toAddress: <pubKey>}
-function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, body, cb) {
+function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, body, cb, failCb) {
     // Get the private key so we can sign the encrypted message
     getPrivateKey(function(privateKey) {
         // Get the public key so we can also read it in the sent box
@@ -1275,12 +1292,12 @@ function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, 
                 cipherSubject: cipherSubject,
                 cipherBody:    cipherBody
             };
-            sendEmailPost(data, cb);
+            sendEmailPost(data, cb, failCb);
         });
     });
 }
 
-function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb) {
+function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) {
     // send our message
     var data = {
         msgID:         msgID,
@@ -1290,14 +1307,14 @@ function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, c
         subject:       subject,
         body:          body
     };
-    sendEmailPost(data, cb);
+    sendEmailPost(data, cb, failCb);
 }
 
-function sendEmailPost(data, cb) {
+function sendEmailPost(data, cb, failCb) {
     $.post(HOST_PREFIX+"/email/", data, function() {
         cb();
     }).fail(function(xhr) {
-        alert("Sending failed: "+xhr.responseText);
+        failCb("Sending failed:\n"+xhr.responseText);
     });
 }
 
