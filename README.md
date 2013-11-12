@@ -1,3 +1,4 @@
+Steps:
 Run bundle install
 
 	bundle install
