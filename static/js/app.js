@@ -677,8 +677,10 @@ function displayEmail(emailHeader) {
 }
 
 function showCurrentThread(){
+    var currentThread = viewState.emails;
+
     getPrivateKey(function(privateKey) {
-        var fromAddrs = viewState.emails.map("From").map(trimToLower).unique();
+        var fromAddrs = currentThread.map("From").map(trimToLower).unique();
         lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
             // First, save new pubHashes to contacts so future lookups are faster.
             if (newResolutions.length > 0) {
@@ -687,7 +689,7 @@ function showCurrentThread(){
 
             // Construct array of email objects.
             // Also sets the view model on viewState.emails
-            var emails = viewState.emails.map(function(emailData) {
+            var emails = currentThread.map(function(emailData) {
                 decryptAndVerifyEmail(emailData, privateKey, keyMap);
                 var model = createEmailViewModel(emailData);
                 emailData.viewModel = model;
