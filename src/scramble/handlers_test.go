@@ -1,4 +1,4 @@
-package main
+package scramble
 
 import (
 	"encoding/json"
@@ -78,7 +78,7 @@ func TestPublicKeysHandler(t *testing.T) {
 		"POST", "publickeys/query",
 		url.Values{
 			"needResolution": {tUser.EmailAddress},
-			"needPubKey":     {tUser.EmailAddress+",doesnotexist@"+GetConfig().SMTPMxHost},
+			"needPubKey":     {tUser.EmailAddress + ",doesnotexist@" + GetConfig().SMTPMxHost},
 			"notaries":       {GetConfig().SMTPMxHost},
 		},
 	)

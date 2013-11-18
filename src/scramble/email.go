@@ -1,10 +1,10 @@
-package main
+package scramble
 
 import (
-	"log"
-	"strings"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
+	"strings"
 )
 
 type EmailAddress struct {
@@ -77,7 +77,7 @@ func ParseAngledEmailAddressesSmart(addrList string) EmailAddresses {
 	}
 	addrs := EmailAddresses{}
 	for _, addr := range found {
-		addrs = append(addrs, &EmailAddress{addr[1],addr[2]})
+		addrs = append(addrs, &EmailAddress{addr[1], addr[2]})
 	}
 	return addrs
 }

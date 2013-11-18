@@ -1,5 +1,8 @@
 .*.swp
 static/doc/*.html
-scramble
 scramble.sql
 build
+bin/
+pkg/
+.settings/
+src/*.*/

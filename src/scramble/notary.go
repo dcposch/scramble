@@ -1,6 +1,6 @@
 // See: https://github.com/dcposch/scramble/wiki/Addr-Resolution-via-Notaries
 
-package main
+package scramble
 
 import (
 	"code.google.com/p/go.crypto/openpgp"
@@ -86,6 +86,9 @@ func loadNotaries() {
 	notaryHosts := []string{}
 	for notaryHost, filename := range notaryFiles {
 		pubKeyBytes, err := ioutil.ReadFile(filename)
+		if err != nil {
+			pubKeyBytes, err = ioutil.ReadFile(os.Getenv("GOPATH") + "/" + filename)
+		}
 		if err != nil {
 			panic(err)
 		}

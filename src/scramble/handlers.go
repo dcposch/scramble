@@ -1,15 +1,14 @@
-package main
+package scramble
 
 import (
 	"fmt"
 	"log"
 	"net/http"
 	"runtime/debug"
-	"strings"
 	"time"
 )
 
-func main() {
+func StartHTTPServer() {
 	// Rest API
 	http.HandleFunc("/user/", userHandler)                            // create users, look up hash->pubkey
 	http.HandleFunc("/publickeys/notary", notaryHandler)              // this notary & default client notaries
@@ -26,10 +25,6 @@ func main() {
 
 	// Resources
 	http.HandleFunc("/", staticHandler) // html, js, css
-
-	// SMTP Incoming Messages
-	StartSMTPServer()
-	StartSMTPSaver()
 
 	// Serve HTTP on localhost only. Let Nginx terminate HTTPS for us.
 	address := fmt.Sprintf("127.0.0.1:%d", GetConfig().HTTPPort)
@@ -60,7 +55,7 @@ func auth(handler func(http.ResponseWriter, *http.Request, *UserID)) http.Handle
 func recoverAndLogHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Wrap the ResponseWriter to remember the status
-		rww := &ResponseWriterWrapper{-1, w}
+		rww := &responseWriterWrapper{200, w}
 		begin := time.Now()
 
 		defer func() {
@@ -75,9 +70,6 @@ func recoverAndLogHandler(handler http.Handler) http.Handler {
 
 			// Finally, log.
 			durationMS := time.Since(begin).Nanoseconds() / 1000000
-			if rww.Status == -1 {
-				rww.Status = 200
-			}
 			log.Printf("%s %s %v %v %s", r.RemoteAddr, r.Method, rww.Status, durationMS, r.URL)
 		}()
 
@@ -86,41 +78,12 @@ func recoverAndLogHandler(handler http.Handler) http.Handler {
 }
 
 // Remember the status for logging
-type ResponseWriterWrapper struct {
+type responseWriterWrapper struct {
 	Status int
 	http.ResponseWriter
 }
 
-func (w *ResponseWriterWrapper) WriteHeader(status int) {
+func (w *responseWriterWrapper) WriteHeader(status int) {
 	w.Status = status
 	w.ResponseWriter.WriteHeader(status)
-}
-
-// Stick it as a deferred statement in gouroutines to prevent the program from crashing.
-// Catches panics and emails a report to the configured AdminEmails
-func Recover() {
-	if e := recover(); e != nil {
-		stack := string(debug.Stack())
-		errorString := fmt.Sprintf("%s:\n%s", e, stack)
-		log.Println("<!> " + errorString)
-		messageID := GenerateMessageID().String()
-		if len(GetConfig().AdminEmails) > 0 {
-			go smtpSendSafe(&OutgoingEmail{
-				Email: Email{
-					EmailHeader: EmailHeader{
-						MessageID: messageID,
-						ThreadID:  messageID,
-						UnixTime:  time.Now().Unix(),
-						From:      "daemon@" + GetConfig().SMTPMxHost,
-						To:        strings.Join(GetConfig().AdminEmails, ","),
-					},
-				},
-				IsPlaintext:      true,
-				PlaintextSubject: "Panic from Scramble server " + GetConfig().SMTPMxHost,
-				PlaintextBody:    errorString,
-			})
-		} else {
-			log.Printf("Set AdminEmails: ['your_email@host',...] in config to receive alerts")
-		}
-	}
 }

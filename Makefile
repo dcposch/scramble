@@ -1,16 +1,19 @@
+GOPATH := $(shell pwd)
+
 run: build
-	$(GOPATH)/bin/scramble
+	./static/bin/scramble
 
-build: doc $(shell find . -name '*.go')
-	go get .
-	go install .
-	cp $(GOPATH)/bin/scramble static/bin/scramble
+build: doc $(shell find . -name '*.go') $(shell find . -name '*.js')
+	go get scramble
+	mkdir -p bin
+	go build -o bin/scramble src/cmd/scramble/*.go
+	cp bin/scramble static/bin/scramble
 
-test:
-	go test
+test: $(shell find . -name '*.go') $(shell find . -name '*.js')
+	go test scramble
 	cat static/js/stubs.js static/js/sugar.min.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
 
-lint:
+lint: 
 	go get github.com/golang/lint/golint
 	$(GOPATH)/bin/golint *.go
 

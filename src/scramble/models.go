@@ -1,4 +1,4 @@
-package main
+package scramble
 
 // User represents a single user, email address, and key pair
 // The email address is <public key hash>@<host>

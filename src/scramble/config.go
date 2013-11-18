@@ -1,14 +1,14 @@
-package main
+package scramble
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"errors"
 )
 
 // All configuration for a Scramble server+notary.
@@ -35,16 +35,36 @@ type Config struct {
 }
 
 func validateConfig(cfg *Config) error {
-	if cfg.DbServer == ""     { return errors.New("DbServer must be set") }
-	if cfg.DbUser == ""       { return errors.New("DbUser must be set") }
-	if cfg.DbCatalog == ""    { return errors.New("DbCatalog must be set") }
-	if cfg.SMTPMxHost == ""   { return errors.New("SMTPMxHost must be set") }
-	if cfg.SMTPPort == 0      { return errors.New("SMTPPort must be set") }
-	if cfg.MaxEmailSize == 0   { return errors.New("MaxEmailSize must be set") }
-	if cfg.HTTPPort == 0      { return errors.New("HTTPPort must be set") }
-	if len(cfg.Notaries) == 0 { return errors.New("Notaries must be set") }
-	if len(cfg.ReservedNames) == 0  { return errors.New("ReservedNames must be set") }
-	if cfg.AncestorIDsMaxBytes == 0 { return errors.New("AncestorIDsMaxBytes must be set") }
+	if cfg.DbServer == "" {
+		return errors.New("DbServer must be set")
+	}
+	if cfg.DbUser == "" {
+		return errors.New("DbUser must be set")
+	}
+	if cfg.DbCatalog == "" {
+		return errors.New("DbCatalog must be set")
+	}
+	if cfg.SMTPMxHost == "" {
+		return errors.New("SMTPMxHost must be set")
+	}
+	if cfg.SMTPPort == 0 {
+		return errors.New("SMTPPort must be set")
+	}
+	if cfg.MaxEmailSize == 0 {
+		return errors.New("MaxEmailSize must be set")
+	}
+	if cfg.HTTPPort == 0 {
+		return errors.New("HTTPPort must be set")
+	}
+	if len(cfg.Notaries) == 0 {
+		return errors.New("Notaries must be set")
+	}
+	if len(cfg.ReservedNames) == 0 {
+		return errors.New("ReservedNames must be set")
+	}
+	if cfg.AncestorIDsMaxBytes == 0 {
+		return errors.New("AncestorIDsMaxBytes must be set")
+	}
 	return nil
 }
 

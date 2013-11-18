@@ -1,4 +1,4 @@
-package main
+package scramble
 
 import (
 	"log"
@@ -7,16 +7,16 @@ import (
 
 // Parts of regular expressions
 var atom = "[A-Z0-9!#$%&'*+\\-/=?^_`{|}~]+"
-var dotAtom = atom+`(?:\.`+atom+`)*`
+var dotAtom = atom + `(?:\.` + atom + `)*`
 var domain = `[A-Z0-9.-]+\.[A-Z]{2,4}`
 
 var regexHex = regexp.MustCompile("^(?i)[a-f0-9]+$")
 var regexPassHash = regexp.MustCompile("^(?i)[a-f0-9]{40}$")
 var regexHash = regexp.MustCompile("^(?i)[a-f0-9]{40}|[a-z2-7]{16}$")
 var regexToken = regexp.MustCompile("^(?i)[a-z0-9]{3}[a-z0-9]*$")
-var regexAddress = regexp.MustCompile(`^(?i)(`+dotAtom+`)@(`+dotAtom+`)$`)
-var regexAngledAddress = regexp.MustCompile(`(?i)<(`+dotAtom+`)@(`+dotAtom+`)>`)
-var regexHost = regexp.MustCompile(`^(?i)(`+domain+`)$`)
+var regexAddress = regexp.MustCompile(`^(?i)(` + dotAtom + `)@(` + dotAtom + `)$`)
+var regexAngledAddress = regexp.MustCompile(`(?i)<(` + dotAtom + `)@(` + dotAtom + `)>`)
+var regexHost = regexp.MustCompile(`^(?i)(` + domain + `)$`)
 var regexPublicKeyArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----`)
 var regexMessageArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
 var regexSignatureArmor = regexp.MustCompile(`^(?s)-----BEGIN PGP SIGNATURE-----.*?-----END PGP SIGNATURE-----`)

@@ -7,7 +7,7 @@
  * public key before storing.
  */
 
-package main
+package scramble
 
 import (
 	"bytes"
