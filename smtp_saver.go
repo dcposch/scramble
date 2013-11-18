@@ -84,25 +84,21 @@ func deliverMailLocally(msg *SMTPMessage) error {
 	email.AncestorIDs = msg.data.ancestorIDs.AngledStringCappedToBytes(
 		" ", GetConfig().AncestorIDsMaxBytes)
 
-	// TODO: consider if transactions are required.
-	// TODO: saveMessage may fail if messageID is not unique.
 	err := SaveMessage(email)
 	if err == nil {
 		// all good
 	} else if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
 		// tried to save mail, but the MessageID already exists
+		// this can happen, for example, if you send an email
+		// and it gets auto-forwarded back to you
+		// sanity check that this is the same message
+		// (we can only check From and To since Subject and Body are encrypted)
 		oldEmail := LoadMessage(email.MessageID)
 		if oldEmail.From != email.From ||
-			oldEmail.To != email.To ||
-			oldEmail.CipherSubject != email.CipherSubject {
+			oldEmail.To != email.To {
 			log.Panicf("Same MessageID, different headers! Email %s from %s to %s\n",
 				email.MessageID, email.To, email.From)
-		} else if oldEmail.CipherBody != email.CipherBody {
-			log.Panicf("Same MessageID, different body! Email %s from %s to %s\n",
-				email.MessageID, email.To, email.From)
 		}
-		// got an existing email forwarded to us again,
-		// and it matches pefectly. all good!
 	} else {
 		// unknown error trying to save mail
 		panic(err)
