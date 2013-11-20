@@ -266,8 +266,8 @@ function bindSidebarEvents() {
 }
 
 function setSelectedTab(tab) {
-    $("#sidebar .tab").removeClass("selected");
-    tab.addClass("selected");
+    $("#sidebar .tab").removeClass("active");
+    tab.addClass("active");
 }
 
 function displayStatus(msg) {
