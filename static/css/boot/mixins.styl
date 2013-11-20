@@ -110,10 +110,9 @@ border-left-radius(radius) {
 }
 
 // Drop shadows
-box-shadow(shadow...) {
-  -webkit-box-shadow: shadow; // iOS <4.3 & Android <4.1
-          box-shadow: shadow;
-}
+box-shadow()
+  -webkit-box-shadow arguments
+  box-shadow arguments
 
 // Transitions
 transition(trans...) {
@@ -134,6 +133,15 @@ transition-transform(trans...) {
        -o-transition: -o-transform trans;
           transition: transform trans;
 }
+
+
+animation()
+  -webkit-animation arguments
+  -moz-animation arguments
+  -ms-animation arguments
+  -o-animation arguments
+  animation arguments
+
 
 // Transformations
 rotate(degrees) {
