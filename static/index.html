@@ -9,34 +9,6 @@
 
 
 <!-- LOGIN -->
-<script id="login-template_old" type="text/x-handlebars-template">
-<div id="login">
-    <h1>Scramble</h1>
-    <h3>Encrypted email for everyone</h3>
-
-    <div class="prompt"><label>User</label><input type="text" id="token"></input></div>
-    <div class="prompt"><label>Passphrase</label><input type="password" id="pass"></input></div>
-    <div><input type="submit" id="enterButton" value="Log In"></input></div>
-
-    <div class="strike"><hr/><span>or</span><hr /></div>
-
-    <input type="submit" id="generateButton" value="Generate Account"></input>
-
-    <div class="footer">
-        <a href="http://dcposch.github.com/scramble">How it works</a>
-        <p>
-            Questions? Feedback? Just testing a new account?
-        </p>
-        <p>
-             Send us a note! To: hello@scramble.io 
-        </p>
-    </div>
-
-    <a href="https://github.com/dcposch/scramble"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
-
-</div>
-</script>
-
 <script id="login-template" type="text/x-handlebars-template">
     <div class="container">
         <div class="row">
@@ -118,32 +90,6 @@
             </div>
         </div>
     </div>
-</script>
-
-
-<script id="create-account-template_old" type="text/x-handlebars-template">
-<div class="modal-bg">
-<div class="modal" id="createAccountModal">
-    <div id="spinner">
-        <h2>Generating PGP keys...</h2>
-        <img src="spinner.gif" />
-    </div>
-
-    <section id="createForm">
-        <h2>Welcome to Scramble!</h2>
-        <div class="prompt"><label>User</label><input type="text" id="createToken"></input></div>
-        <div class="prompt"><label>Passphrase</label><input type="password" id="createPass"></input></div>
-        <div class="prompt"><label>Confirm passphrase</label><input type="password" id="confirmPass"></input></div>
-        <p class="hint">Please choose a strong passphrase and don't forget it.<br/>
-        The server won't know your passphrase or your private key. It can't read your mail.<br/>
-        This is sweet... but it also means that "password reset" is impossible!</p>
-        <div class="prompt"><label>Optional other email</label><input type="text" id="secondaryEmail"></input></div>
-        <p class="hint">If you give us your other email, we'll keep you updated on our progress.<br/>
-        We'll also remind you to check Scramble when you receive messages.</p>
-        <div><input type="submit" id="createButton" value="Create Account"></input></div>
-    </section>
-</div>
-</div>
 </script>
 
 
