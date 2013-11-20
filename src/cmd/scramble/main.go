@@ -5,10 +5,10 @@ import (
 )
 
 func main() {
-	// HTTP Static Files + REST API
-	scramble.StartHTTPServer()
-
 	// SMTP Incoming Messages
 	scramble.StartSMTPServer()
 	scramble.StartSMTPSaver()
+
+	// HTTP Static Files + REST API
+	scramble.StartHTTPServer()
 }
