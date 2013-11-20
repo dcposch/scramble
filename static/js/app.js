@@ -230,23 +230,23 @@ function bindKeyboardShortcuts() {
 
 function bindSidebarEvents() {
     // Navigate to Inbox, Sent, or Archive
-    $("#tab-inbox").click(function(e) {
+    $(".js-tab-inbox").click(function(e) {
         loadDecryptAndDisplayBox("inbox");
     });
-    $("#tab-sent").click(function(e) {
+    $(".js-tab-sent").click(function(e) {
         loadDecryptAndDisplayBox("sent");
     });
-    $("#tab-archive").click(function(e) {
+    $(".js-tab-archive").click(function(e) {
         loadDecryptAndDisplayBox("archive");
     });
 
     // Navigate to Compose
-    $("#tab-compose").click(function(e) {
+    $(".js-tab-compose").click(function(e) {
         displayCompose();
     });
 
     // Navigate to Contacts
-    $("#tab-contacts").click(function(e) {
+    $(".js-tab-contacts").click(function(e) {
         displayContacts();
     });
 
@@ -266,7 +266,7 @@ function bindSidebarEvents() {
 }
 
 function setSelectedTab(tab) {
-    $("#sidebar .tab").removeClass("active");
+    $(".js-tab").removeClass("active");
     tab.addClass("active");
 }
 
@@ -529,7 +529,7 @@ function decryptAndDisplayBox(boxSummary, box) {
             data.pages = pages;
             $("#wrapper").html(render("page-template", data));
             bindSidebarEvents();
-            setSelectedTab($("#tab-"+box));
+            setSelectedTab($(".js-tab-"+box));
             $("#"+box).html(render("box-template", data));
             bindBoxEvents(box);
             viewState.box = box;
@@ -954,7 +954,7 @@ function displayCompose(to, subject, body) {
     }
     $(".box").html("");
     viewState.clearEmails();
-    setSelectedTab($("#tab-compose"));
+    setSelectedTab($(".js-tab-compose"));
     var elCompose = $(render("compose-template", {
         to:          to,
         subject:     subject,
@@ -1363,7 +1363,7 @@ function displayContacts() {
         // clean up 
         $(".box").html("");
         viewState.clearEmails();
-        setSelectedTab($("#tab-contacts"));
+        setSelectedTab($(".js-tab-contacts"));
 
         // render compose form into #content
         var html = render("contacts-template", contacts);
