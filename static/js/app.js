@@ -351,7 +351,6 @@ function isLoggedIn() {
 //
 
 function displayCreateAccountModal() {
-    alert('hello')
     showModal("create-account-template");
 
     var keys;
@@ -573,7 +572,7 @@ function readPrevEmail() {
 // Binds events for all emails in the current thread.
 function bindEmailEvents() {
     // This is a helper that gets the relevant email data
-    //  by finding the enclosed div.email
+    //  by finding the enclosed div.js-email
     var withEmail = function(cb) {
         return function() {
             var emailDiv = $(this).closest(".js-email");

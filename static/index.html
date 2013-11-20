@@ -165,33 +165,29 @@
             </div>
         </div>
     </div>
-
-    <div class="container" style="position:relative">
-        <div class="row">
-            <div id="sidebar" class="col-md-4 sidebar">
-    {{!--             <div class="panel panel-default">
-                    <div class="panel-heading">
-                        <div class="warning" id="warningBar"></div>
-                        <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout" class="pull-right">Log Out</a></div>
-                    </div>
-                    <div class="panel-body">
-                        <code>{{emailAddress}}<br/>
-                        #{{pubHash}}</code>
-                    </div>
-                </div> --}}
-                {{!-- <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a> --}}
-                <div class="lead capitalize">{{box}}</div class="lead">
-                <div id="inbox" class="box"></div>
-                <div id="sent" class="box"></div>
-                <div id="archive" class="box"></div>
-
+        <div id="sidebar" class="sidebar">
+            
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="warning" id="warningBar"></div>
+                    <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout" class="pull-right">Log Out</a></div>
+                </div>
+                <div class="panel-body">
+                    <code>{{emailAddress}}<br/>
+                    #{{pubHash}}</code>
+                </div>
             </div>
-            <div class="col-md-8 col-md-push-4 main-panel">
-                <div id="statusBar"></div>
-                <div id="content"></div>
-            </div>
-        </row>
-    </div>
+            {{!-- <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a> --}}
+            <div class="lead capitalize">{{box}}</div class="lead">
+            <div id="inbox" class="box"></div>
+            <div id="sent" class="box"></div>
+            <div id="archive" class="box"></div>
+
+        </div>
+        <div class="main-panel">
+            <div id="statusBar"></div>
+            <div id="content"></div>
+        </div>
 </script>
 
 

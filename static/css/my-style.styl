@@ -24,6 +24,32 @@ hr.invis
   *
     border none
 
+.container
+  margin-left 0
+
+$nav-height = 80px
+$sidebar-percent-width = 40%
+
+.sidebar
+  position fixed
+  padding-right ($grid-gutter-width / 2)
+  padding-left ($grid-gutter-width / 2)
+  top $nav-height
+  left 0
+  bottom 0
+  width 400px
+  overflow scroll
+
+.main-panel
+  position fixed
+  padding-right ($grid-gutter-width / 2)
+  padding-left ($grid-gutter-width / 2)
+  top $nav-height
+  left 400px
+  bottom 0
+  width 600px
+  overflow scroll
+
 .lead
   margin-bottom 0 !important
   padding-bottom $line-height-computed !important
@@ -34,14 +60,27 @@ hr.invis
 .capitalize
   text-transform capitalize
 
-.sidebar
-  // positison fixed
+// .sidebar
+//   // positison fixed
+//   overflow scroll
+
+// .main-panel
+//   overflow scroll
+//   max-height 100%
+
+.scrolltainer
+  bottom 0
+  overflow scroll
+  position relative
+
+.scroller
+  position absolute
+  top 60px
+  bottom 85px
+  left ($grid-gutter-width / 2)
+  right ($grid-gutter-width / 2)
   overflow scroll
 
-.main-panel
-  position fixed
-  overflow scroll
-  max-height 100%
 .form-signin
   margin-top 10%
   max-width 400px
