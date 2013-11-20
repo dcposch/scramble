@@ -192,7 +192,6 @@ var keyMap = {
     "f":function(){emailForward(viewState.getLastEmail())},
     "y":function(){emailMove(viewState.getLastEmail(), "archive", true)},
     "d":function(){emailMove(viewState.getLastEmail(), "trash", true)},
-    27:closeModal // esc key
 };
 
 function bindKeyboardShortcuts() {
@@ -311,6 +310,9 @@ function displayLogin() {
     // not logged in. reset session state.
     clearCredentials();
 
+    //initialize bootstrap modal
+    $('#createAccountModal').modal();
+
     // show the login ui
     $("#wrapper").html(render("login-template"));
     bindLoginEvents();
@@ -351,26 +353,29 @@ function isLoggedIn() {
 //
 
 function displayCreateAccountModal() {
-    showModal("create-account-template");
+    // showModal("create-account-template");
+    $('#createAccountModal').modal('show');
+
 
     var keys;
     var cb;
 
     // defer the slow part, so that the modal actually appears
-    setTimeout(function() {
+    $('#createAccountModal').on('shown.bs.modal', function() {
         // create a new mailbox. this takes a few seconds...
         keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
         // Change "Generating..." to "Done", explain what's going on to the user
-        $("#spinner").css("display", "none");
+        $(".js-spinner").css("display", "none");
         $("#createForm").css("display", "block");
 
         // call cb, the user had already pressed the create button
         if (cb) { cb() }
-    }, 100)
+    });
 
     $("#createButton").click(function() {
+        $('#createAccountModal').modal('hide');
         if (keys) {
             createAccount(keys);
         } else {
