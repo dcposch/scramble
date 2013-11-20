@@ -10,9 +10,10 @@ import (
 
 func StartHTTPServer() {
 	// Rest API
-	http.HandleFunc("/user/", userHandler)                            // create users, look up hash->pubkey
+	http.HandleFunc("/user/new", userHandler)                         // create users
 	http.HandleFunc("/publickeys/notary", notaryHandler)              // this notary & default client notaries
 	http.HandleFunc("/publickeys/seed", publicKeySeedHandler)         // other Scramble servers post to seed here.
+	http.HandleFunc("/publickeys/key", publicKeysHandler)             // look up pubhash->pubkey
 	http.HandleFunc("/publickeys/query", publicKeysHandler)           // look up name->pubhash&pubkey
 	http.HandleFunc("/publickeys/reverse", auth(reverseQueryHandler)) // look up pubhash->name_address
 	http.HandleFunc("/nginx_proxy", nginxProxyHandler)                // needed for nginx smtp tls proxy
@@ -20,6 +21,7 @@ func StartHTTPServer() {
 	// Private Rest API
 	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts
 	http.HandleFunc("/user/me/key", auth(privateKeyHandler))    // load encrypted privkey
+	http.HandleFunc("/user/me", auth(loginHandler))             // load pubkey, email address, encrypted privkey
 	http.HandleFunc("/email/", auth(emailHandler))              // load email body
 	http.HandleFunc("/box/", auth(boxHandler))                  // load email headers
 

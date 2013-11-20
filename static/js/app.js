@@ -63,11 +63,6 @@ var MAX_MISSING_NOTARIES = 1;
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
 // sessionStorage["privateKeyArmored"] is the plaintext private key, PGP ascii armored
 //
-// For convenience, we also have
-// sessionStorage["pubHash"] +"@scramble.io" is the email of the logged-in user
-// sessionStorage["publicKeyArmored"] is the extracted public key of the privateKey.
-//   -> This is used for encrypting to self. The hash may or may not be equal to pubHash.
-//
 
 
 
@@ -81,19 +76,6 @@ var viewState = {};
 
 // current box (e.g. inbox, sent, archive)
 viewState.box = null;
-
-// all emails in the current thread.
-// [{
-//     From,
-//     To,
-//     CipherBody,
-//     ...,
-//     viewModel?: { # only exists if decrypted.
-//         from,
-//         to,...
-//     }
-// },...]
-viewState.emails = null;
 // Returns the last email
 viewState.getLastEmail = function() {
     return this.emails == null ? null : this.emails[this.emails.length-1].viewModel;
@@ -135,8 +117,15 @@ viewState.notaries = null; // notaries that client trusts.
 var cache = {};
 cache.keyMap = {}; // email address -> notarized public key
 cache.emailCache = {};
-cache.plaintextCache = {}; 
+cache.plaintextCache = {}; // cache key -> plaintext
 
+
+//
+// WEB WORKERS
+//
+var workers = [];
+var workerIx = 0;
+var pendingDecryption = {}; // cache key -> callback function
 
 
 //
@@ -167,11 +156,85 @@ function main() {
         console.log("Please log in.");
         displayLogin();
     } else {
-        console.log("Already logged in.");
-        loadDecryptAndDisplayBox();
+        console.log("Auth tokens already present, logging in.");
+        login();
     }
 }
 
+function login(){
+    $.get(HOST_PREFIX+"/user/me", function(data){
+        // (first load after login)
+        sessionStorage["emailAddress"] = data.EmailAddress;
+        sessionStorage["pubHash"] = data.PublicHash;
+        sessionStorage["privateKeyArmored"] = decryptPrivateKey(data.CipherPrivateKey);
+
+        startPgpDecryptWorkers();
+
+        loadDecryptAndDisplayBox("inbox");
+    }, "json").fail(function(){
+        alert("Login failed. Please refresh and try again.");
+    })
+}
+
+function decryptPrivateKey(cipherPrivateKeyHex){
+    var cipherPrivateKey = hex2bin(cipherPrivateKeyHex);
+
+    var privateKeyArmored = passphraseDecrypt(cipherPrivateKey);
+    if (!privateKeyArmored) {
+        alert("Can't decrypt our own private key. Please refresh and try again.");
+    }
+    return privateKeyArmored;
+}
+
+// Starts web workers
+//
+// See decryptWorker.js for a more detailed explanation
+// of what they do and what messages they send+receive
+function startPgpDecryptWorkers(){
+    for(var i = 0; i < 4; i++){
+        var worker = new Worker("js/decryptWorker.js");
+        worker.postMessage(JSON.stringify({
+            "type":"key",
+            "privateKey": sessionStorage["privateKeyArmored"]
+        }));
+        worker.onmessage = function(evt){
+            var msg = JSON.parse(evt.data);
+            var cb = pendingDecryption[msg.cacheKey];
+            cache.plaintextCache[msg.cacheKey] = msg.plaintext;
+            if(msg.error){
+                console.log("Failed to decrypt "+msg.cacheKey+": "+msg.error);
+            }
+            cb(msg.plaintext, msg.error);
+            delete pendingDecryption[msg.cacheKey];
+        };
+        workers.push(worker);
+    }
+}
+
+// Asynchronously decrypts (and optionally verifies) a PGP message
+//
+// Requires:
+// * unique cache key
+// * ASCII-armored ciphertext
+// * (optional) ASCII-armored public key for signature verification or null
+// * a callback cb(plaintext)
+function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
+    var plain = cache.plaintextCache[cacheKey];
+    if (typeof(plain) !== "undefined"){
+        cb(plain);
+    } else {
+        console.log("Decoding "+cacheKey+"\n"+armoredText);
+        var msg = {
+            "type":"cipherText",
+            "cacheKey":cacheKey,
+            "armoredText":armoredText,
+            "publicKey":publicKeyArmored
+        };
+        pendingDecryption[cacheKey] = cb;
+        workers[workerIx].postMessage(JSON.stringify(msg));
+        workerIx = (workerIx + 1) % workers.length; // round robin
+    }
+}
 
 
 //
@@ -320,15 +383,15 @@ function bindLoginEvents() {
     $("#enterButton").click(function() {
         var token = $("#token").val();
         var pass = $("#pass").val();
-        login(token, pass);
-        loadDecryptAndDisplayBox('inbox');
+        setAuthTokens(token, pass);
+        login();
     });
 
     var keys = null;
     $("#generateButton").click(displayCreateAccountModal);
 }
 
-function login(token, pass) {
+function setAuthTokens(token, pass) {
     // two hashes of (token, pass)
     // ...one encrypts the private key. the server must never see it.
     // save for this session only, never in a cookie or localStorage
@@ -418,15 +481,9 @@ function createAccount(keys) {
         publicKey:keys.publicKeyArmored,
         cipherPrivateKey:bin2hex(cipherPrivateKey)
     };
-    $.post(HOST_PREFIX+"/user/", data, function() {
-        $.get(HOST_PREFIX+"/box/inbox",
-            { offset: 0, limit: BOX_PAGE_SIZE },
-            function(inbox) {
-                decryptAndDisplayBox(inbox);
-            }, 'json').fail(function() {
-                alert("Try refreshing the page, then logging in.");
-            }
-        )
+    $.post(HOST_PREFIX+"/user/new", data, function() {
+        //TODO: verify that what we load matches what we just generated
+        login();
     }).fail(function(xhr) {
         alert(xhr.responseText);
     });
@@ -489,59 +546,64 @@ function loadDecryptAndDisplayBox(box, page) {
     $.get(HOST_PREFIX+"/box/"+encodeURI(box),
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary) {
-            decryptAndDisplayBox(summary, box);
+            console.log("Decrypting and displaying "+box);
+            showEncryptedBox(summary, box);
+            startDecryptingBox(summary);
         }, 'json').fail(function(xhr) {
             alert(xhr.responseText || "Could not reach the server, try again");
         }
     );
 }
 
-function decryptAndDisplayBox(boxSummary, box) {
-    box = box || "inbox";
-    sessionStorage["pubHash"] = boxSummary.PublicHash;
-    sessionStorage["emailAddress"] = boxSummary.EmailAddress;
+// Shows a box (eg inbox or sent) immediately,
+// even though the contents have not yet been decrypted
+function showEncryptedBox(boxSummary, box) {
+    boxSummary.EmailHeaders.forEach(function(header){
+        header.HexMessageID = bin2hex(header.MessageID)
+    });
+    var data = {
+        token:        sessionStorage["token"],
+        box:          box,
+        emailAddress: boxSummary.EmailAddress,
+        pubHash:      boxSummary.PublicHash,
+        offset:       boxSummary.Offset,
+        limit:        boxSummary.Limit,
+        total:        boxSummary.Total,
+        page:         Math.floor(boxSummary.Offset / boxSummary.Limit)+1,
+        totalPages:   Math.ceil(boxSummary.Total / boxSummary.Limit),
+        emailHeaders: boxSummary.EmailHeaders,
+    };
+    var pages = [];
+    for (var i=0; i<data.totalPages; i++) {
+        pages.push({page:i+1})
+    };
+    data.pages = pages;
+    $("#wrapper").html(render("page-template", data));
+    bindSidebarEvents();
+    setSelectedTab($("#tab-"+box));
+    $("#"+box).html(render("box-template", data));
+    bindBoxEvents(box);
+    viewState.box = box;
+}
 
-    console.log("Decrypting and displaying "+box);
-    getPrivateKey(function(privateKey) {
-        getContacts(function() {
-            decryptSubjects(boxSummary.EmailHeaders, privateKey);
-            var data = {
-                token:        sessionStorage["token"],
-                box:          box,
-                emailAddress: boxSummary.EmailAddress,
-                pubHash:      boxSummary.PublicHash,
-                offset:       boxSummary.Offset,
-                limit:        boxSummary.Limit,
-                total:        boxSummary.Total,
-                page:         Math.floor(boxSummary.Offset / boxSummary.Limit)+1,
-                totalPages:   Math.ceil(boxSummary.Total / boxSummary.Limit),
-                emailHeaders: boxSummary.EmailHeaders,
-            };
-            var pages = [];
-            for (var i=0; i<data.totalPages; i++) {
-                pages.push({page:i+1})
-            };
-            data.pages = pages;
-            $("#wrapper").html(render("page-template", data));
-            bindSidebarEvents();
-            setSelectedTab($("#tab-"+box));
-            $("#"+box).html(render("box-template", data));
-            bindBoxEvents(box);
-            viewState.box = box;
-        });
+// Asynchronously decrypts a box (eg inbox and sent). Uses Web Workers.
+function startDecryptingBox(boxSummary, box) {
+    getContacts(function() {
+        boxSummary.EmailHeaders.forEach(decryptSubject);
+
     });
 }
 
-function decryptSubjects(headers, privateKey) {
-    for (var i = 0; i < headers.length; i++) {
-        var h = headers[i];
-        h.Subject = cachedDecodePgp(h.MessageID+" subject", h.CipherSubject, privateKey);
-        if (h.Subject == null) {
-            h.Subject = "(Decryption failed)";
-        } else if (trim(h.Subject)=="") {
-            h.Subject = "(No subject)";
+function decryptSubject(h) {
+    cachedDecodePgp(h.MessageID+" subject", h.CipherSubject, null, function(subject){
+        if (subject == null) {
+            subject = "(Decryption failed)";
+        } else if (trim(subject)=="") {
+            subject = "(No subject)";
         }
-    }
+        $("#subject-"+h.HexMessageID).text(subject);
+        $("#subject-header-"+h.HexMessageID).text(subject);
+    })
 }
 
 function readNextEmail() {
@@ -671,37 +733,28 @@ function displayEmail(emailHeader) {
         box: viewState.box // not used now, but maybe used in the future.
     };
     cachedLoadEmail(params, function(emailDatas) {
-        viewState.emails = emailDatas; // for keyboard shortcuts & thread control
-        showCurrentThread();
+        showAndDecryptEmailThread(emailDatas);
     });
 }
 
-function showCurrentThread(){
-    var currentThread = viewState.emails;
+function showAndDecryptEmailThread(emailDatas){
+    // Construct thread element, insert emails
+    showEmailThread(emailDatas);
+    // Reply, Fwd buttons, etc
+    bindEmailEvents();
+    
+    // Asynchronously verify+decrypt
+    var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
+    lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
+        // First, save new pubHashes to contacts so future lookups are faster.
+        if (newResolutions.length > 0) {
+            trySaveContacts(addContacts(viewState.contacts, newResolutions));
+        }
 
-    getPrivateKey(function(privateKey) {
-        var fromAddrs = currentThread.map("From").map(trimToLower).unique();
-        lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
-            // First, save new pubHashes to contacts so future lookups are faster.
-            if (newResolutions.length > 0) {
-                trySaveContacts(addContacts(viewState.contacts, newResolutions));
-            }
-
-            // Construct array of email objects.
-            // Also sets the view model on viewState.emails
-            var emails = currentThread.map(function(emailData) {
-                decryptAndVerifyEmail(emailData, privateKey, keyMap);
-                var model = createEmailViewModel(emailData);
-                emailData.viewModel = model;
-                return model;
-            });
-
-            // Construct thread element, insert emails
-            showEmailThread(emails);
-
-            // Update view state
-            bindEmailEvents();
-        })
+        // Start decrypt+verify on the web workers
+        emailDatas.forEach(function(emailData) {
+            decryptAndVerifyEmail(emailData, keyMap);
+        });
     });
 }
 
@@ -719,7 +772,7 @@ function cachedLoadEmail(params, cb){
 
 // Decrypts an email. Checks the signature, if there is one.
 // Expects data.CipherBody, sets data.plaintextBody
-function decryptAndVerifyEmail(data, privateKey, keyMap) {
+function decryptAndVerifyEmail(data, keyMap) {
     var from = trimToLower(data.From);
     var fromKey = keyMap[from].pubKey;
     if (!fromKey) {
@@ -727,7 +780,9 @@ function decryptAndVerifyEmail(data, privateKey, keyMap) {
         console.log("No key found for "+from+". This email is unverifiable "+
             "regardless of whether it has a signature.");
     }
-    data.plaintextBody = cachedDecodePgp(data.MessageID+" body", data.CipherBody, privateKey, fromKey);
+    cachedDecodePgp(data.MessageID+" body", data.CipherBody, fromKey, function(plain){
+        $("#body-"+bin2hex(data.MessageID)).text(plain);
+    });
 }
 
 function createEmailViewModel(data) {
@@ -735,9 +790,6 @@ function createEmailViewModel(data) {
     var fromAddress = namedAddrFromAddress(data.From);
     var toAddresses = data.To=="" ? [] : 
         data.To.split(",").map(namedAddrFromAddress);
-
-    // Parse Body
-    var parsedBody = parseBody(data.plaintextBody);
 
     // The model for rendering the email template
     return {
@@ -750,16 +802,21 @@ function createEmailViewModel(data) {
         fromAddress: fromAddress,
         to:          trimToLower(data.To),
         toAddresses: toAddresses,
-        subject:     parsedBody.subject,
-        htmlBody:    createHyperlinks(parsedBody.body),
-        plainBody:   parsedBody.body,
+        hexMsgID:    bin2hex(data.MessageID)
+        // missing subject, htmlBody, plainBody
+        // those are decrypted asynchronously
     };
 }
 
-function showEmailThread(emails) {
+function showEmailThread(emailDatas) {
+    // Construct view modls
+    var emails = emailDatas.map(createEmailViewModel);
+    var tid = emails[emails.length-1].threadID;
+    var subj = cache.plaintextCache[tid+" subject"]
     var thread = {
-        threadID:    emails[emails.length-1].threadID,
-        subject:     emails[emails.length-1].subject || "(No subject)",
+        threadID:    tid,
+        hexThreadID: bin2hex(tid),
+        subject:     subj=="" ? "(No subject)" : subj,
         box:         viewState.box,
     };
     var elThread = $(render("thread-template", thread)).data("thread", thread);
@@ -808,7 +865,7 @@ function emailReplyAll(email) {
     var allRecipientsExceptMe = email.toAddresses
         .concat([email.fromAddress])
         .filter(function(addr) {
-            // email starts with our pubHash -> don't reply to our self
+            // don't reply to our self
             return addr.address != sessionStorage["emailAddress"];
         });
     if (allRecipientsExceptMe.length == 0) {
@@ -1279,36 +1336,34 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
 // addrPubKeys: {toAddress: <pubKey>}
 function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, body, cb, failCb) {
     // Get the private key so we can sign the encrypted message
-    getPrivateKey(function(privateKey) {
-        // Get the public key so we can also read it in the sent box
-        getPublicKey(function(publicKey) {
+    var privateKey = getPrivateKey();
+    // Get the public key so we can also read it in the sent box
+    var publicKey = getPublicKey();
 
-            // Encrypt message for all recipients in `addrPubKeys`
-            var pubKeys = Object.values(addrPubKeys);
-            pubKeys.push(publicKey[0]);
-            pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyId() });
-            
-            var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
-            // Embed the subject into the body for verification
-            var subjectAndBody = "Subject: "+subject+"\n\n"+body;
-            var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
+    // Encrypt message for all recipients in `addrPubKeys`
+    var pubKeys = Object.values(addrPubKeys);
+    pubKeys.push(publicKey[0]);
+    pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyId() });
+    
+    // Embed the subject into the body for verification
+    var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
+    var subjectAndBody = "Subject: "+subject+"\n\n"+body;
+    var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
 
-            // send our message
-            var data = {
-                msgID:         msgID,
-                threadID:      threadID,
-                ancestorIDs:   ancestorIDs,
-                to:            Object.keys(addrPubKeys).join(","),
-                cipherSubject: cipherSubject,
-                cipherBody:    cipherBody
-            };
-            sendEmailPost(data, cb, failCb);
-        });
-    });
+    // Send our message
+    var data = {
+        msgID:         msgID,
+        threadID:      threadID,
+        ancestorIDs:   ancestorIDs,
+        to:            Object.keys(addrPubKeys).join(","),
+        cipherSubject: cipherSubject,
+        cipherBody:    cipherBody
+    };
+    sendEmailPost(data, cb, failCb);
 }
 
 function sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) {
-    // send our message
+    // Send our message unencrypted to all recipients
     var data = {
         msgID:         msgID,
         threadID:      threadID,
@@ -1538,10 +1593,8 @@ function addContacts(contacts, newContacts) {
     // defensively delete reference to original contacts.
     contacts = null;
 
-    EACH_NEW_CONTACT:
     for (var i=0; i<newContacts.length; i++) {
         var newContact = newContacts[i];
-
         var name = newContact.name;
         var address = newContact.address;
         var pubHash = newContact.pubHash;
@@ -1550,27 +1603,32 @@ function addContacts(contacts, newContacts) {
             throw "addContacts() new contacts require address";
         }
 
-        // if address is already in contacts, just set the name.
-        if (name) {
-            for (var i=0; i<allContacts.length; i++) {
-                if (allContacts[i].address == address) {
-                    allContacts[i].name = name;
-                    continue EACH_NEW_CONTACT;
-                }
+        var existing = getContactByAddress(allContacts, address);
+        if (existing) {
+            // if address is already in contacts, just set the name.
+            if(name) {
+                existing.name = name;
             }
+        } else {
+            var newContact = {
+                name:    name ? trim(name) : undefined,
+                address: trimToLower(address),
+                pubHash: pubHash ? trimToLower(pubHash) : undefined,
+            };
+
+            allContacts.push(newContact);
         }
-
-        // otherwise, add new contact
-        var newContact = {
-            name:    name ? trim(name) : undefined,
-            address: trimToLower(address),
-            pubHash: pubHash ? trimToLower(pubHash) : undefined,
-        };
-
-        allContacts.push(newContact);
     }
 
     return allContacts;
+}
+
+function getContactByAddress(allContacts, address){
+    for (var i=0; i<allContacts.length; i++) {
+        if (allContacts[i].address == address) {
+            return allContacts[i];
+        }
+    }
 }
 
 function getContact(address) {
@@ -1969,112 +2027,16 @@ function computePublicHash(str) {
     return hash;
 }
 
-function getPrivateKey(fn) {
-    if (sessionStorage["privateKeyArmored"]) {
-        var privateKey = openpgp.read_privateKey(sessionStorage["privateKeyArmored"]);
-        fn(privateKey);
-        return;
-    }
-
-    $.get(HOST_PREFIX+"/user/me/key", function(cipherPrivateKeyHex) {
-        var cipherPrivateKey = hex2bin(cipherPrivateKeyHex);
-        var privateKeyArmored = passphraseDecrypt(cipherPrivateKey);
-        if (!privateKeyArmored) return;
-        sessionStorage["privateKeyArmored"] = privateKeyArmored;
-        var privateKey = openpgp.read_privateKey(privateKeyArmored);
-        console.log("Got private key");
-        fn(privateKey);
-    }, "text").fail(function(xhr) {
-        alert("Failed to retrieve our own encrypted private key: "+xhr.responseText);
-        return;
-    })
+function getPrivateKey() {
+    var armor = sessionStorage["privateKeyArmored"];
+    return openpgp.read_privateKey(armor);
 }
 
 function getPublicKey(fn) {
-    if (sessionStorage["publicKeyArmored"]) {
-        var publicKey = openpgp.read_publicKey(sessionStorage["publicKeyArmored"]);
-        fn(publicKey);
-        return;
-    }
-
-    getPrivateKey(function(privateKey) {
-        var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey());
-        fn(publicKey);
-        return;
-    })
+    var privateKey = getPrivateKey();
+    var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey());
+    return publicKey;
 }
-
-function cachedDecodePgp(cacheKey, armoredText, privateKey, publicKey){
-    var plain = cache.plaintextCache[cacheKey];
-    if (typeof(plain) === "undefined"){
-        plain = tryDecodePgp(armoredText, privateKey, publicKey);
-        cache.plaintextCache[cacheKey] = plain;
-    }
-    return plain;
-}
-
-// Decrypts a PGP message destined for our user, given their private key
-// If publicKey exists, it is used to verify the sender's signature.
-// This is a slow operation (60ms)
-function tryDecodePgp(armoredText, privateKey, publicKey) {
-    try {
-        return decodePgp(armoredText, privateKey, publicKey);
-    } catch (err) {
-        console.log("Decryption failed:", [err, err.stack]);
-        return "(Decryption failed)";
-    }
-}
-
-function decodePgp(armoredText, privateKey, publicKey) {
-    var msgs = openpgp.read_message(armoredText);
-    if (msgs.length != 1) {
-        alert("Warning. Expected 1 PGP message, found "+msgs.length);
-    }
-    var msg = msgs[0];
-    var sessionKey = null;
-    for (var i=0; i<msg.sessionKeys.length; i++) {
-        if (msg.sessionKeys[i].keyId.bytes == privateKey[0].getKeyId()) {
-            sessionKey = msg.sessionKeys[i];
-            break;
-        }
-    }
-    if (sessionKey == null) {
-        alert("Warning. Matching PGP session key not found");
-    }
-    if (privateKey.length != 1) {
-        alert("Warning. Expected 1 PGP private key, found "+privateKey.length);
-    }
-    var keymat = { key: privateKey[0], keymaterial: privateKey[0].privateKeyPacket};
-    if (!keymat.keymaterial.decryptSecretMPIs("")) {
-        alert("Error. The private key is passphrase protected.");
-    }
-    var text;
-    if (publicKey) {
-        var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}]);
-        if (res.length == 0) {
-            console.log("Warning: this email is unsigned");
-            text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
-        } else if (!res[0].signatureValid) {
-            // old messages will pop this error modal.
-            alert("Error. The signature is invalid!");
-        } else {
-            // valid signature, hooray
-            text = res[0].text;
-        }
-    } else {
-        var text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
-    }
-
-    // HACK:
-    // openpgp.js will only call util.decode_utf8 if the filehint is 'u',
-    //  while golang's openpgp library only encodes to 't'.
-    // For now, let's just always call util.decode_utf8.
-    //  this will cause util.decode_utf8 to get double called for messages
-    //  from openpgp.js, which will most likely do nothing.
-    text = util.decode_utf8(text);
-    return text;
-}
-
 
 
 //

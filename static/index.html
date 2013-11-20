@@ -97,12 +97,13 @@
 <ul class="box-items">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
-        <li class="box-item"
+        <li id="subject-{{HexMessageID}}" 
+            class="box-item"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
             data-time="{{UnixTime}}"
             data-from="{{From}}"
-            data-to="{{To}}">{{Subject}}</li>
+            data-to="{{To}}">{{#if Subject}}{{Subject}}{{else}}#####{{/if}}</li>
     {{/each}}
 </ul>
 {{> box-pagination-partial}}
@@ -134,7 +135,7 @@
 <script id="thread-template" type="text/x-handlebars-template">
 <div id="thread" data-thread-id="{{threadID}}">
     <div id="thread-subject">
-        <h2>{{subject}}</h2>
+        <h2 id="subject-header-{{hexThreadID}}">{{#if subject}}{{subject}}{{else}}#####{{/if}}</h2>
         <div class="threadControl controlButtons">
             <button class="replyButton">Reply</button>
             <button class="replyAllButton">Reply All</button>
@@ -187,7 +188,7 @@
         <button class="deleteButton">Delete</button>
     </div>
     --}}
-    <div class="body">{{{htmlBody}}}</div>
+    <div class="body" id="body-{{hexMsgID}}">{{#if htmlBody}}{{{htmlBody}}}{{else}}Decrypting...{{/if}}</div>
 
     {{!-- This is where the compose box goes when replying/forwarding this email --}}
     <div class="email-compose">

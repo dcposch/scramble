@@ -108,6 +108,31 @@ func privateKeyHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	w.Write([]byte(user.CipherPrivateKey))
 }
 
+type UserResponse struct {
+	EmailAddress     string
+	PublicHash       string
+	CipherPrivateKey string
+}
+
+// GET /user/me for the logged-in user's email address, public key, and encrypted private key
+func loginHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+	user := LoadUser(userID.Token)
+	if user == nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	res := UserResponse{
+		user.EmailAddress,
+		user.PublicHash,
+		user.CipherPrivateKey,
+	}
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		panic(err)
+	}
+	w.Write(resJSON)
+}
+
 func computeEmailHost(requestHost string) string {
 	if requestHost == "localhost" || strings.HasPrefix(requestHost, "localhost:") {
 		return GetConfig().SMTPMxHost
