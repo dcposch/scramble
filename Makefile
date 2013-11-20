@@ -1,5 +1,6 @@
 run: build
-	$(GOPATH)/bin/scramble
+	$(GOPATH)/bin/scramble &
+	stylus -w static/css/style.styl
 
 build: doc $(shell find . -name '*.go')
 	go get .
