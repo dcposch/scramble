@@ -585,13 +585,13 @@ function bindEmailEvents() {
         };
     };
 
-    $(".emailControl .replyButton").click(withEmail(emailReply));
-    $(".emailControl .replyAllButton").click(withEmail(emailReplyAll));
-    $(".emailControl .forwardButton").click(withEmail(emailForward));
-    $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}));
-    $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}));
-    $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}));
-    $(".email .enterAddContactButton").click(addContact);
+    $(".js-email-control .js-reply-button").click(withEmail(emailReply));
+    $(".js-email-control .js-reply-all-button").click(withEmail(emailReplyAll));
+    $(".js-email-control .js-forward-button").click(withEmail(emailForward));
+    $(".js-email-control .js-archive-button").click(withEmail(function(email){emailMove(email, "archive", false)}));
+    $(".js-email-control .js-move-to-inbox-button").click(withEmail(function(email){emailMove(email, "inbox", false)}));
+    $(".js-email-control .js-delete-button").click(withEmail(function(email){emailMove(email, "trash", false)}));
+    $(".email .js-enter-add-contact-button").click(addContact);
 
     var withLastEmail = function(cb) {
         return function() {
@@ -604,12 +604,12 @@ function bindEmailEvents() {
         };
     };
 
-    $(".threadControl .replyButton").click(withLastEmailFromAnother(emailReply));
-    $(".threadControl .replyAllButton").click(withLastEmail(emailReplyAll));
-    $(".threadControl .forwardButton").click(withLastEmail(emailForward));
-    $(".threadControl .archiveButton").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
-    $(".threadControl .moveToInboxButton").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
-    $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
+    $(".js-thread-control .js-reply-button").click(withLastEmailFromAnother(emailReply));
+    $(".js-thread-control .js-reply-all-button").click(withLastEmail(emailReplyAll));
+    $(".js-thread-control .js-forward-button").click(withLastEmail(emailForward));
+    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
+    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
+    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
 }
 
 function addContact() {
@@ -854,9 +854,9 @@ function emailMove(email, box, moveThread) {
     var elEmail = getEmailElement(email.msgID);
     var elThread = elEmail.closest("#thread");
     if (moveThread) {
-        elThread.find(".threadControl button").prop("disabled", true);
+        elThread.find(".js-thread-control button").prop("disabled", true);
     } else {
-        elEmail.find(".emailControl button").prop("disabled", true);
+        elEmail.find(".js-email-control button").prop("disabled", true);
     }
     // Send request
     var params = {
@@ -1373,7 +1373,7 @@ function displayContacts() {
 }
 
 function bindContactsEvents() {
-    $(".contacts li .deleteButton").click(deleteRow);
+    $(".contacts li .js-delete-button").click(deleteRow);
     $(".addContactButton").click(newRow);
     $(".saveContactsButton").click(function() {
         var rows = $(".contacts li");
@@ -1420,7 +1420,7 @@ function bindContactsEvents() {
 }
 function newRow() {
     var row = $(render("new-contact-template"));
-    row.find(".deleteButton").click(deleteRow);
+    row.find(".js-delete-button").click(deleteRow);
     $(".contacts ul").append(row);
 }
 function deleteRow(e) {

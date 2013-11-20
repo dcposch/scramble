@@ -190,17 +190,17 @@
     <div id="thread-emails">
     </div>
 
-    <div class="btn-group">
-        <button typ="button" class="btn btn-default">Reply</button>
-        <button typ="button" class="btn btn-default">Reply All</button>
-        <button typ="button" class="btn btn-default">Forward</button>
+    <div class="btn-group js-thread-control controlButtons">
+        <button typ="button" class="btn btn-default js-reply-button">Reply</button>
+        <button typ="button" class="btn btn-default js-reply-all-button">Reply All</button>
+        <button typ="button" class="btn btn-default js-forward-button">Forward</button>
         {{#ifCond box '==' "inbox"}}
-        <button typ="button" class="btn btn-default">Archive</button>
+        <button typ="button" class="btn btn-default js-archive-button">Archive</button>
         {{/ifCond}}
         {{#ifCond box '==' "archive"}}
-        <button typ="button" class="btn btn-default">Move to Inbox</button>
+        <button typ="button" class="btn btn-default js-move-to-inbox-button">Move to Inbox</button>
         {{/ifCond}}
-        <button typ="button" class="btn btn-default">Delete</button>
+        <button typ="button" class="btn btn-default js-delete-button">Delete</button>
     </div>
 
 </div>
@@ -209,51 +209,37 @@
 
 <!-- SINGLE EMAIL -->
 <script id="email-template" type="text/x-handlebars-template">
-{{!--
-    This parent level div class "email" is functionally important.
-    For example, the buttons (ie replyButton, forwardButton) work
-     by finding the context email data by .closest(".email").data("email").
---}}
-<div class="js-email panel panel-default" data-msg-id="{{msgID}}">
-    <div class="panel-heading">
-        <small class="received pull-right">{{formatDate time format="MMM D YYYY, hh:mm"}}</small>
-        <div class="from">
-            {{> email-address-partial fromAddress}}
+
+<div class="js-email" data-msg-id="{{msgID}}">
+
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <small class="received pull-right">{{formatDate time format="MMM D YYYY, hh:mm"}}</small>
+            <div class="from">
+                {{> email-address-partial fromAddress}}
+            </div>
+            <small class="to">to 
+                {{#each toAddresses}}
+                    {{> email-address-partial}}
+                {{/each}}
+            </small>
         </div>
-        <small class="to">to 
-            {{#each toAddresses}}
-                {{> email-address-partial}}
-            {{/each}}
-        </small>
+
+        <div class="body panel-body">{{{htmlBody}}}</div>
     </div>
-    {{!--
-    <div class="emailControl controlButtons">
-        <button class="replyButton">Reply</button>
-        <button class="replyAllButton">Reply All</button>
-        <button class="forwardButton">Forward</button>
-        {{#ifCond _box '==' "inbox"}}
-        <button class="archiveButton">Archive</button>
-        {{/ifCond}}
-        {{#ifCond _box '==' "archive"}}
-        <button class="moveToInboxButton">Move to Inbox</button>
-        {{/ifCond}}
-        <button class="deleteButton">Delete</button>
-    </div>
-    --}}
-    <div class="body panel-body">{{{htmlBody}}}</div>
 
     {{!-- This is where the compose box goes when replying/forwarding this email --}}
-    <div class="email-compose">
-    </div>
+    <div class="email-compose"></div>
+    </script>
+
 </div>
-</script>
 
 <script id="email-address-partial" type="text/x-handlebars-template">
     {{#if name}}
         <span class="addr-name">{{name}}</span>
         <span class="addr named">{{address}}</span>
     {{else}}
-        <span class="addr noname"><a href="#" data-addr="{{address}}" class="enterAddContactButton">{{address}}</a></span>
+        <span class="addr noname"><a href="#" data-addr="{{address}}" class="js-enter-add-contact-button">{{address}}</a></span>
     {{/if}}
 </script>
 
@@ -289,7 +275,7 @@
         <input type="hidden" name="threadID" value="{{threadID}}"/>
 
         <div class="input-group invis-input-group">
-            <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" placeholder="You must choose at least one recipient."></input>
+            <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient."></input>
         </div>
         <div class="panel-body">
             <textarea name="body" class="invis-input">{{body}}</textarea>
@@ -312,7 +298,7 @@
         <input type="text" class="name" placeholder="(name)" value="{{name}}" />
         <input type="text" class="address" placeholder="(address)" value="{{address}}" />
         <input type="text" class="pubHash" placeholder="(key hash)" value="{{pubHash}}" disabled="true" />
-        <a href="#" class="deleteButton">[X]</a>
+        <a href="#" class="js-delete-button">[X]</a>
         </li>
         {{/each}}
     </ul>
@@ -325,7 +311,7 @@
 <li class="new">
 <input type="text" class="name" placeholder="(name)"/>
 <input type="text" class="address" placeholder="(email address)"/>
-<a href="#" class="deleteButton">[X]</a>
+<a href="#" class="js-delete-button">[X]</a>
 </li>
 </script>
 
