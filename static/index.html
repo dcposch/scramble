@@ -169,6 +169,8 @@
     <div class="to">to 
         {{#each toAddresses}}
             {{> email-address-partial}}
+        {{else}}
+            (Unknown recipients)
         {{/each}}
     </div>
     {{!--

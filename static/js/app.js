@@ -733,7 +733,8 @@ function decryptAndVerifyEmail(data, privateKey, keyMap) {
 function createEmailViewModel(data) {
     // Parse From, To, etc
     var fromAddress = namedAddrFromAddress(data.From);
-    var toAddresses = data.To.split(",").map(namedAddrFromAddress);
+    var toAddresses = data.To=="" ? [] : 
+        data.To.split(",").map(namedAddrFromAddress);
 
     // Parse Body
     var parsedBody = parseBody(data.plaintextBody);

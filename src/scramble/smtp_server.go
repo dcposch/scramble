@@ -353,14 +353,10 @@ func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	data.toList, err = parsed.Header.AddressList("To")
-	if err != nil {
-		return nil, err
-	}
-	data.ccList, err = parsed.Header.AddressList("CC")
-	if err != nil && err != mail.ErrHeaderNotPresent {
-		return nil, err
-	}
+	// only parse out valid addresses
+	// ignore errors from things like "undisclosed-recipients:;"
+	data.toList, _ = parsed.Header.AddressList("To")
+	data.ccList, _ = parsed.Header.AddressList("CC")
 
 	// parse subject
 	data.subject = mimeHeaderDecode(parsed.Header.Get("Subject"))
