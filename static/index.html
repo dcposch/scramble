@@ -125,17 +125,47 @@
             </div>
         </div>
         {{!-- <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a> --}}
+        <a data-toggle="modal" data-target="#kbShortcutsModal">Keyboard shortcuts</a>
         <div class="lead capitalize">{{box}}</div class="lead">
         <div id="inbox" class="box"></div>
         <div id="sent" class="box"></div>
         <div id="archive" class="box"></div>
     </div>
-
     <div class="main-panel">
         <div id="statusBar"></div>
         <div id="content"></div>
     </div>
 
+
+    <div class="modal fade" id="kbShortcutsModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">Keyboard shortcuts</h4>
+                </div>
+
+                <div class="modal-body">
+                    <dl class="dl-horizontal">
+                        <dt>j</dt><dd>next email</dd>
+                        <dt>k</dt><dd>previous email</dd>
+                        <dt>y</dt><dd>archive</dd>
+                        <dt>r</dt><dd>reply</dd>
+                        <dt>a</dt><dd>reply to all</dd>
+                        <dt>f</dt><dd>forward</dd>
+                        <dt>g c</dt><dd>go to compose</dd>
+                        <dt>g i</dt><dd>go to inbox</dd>
+                        <dt>g s</dt><dd>go to sent mail</dd>
+                        <dt>g a</dt><dd>go to archive</dd>
+                        <dt>tab+enter</dt><dd>send email</dd>
+                        <dt>esc</dt><dd>close</dd>
+                    </dl>
+                </div>
+
+            </div>
+        </div>
+    </div>
 </script>
 
 
@@ -292,32 +322,6 @@
 <input type="text" class="address" placeholder="(email address)"/>
 <a href="#" class="js-delete-button">[X]</a>
 </li>
-</script>
-
-
-
-<!-- KEYBOARD SHORTCUTS MODAL -->
-<script id="kb-shortcuts-template" type="text/x-handlebars-template">
-<div class="modal-bg">
-<div class="modal" id="kbShortcutsModal">
-    <h3>Keyboard shortcuts</h3>
-    <section>
-        <div><label>j</label>next email</div>
-        <div><label>k</label>previous email</div>
-        <div><label>y</label>archive</div>
-        <div><label>r</label>reply</div>
-        <div><label>a</label>reply to all</div>
-        <div><label>f</label>forward</div>
-        <div><label>g c</label>go to compose</div>
-        <div><label>g i</label>go to inbox</div>
-        <div><label>g s</label>go to sent mail</div>
-        <div><label>g a</label>go to archive</div>
-        <div><label>tab+enter</label>send email</div>
-        <div><label>esc</label>close</div>
-    </section>
-    <a href="#" class="link-close-modal" >close</a>
-</div>
-</div>
 </script>
 
 
