@@ -255,7 +255,6 @@ var keyMap = {
     "f":function(){emailForward(viewState.getLastEmail())},
     "y":function(){emailMove(viewState.getLastEmail(), "archive", true)},
     "d":function(){emailMove(viewState.getLastEmail(), "trash", true)},
-    27:closeModal // esc key
 };
 
 function bindKeyboardShortcuts() {
@@ -294,23 +293,23 @@ function bindKeyboardShortcuts() {
 
 function bindSidebarEvents() {
     // Navigate to Inbox, Sent, or Archive
-    $("#tab-inbox").click(function(e) {
+    $(".js-tab-inbox").click(function(e) {
         loadDecryptAndDisplayBox("inbox");
     });
-    $("#tab-sent").click(function(e) {
+    $(".js-tab-sent").click(function(e) {
         loadDecryptAndDisplayBox("sent");
     });
-    $("#tab-archive").click(function(e) {
+    $(".js-tab-archive").click(function(e) {
         loadDecryptAndDisplayBox("archive");
     });
 
     // Navigate to Compose
-    $("#tab-compose").click(function(e) {
+    $(".js-tab-compose").click(function(e) {
         displayCompose();
     });
 
     // Navigate to Contacts
-    $("#tab-contacts").click(function(e) {
+    $(".js-tab-contacts").click(function(e) {
         displayContacts();
     });
 
@@ -322,16 +321,11 @@ function bindSidebarEvents() {
         }
         clearCredentials();
     });
-
-    // Explain keyboard shortcuts
-    $("#link-kb-shortcuts").click(function() {
-        showModal("kb-shortcuts-template");
-    });
 }
 
 function setSelectedTab(tab) {
-    $("#sidebar .tab").removeClass("selected");
-    tab.addClass("selected");
+    $(".js-tab").removeClass("active");
+    tab.addClass("active");
 }
 
 function displayStatus(msg) {
@@ -374,6 +368,9 @@ function displayLogin() {
     // not logged in. reset session state.
     clearCredentials();
 
+    //initialize bootstrap modal
+    $('#createAccountModal').modal();
+
     // show the login ui
     $("#wrapper").html(render("login-template"));
     bindLoginEvents();
@@ -414,26 +411,29 @@ function isLoggedIn() {
 //
 
 function displayCreateAccountModal() {
-    showModal("create-account-template");
+    // showModal("create-account-template");
+    $('#createAccountModal').modal('show');
+
 
     var keys;
     var cb;
 
     // defer the slow part, so that the modal actually appears
-    setTimeout(function() {
+    $('#createAccountModal').on('shown.bs.modal', function() {
         // create a new mailbox. this takes a few seconds...
         keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
         // Change "Generating..." to "Done", explain what's going on to the user
-        $("#spinner").css("display", "none");
+        $(".js-spinner").css("display", "none");
         $("#createForm").css("display", "block");
 
         // call cb, the user had already pressed the create button
         if (cb) { cb() }
-    }, 100)
+    });
 
     $("#createButton").click(function() {
+        $('#createAccountModal').modal('hide');
         if (keys) {
             createAccount(keys);
         } else {
@@ -526,7 +526,7 @@ function validateNewPassword() {
 
 function bindBoxEvents(box) {
     // Click on an email to open it
-    $("#"+box+" .box-items>li").click(function(e) {
+    $("#"+box+" .js-box-item").click(function(e) {
         displayEmail($(e.target));
     });
     // Click on a pagination link
@@ -580,7 +580,7 @@ function showEncryptedBox(boxSummary, box) {
     data.pages = pages;
     $("#wrapper").html(render("page-template", data));
     bindSidebarEvents();
-    setSelectedTab($("#tab-"+box));
+    setSelectedTab($(".js-tab-"+box));
     $("#"+box).html(render("box-template", data));
     bindBoxEvents(box);
     viewState.box = box;
@@ -590,7 +590,6 @@ function showEncryptedBox(boxSummary, box) {
 function startDecryptingBox(boxSummary, box) {
     getContacts(function() {
         boxSummary.EmailHeaders.forEach(decryptSubject);
-
     });
 }
 
@@ -634,21 +633,21 @@ function readPrevEmail() {
 // Binds events for all emails in the current thread.
 function bindEmailEvents() {
     // This is a helper that gets the relevant email data
-    //  by finding the enclosed div.email
+    //  by finding the enclosed div.js-email
     var withEmail = function(cb) {
         return function() {
-            var emailDiv = $(this).closest(".email");
+            var emailDiv = $(this).closest(".js-email");
             cb(emailDiv.data("email"));
         };
     };
 
-    $(".emailControl .replyButton").click(withEmail(emailReply));
-    $(".emailControl .replyAllButton").click(withEmail(emailReplyAll));
-    $(".emailControl .forwardButton").click(withEmail(emailForward));
-    $(".emailControl .archiveButton").click(withEmail(function(email){emailMove(email, "archive", false)}));
-    $(".emailControl .moveToInboxButton").click(withEmail(function(email){emailMove(email, "inbox", false)}));
-    $(".emailControl .deleteButton").click(withEmail(function(email){emailMove(email, "trash", false)}));
-    $(".email .enterAddContactButton").click(addContact);
+    $(".js-email-control .js-reply-button").click(withEmail(emailReply));
+    $(".js-email-control .js-reply-all-button").click(withEmail(emailReplyAll));
+    $(".js-email-control .js-forward-button").click(withEmail(emailForward));
+    $(".js-email-control .js-archive-button").click(withEmail(function(email){emailMove(email, "archive", false)}));
+    $(".js-email-control .js-move-to-inbox-button").click(withEmail(function(email){emailMove(email, "inbox", false)}));
+    $(".js-email-control .js-delete-button").click(withEmail(function(email){emailMove(email, "trash", false)}));
+    $(".email .js-enter-add-contact-button").click(addContact);
 
     var withLastEmail = function(cb) {
         return function() {
@@ -661,12 +660,12 @@ function bindEmailEvents() {
         };
     };
 
-    $(".threadControl .replyButton").click(withLastEmailFromAnother(emailReply));
-    $(".threadControl .replyAllButton").click(withLastEmail(emailReplyAll));
-    $(".threadControl .forwardButton").click(withLastEmail(emailForward));
-    $(".threadControl .archiveButton").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
-    $(".threadControl .moveToInboxButton").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
-    $(".threadControl .deleteButton").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
+    $(".js-thread-control .js-reply-button").click(withLastEmailFromAnother(emailReply));
+    $(".js-thread-control .js-reply-all-button").click(withLastEmail(emailReplyAll));
+    $(".js-thread-control .js-forward-button").click(withLastEmail(emailForward));
+    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
+    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
+    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
 }
 
 function addContact() {
@@ -694,8 +693,8 @@ function addContact() {
 
 
 /**
-    Takes an email, selects its box-item, shows the entire thread.
-    For convenience, you can pass in the li.box-item jquery element,
+    Takes an email, selects its js-box-item, shows the entire thread.
+    For convenience, you can pass in the li.js-box-item jquery element,
      which has the relevant .data() attributes.
 
     emailHeader => {
@@ -724,8 +723,8 @@ function displayEmail(emailHeader) {
     var threadID = emailHeader.threadID;
 
     $("#content").empty();
-    $("li.box-item.current").removeClass("current");
-    $("li.box-item[data-thread-id='"+threadID+"']").addClass("current");
+    $(".js-box-item.active").removeClass("active");
+    $(".js-box-item[data-thread-id='"+threadID+"']").addClass("active");
 
     var params = {
         msgID: msgID,
@@ -907,9 +906,9 @@ function emailMove(email, box, moveThread) {
     var elEmail = getEmailElement(email.msgID);
     var elThread = elEmail.closest("#thread");
     if (moveThread) {
-        elThread.find(".threadControl button").prop("disabled", true);
+        elThread.find(".js-thread-control button").prop("disabled", true);
     } else {
-        elEmail.find(".emailControl button").prop("disabled", true);
+        elEmail.find(".js-email-control button").prop("disabled", true);
     }
     // Send request
     var params = {
@@ -934,7 +933,7 @@ function emailMove(email, box, moveThread) {
 }
 
 function getEmailElement(msgID) {
-    var elEmail = $(".email[data-msg-id='"+msgID+"']");
+    var elEmail = $(".js-email[data-msg-id='"+msgID+"']");
     if (elEmail.length != 1) {
         console.log("Failed to find exactly 1 email element with msgID:"+msgID);
         return;
@@ -949,7 +948,7 @@ function removeEmailFromThread(email) {
     var elThread = elEmail.closest("#thread");
     elEmail.remove();
     // If this thread has no emails left, then show the next thread.
-    if (elThread.find("#thread-emails .email").length == 0) {
+    if (elThread.find("#thread-emails .js-email").length == 0) {
         showNextThread();
     }
 }
@@ -972,8 +971,9 @@ function showNextThread() {
 // cb: function(emailData), emailData has plaintext components including
 //  msgID, threadID, ancestorIDs, subject, to, body...
 function bindComposeEvents(elCompose, cb) {
-    elCompose.find(".sendButton").click(function() {
+    elCompose.find(".js-send-button").on('click', function() {
         $(this).prop("disabled", true);
+
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
         var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
@@ -1006,7 +1006,7 @@ function displayCompose(to, subject, body) {
     }
     $(".box").html("");
     viewState.clearEmails();
-    setSelectedTab($("#tab-compose"));
+    setSelectedTab($(".js-tab-compose"));
     var elCompose = $(render("compose-template", {
         to:          to,
         subject:     subject,
@@ -1413,7 +1413,7 @@ function displayContacts() {
         // clean up 
         $(".box").html("");
         viewState.clearEmails();
-        setSelectedTab($("#tab-contacts"));
+        setSelectedTab($(".js-tab-contacts"));
 
         // render compose form into #content
         var html = render("contacts-template", contacts);
@@ -1423,7 +1423,7 @@ function displayContacts() {
 }
 
 function bindContactsEvents() {
-    $(".contacts li .deleteButton").click(deleteRow);
+    $(".contacts li .js-delete-button").click(deleteRow);
     $(".addContactButton").click(newRow);
     $(".saveContactsButton").click(function() {
         var rows = $(".contacts li");
@@ -1470,7 +1470,7 @@ function bindContactsEvents() {
 }
 function newRow() {
     var row = $(render("new-contact-template"));
-    row.find(".deleteButton").click(deleteRow);
+    row.find(".js-delete-button").click(deleteRow);
     $(".contacts ul").append(row);
 }
 function deleteRow(e) {

@@ -6,3 +6,4 @@ bin/
 pkg/
 .settings/
 src/*.*/
+style.css

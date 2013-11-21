@@ -1,0 +1,156 @@
+html, body
+  height 100%
+
+hr.invis
+  border-color transparent
+
+:focus
+  outline none !important
+
+.invis-input
+  background transparent
+  border none
+  margin none
+  padding-left 0
+  // height 100%
+  width 100%
+
+.invis-input-group
+  background transparent
+  border none
+  margin none
+  height 100%
+  width 100%
+  *
+    border none
+
+.container.container-left 
+  margin-left 0
+
+$nav-height = 80px
+$sidebar-percent-width = 40%
+
+.sidebar
+  position fixed
+  padding-right ($grid-gutter-width / 2)
+  padding-left ($grid-gutter-width / 2)
+  top $nav-height
+  left 0
+  bottom 0
+  width 400px
+  overflow scroll
+
+.main-panel
+  position fixed
+  padding-right ($grid-gutter-width / 2)
+  padding-left ($grid-gutter-width / 2)
+  top $nav-height
+  left 400px
+  bottom 0
+  width 600px
+  overflow scroll
+
+.navbar-inverse
+  .navbar-brand
+    color white !important
+
+.lead
+  margin-bottom 0 !important
+  padding-bottom $line-height-computed !important
+
+.uppercase
+  text-transform uppercase
+
+.capitalize
+  text-transform capitalize
+
+// .sidebar
+//   // positison fixed
+//   overflow scroll
+
+// .main-panel
+//   overflow scroll
+//   max-height 100%
+
+.scrolltainer
+  bottom 0
+  overflow scroll
+  position relative
+
+.scroller
+  position absolute
+  top 60px
+  bottom 85px
+  left ($grid-gutter-width / 2)
+  right ($grid-gutter-width / 2)
+  overflow scroll
+
+.form-signin
+  margin-top 10%
+  max-width 400px
+  margin-right auto
+  margin-left auto
+
+.logo-img
+  width 1em
+  margin-right .25em
+  vertical-align top
+
+.email-body
+  &:before, &:after
+    content none
+  white-space: pre-wrap
+
+.strike
+  text-align center
+  position relative
+  .label
+    font-style italic
+    background $body-bg
+    color $text-color
+    position absolute
+    left 45%
+    right 45%
+    top -5px
+
+// .modal-dialog
+//   position relative
+
+.spinner-overlay
+  position absolute
+  background rgba(white, 0.8)
+  text-align center
+  top 0 
+  left 0 
+  bottom 0
+  right 0
+  padding-top 25%
+  z-index 99999999
+
+.spinner
+  margin-left auto
+  margin-right auto
+  height 100px
+  width 100px
+  border-radius 50%
+  border solid 0.1px #FFF
+  box-shadow -3px 3px 0px #333, inset 3px -3px 0px #555, 0 0 0px 1px #fff
+  animation spin 3s linear infinite
+
+
+@keyframes spin
+  0%
+    rotate(0deg)
+  
+  33%
+    rotate(120deg)
+  
+  66%
+    rotate(240deg)
+  
+  100%
+    rotate(360deg)
+  
+
+
+ 
