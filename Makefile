@@ -1,7 +1,6 @@
 GOPATH := $(shell pwd)
 
 run: build
-	stylus -w static/css/style.styl &
 	./static/bin/scramble
 
 build: doc $(shell find . -name '*.go') $(shell find . -name '*.js')
