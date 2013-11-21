@@ -3,3 +3,4 @@ static/doc/*.html
 scramble
 scramble.sql
 build
+style.css
