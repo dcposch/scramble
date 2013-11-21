@@ -1,4 +1,4 @@
-if (chrome.runtime) {
+if ('chrome.runtime' in window) {
     if (sessionStorage["hostPrefix"]) {
         // e.g. user refreshed the chrome extension page.
         $(main);
