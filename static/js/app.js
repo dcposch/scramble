@@ -916,7 +916,6 @@ function showNextThread() {
 function bindComposeEvents(elCompose, cb) {
     elCompose.find(".js-send-button").on('click', function() {
         $(this).prop("disabled", true);
-
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
         var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
