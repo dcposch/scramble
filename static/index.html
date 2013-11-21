@@ -243,44 +243,26 @@
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-{{!-- <div class="compose {{#if inline}}inline{{/if}}">
-    <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
-    <input type="hidden" name="threadID" value="{{threadID}}"/>
+    <div>
+        {{#if inline}}
+        <input type="hidden" name="subject" value="{{subject}}"/>
+        {{else}}
+        <input type="text" name="subject" value="{{subject}}" class="invis-input lead" placeholder="Subject"/>
+        {{/if}}
+        <div class="panel panel-default">
+            <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
+            <input type="hidden" name="threadID" value="{{threadID}}"/>
 
-    <div class="prompt"><label for="to">To</label><input type="text" name="to" value="{{to}}"></span></div>
-    <div><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
-
-    {{#if inline}}
-    <input type="hidden" name="subject" value="{{subject}}"/>
-    {{else}}
-    <div class="prompt"><label for="subject">Subject</label><input type="text" name="subject" value="{{subject}}"></span></div>
-    {{/if}}
-    <div class="prompt"><label for="to">To</label><input type="text" name="to" value="{{to}}"></span></div>
-    <div><label>&nbsp;</label><span class="hint">Contact names allowed, eg "bob@scramble.io, joe, me"</span></div>
-    <textarea name="body" data-default="{{bodyDefault}}" data-display-name="Body">{{body}}</textarea>
-    <input type="submit" class="sendButton" value="Send"></input>
-</div>
- --}}
-<div>
-    {{#if inline}}
-    <input type="hidden" name="subject" value="{{subject}}"/>
-    {{else}}
-    <input type="text" name="subject" value="{{subject}}" class="invis-input lead" placeholder="Subject"/>
-    {{/if}}
-    <div class="panel panel-default">
-        <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
-        <input type="hidden" name="threadID" value="{{threadID}}"/>
-
-        <div class="input-group invis-input-group">
-            <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient."></input>
+            <div class="input-group invis-input-group">
+                <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient."></input>
+            </div>
+            <div class="panel-body">
+                <textarea name="body" class="invis-input">{{body}}</textarea>
+            </div>
         </div>
-        <div class="panel-body">
-            <textarea name="body" class="invis-input">{{body}}</textarea>
-        </div>
+
+        <input type="submit" class="js-send-button btn btn-primary btn-lg" value="Send"></input>
     </div>
-
-    <input type="submit" class="js-send-button btn btn-default btn-lg" value="Send"></input>
-</div>
 </script>
 
 

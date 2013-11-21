@@ -258,11 +258,6 @@ function bindSidebarEvents() {
         }
         clearCredentials();
     });
-
-    // Explain keyboard shortcuts
-    $("#link-kb-shortcuts").click(function() {
-        showModal("kb-shortcuts-template");
-    });
 }
 
 function setSelectedTab(tab) {
