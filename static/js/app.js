@@ -124,7 +124,6 @@ cache.plaintextCache = {}; // cache key -> plaintext
 // WEB WORKERS
 //
 var workers = [];
-var workerIx = 0;
 var pendingDecryption = {}; // cache key -> callback function
 
 
@@ -193,6 +192,7 @@ function decryptPrivateKey(cipherPrivateKeyHex){
 function startPgpDecryptWorkers(){
     for(var i = 0; i < 4; i++){
         var worker = new Worker("js/decryptWorker.js");
+        worker.numInProgress = 0;
         worker.postMessage(JSON.stringify({
             "type":"key",
             "privateKey": sessionStorage["privateKeyArmored"]
@@ -201,12 +201,13 @@ function startPgpDecryptWorkers(){
             var msg = JSON.parse(evt.data);
             switch (msg.type) {
             case "decrypt":
-                var cb = pendingDecryption[msg.cacheKey];
+                var job = pendingDecryption[msg.cacheKey];
                 cache.plaintextCache[msg.cacheKey] = msg.plaintext;
                 if(msg.error){
                     console.log("Failed to decrypt "+msg.cacheKey+": "+msg.error);
                 }
-                cb(msg.plaintext, msg.error);
+                workers[job.worker].numInProgress--;
+                job.callback(msg.plaintext, msg.error);
                 delete pendingDecryption[msg.cacheKey];
                 break;
             case "log":
@@ -236,9 +237,15 @@ function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
             "armoredText":armoredText,
             "publicKeyArmored":publicKeyArmored
         };
-        pendingDecryption[cacheKey] = cb;
-        workers[workerIx].postMessage(JSON.stringify(msg));
-        workerIx = (workerIx + 1) % workers.length; // round robin
+        var bestWorker = 0;
+        for(var i = 1; i < workers.length; i++){
+            if(workers[i].numInProgress < workers[bestWorker].numInProgress){
+                bestWorker = i;
+            }
+        }
+        pendingDecryption[cacheKey] = {"callback":cb,"worker":bestWorker};
+        workers[bestWorker].numInProgress++;
+        workers[bestWorker].postMessage(JSON.stringify(msg));
     }
 }
 
@@ -2168,3 +2175,4 @@ function setHostPrefix(hostPrefix) {
     HOST_PREFIX = hostPrefix;
     sessionStorage["hostPrefix"] = hostPrefix;
 }
+
