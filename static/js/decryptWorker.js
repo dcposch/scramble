@@ -14,16 +14,18 @@ window.localStorage = {
     getItem: function(key){return ls[key]||null},
     setItem: function(key,val){ls[key]=val}
 };
-// openpgp really wants this function.
-window.showMessages = function(msg) {
-    var err = $("<div />").html(msg).text();
-    console.log("OpenPGP.js - "+err);
-    if (err.toLowerCase().startsWith("error")) {
-        throw err;
-    }
-}
+
 importScripts("openpgp.js")
 openpgp.init();
+util.print_error = function(str) {
+    postMessage(JSON.stringify({type:"log", level:"error", message:str}));
+};
+util.print_warning = function(str) {
+    postMessage(JSON.stringify({type:"log", level:"warn", message:str}));
+};
+util.print_info = function(str) {
+    postMessage(JSON.stringify({type:"log", level:"info", message:str}));
+};
 
 var privateKey;
 
@@ -35,9 +37,13 @@ self.onmessage = function(evt){
         privateKey = openpgp.read_privateKey(msg.privateKey);
     } else if(msg.type == "cipherText"){
         // Decrypt messages
-        var response = {"cacheKey":msg.cacheKey};
+        var response = {type:"decrypt", cacheKey:msg.cacheKey};
         try {
-            response.plaintext = decodePgp(msg.armoredText, msg.publicKey);
+            var publicKey = undefined;
+            if (msg.publicKeyArmored) {
+                publicKey = openpgp.read_publicKey(msg.publicKeyArmored)[0];
+            }
+            response.plaintext = decodePgp(msg.armoredText, publicKey);
         } catch(err){
             response.error = ""+err;
         }
@@ -48,15 +54,6 @@ self.onmessage = function(evt){
 // Decrypts a PGP message destined for our user, given their private key
 // If publicKey exists, it is used to verify the sender's signature.
 // This is a slow operation (60ms)
-function tryDecodePgp(armoredText, publicKey) {
-    try {
-        return decodePgp(armoredText, publicKey);
-    } catch (err) {
-        console.log("Decryption failed:", [err, err.stack]);
-        return null;
-    }
-}
-
 function decodePgp(armoredText, publicKey) {
     var msgs = openpgp.read_message(armoredText);
     if (msgs.length != 1) {

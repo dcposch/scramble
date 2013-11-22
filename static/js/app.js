@@ -199,13 +199,19 @@ function startPgpDecryptWorkers(){
         }));
         worker.onmessage = function(evt){
             var msg = JSON.parse(evt.data);
-            var cb = pendingDecryption[msg.cacheKey];
-            cache.plaintextCache[msg.cacheKey] = msg.plaintext;
-            if(msg.error){
-                console.log("Failed to decrypt "+msg.cacheKey+": "+msg.error);
+            switch (msg.type) {
+            case "decrypt":
+                var cb = pendingDecryption[msg.cacheKey];
+                cache.plaintextCache[msg.cacheKey] = msg.plaintext;
+                if(msg.error){
+                    console.log("Failed to decrypt "+msg.cacheKey+": "+msg.error);
+                }
+                cb(msg.plaintext, msg.error);
+                delete pendingDecryption[msg.cacheKey];
+                break;
+            case "log":
+                console.log("Webworker:", msg.level, msg.message);
             }
-            cb(msg.plaintext, msg.error);
-            delete pendingDecryption[msg.cacheKey];
         };
         workers.push(worker);
     }
@@ -228,7 +234,7 @@ function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
             "type":"cipherText",
             "cacheKey":cacheKey,
             "armoredText":armoredText,
-            "publicKey":publicKeyArmored
+            "publicKeyArmored":publicKeyArmored
         };
         pendingDecryption[cacheKey] = cb;
         workers[workerIx].postMessage(JSON.stringify(msg));
@@ -773,7 +779,7 @@ function cachedLoadEmail(params, cb){
 // Expects data.CipherBody, sets data.plaintextBody
 function decryptAndVerifyEmail(data, keyMap) {
     var from = trimToLower(data.From);
-    var fromKey = keyMap[from].pubKey;
+    var fromKey = keyMap[from].pubKeyArmor;
     if (!fromKey) {
         // TODO: color code to show that the email is unverified
         console.log("No key found for "+from+". This email is unverifiable "+
