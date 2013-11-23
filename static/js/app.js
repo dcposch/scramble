@@ -229,6 +229,8 @@ function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
     var plain = cache.plaintextCache[cacheKey];
     if (typeof(plain) !== "undefined"){
         cb(plain);
+    } else if (pendingDecryption[cacheKey]){
+        console.log("Warning: skipping decryption, already in progress: "+cacheKey);
     } else {
         console.log("Decoding "+cacheKey+"\n"+armoredText);
         var msg = {
