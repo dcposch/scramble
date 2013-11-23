@@ -335,6 +335,7 @@ func LoadThread(address, threadID string) []Email {
 		"FROM email AS e INNER JOIN box "+
 		"ON e.message_id = box.message_id "+
 		"WHERE box.address=? AND box.thread_id=? "+
+		"GROUP BY e.message_id "+
 		"ORDER BY e.unix_time ASC",
 		address,
 		threadID,

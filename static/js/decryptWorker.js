@@ -24,7 +24,7 @@ util.print_warning = function(str) {
     postMessage(JSON.stringify({type:"log", level:"warn", message:str}));
 };
 util.print_info = function(str) {
-    postMessage(JSON.stringify({type:"log", level:"info", message:str}));
+    // ignore
 };
 
 var privateKey;

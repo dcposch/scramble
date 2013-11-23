@@ -78,7 +78,10 @@ var viewState = {};
 viewState.box = null;
 // Returns the last email
 viewState.getLastEmail = function() {
-    return this.emails == null ? null : this.emails[this.emails.length-1].viewModel;
+    if (!this.emails) {
+        return null;
+    }
+    return createEmailViewModel(this.emails[this.emails.length-1]);
 }
 // Returns the last email from another user.
 viewState.getLastEmailFromAnother = function() {
@@ -87,11 +90,8 @@ viewState.getLastEmailFromAnother = function() {
     }
     for (var i=this.emails.length-1; 0 <= i; i--) {
         var email = this.emails[i];
-        if (!email.viewModel) {
-            continue;
-        }
-        if (email.from != sessionStorage["emailAddress"]) {
-            return email.viewModel;
+        if (trimToLower(email.From) != sessionStorage["emailAddress"]) {
+            return createEmailViewModel(email);
         }
     }
     // just return the last email even from self.
@@ -232,7 +232,7 @@ function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
     } else if (pendingDecryption[cacheKey]){
         console.log("Warning: skipping decryption, already in progress: "+cacheKey);
     } else {
-        console.log("Decoding "+cacheKey+"\n"+armoredText);
+        console.log("Decoding "+cacheKey);
         var msg = {
             "type":"cipherText",
             "cacheKey":cacheKey,
@@ -747,6 +747,7 @@ function displayEmail(emailHeader) {
         box: viewState.box // not used now, but maybe used in the future.
     };
     cachedLoadEmail(params, function(emailDatas) {
+        viewState.emails = emailDatas;
         showAndDecryptEmailThread(emailDatas);
     });
 }
@@ -876,6 +877,7 @@ function emailReply(email) {
 
 function emailReplyAll(email) {
     if (!email) return;
+
     var allRecipientsExceptMe = email.toAddresses
         .concat([email.fromAddress])
         .filter(function(addr) {
