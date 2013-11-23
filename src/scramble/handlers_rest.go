@@ -218,7 +218,7 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	// We may need this in the future:
 	_ = validateBox(r.FormValue("box"))
 
-	threadEmails := LoadThreadFromBoxes(userID.EmailAddress, threadID)
+	threadEmails := LoadThread(userID.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
 		http.Error(w, "Not found or unauthorized", http.StatusUnauthorized)
 		return
