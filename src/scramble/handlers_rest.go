@@ -301,14 +301,20 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	}
 
 	// This will fail if the client tried to send the same
-	// message twice---because at the point there will be a dupe Message-ID
-	SaveMessage(email)
+	// message twice---because at that point there will be a dupe Message-ID
+	err := SaveMessage(email)
+	if err != nil {
+		w.WriteHeader(500)
+		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+			w.Write([]byte("Already sent."))
+		} else {
+			w.Write([]byte("Error sending mail. Please try again."))
+		}
+		return
+	}
 
 	// Add message to sender's sent box
 	AddMessageToBox(email, userID.EmailAddress, "sent")
-
-	// TODO: separate goroutine?
-	// TODO: parallize mx lookup?
 
 	// Deliver mail locally
 	for mxHost, addrs := range mxHostAddrs {
@@ -325,7 +331,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 
 	// Deliver mail outside synchronously
 	// In the future we may want more advanced logic.
-	err := smtpSend(outgoingEmail)
+	err = smtpSend(outgoingEmail)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
