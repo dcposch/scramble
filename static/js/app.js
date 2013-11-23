@@ -21,7 +21,6 @@ var BOX_PAGE_SIZE = 20;
 
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/;
 var REGEX_EMAIL = /^([A-Z0-9._%+-=]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i;
-var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i;
 var REGEX_CONTACT_NAME = /^[^@]*$/i;
 
 var SCRYPT_PARAMS = {
@@ -204,7 +203,12 @@ function startPgpDecryptWorkers(){
                 var job = pendingDecryption[msg.cacheKey];
                 cache.plaintextCache[msg.cacheKey] = msg.plaintext;
                 if(msg.error){
-                    console.log("Failed to decrypt "+msg.cacheKey+": "+msg.error);
+                    console.log("Error decrypting "+msg.cacheKey+": "+msg.error);
+                }
+                if(msg.warnings){
+                    msg.warnings.forEach(function(warn){
+                        console.log("Warning decrypting "+msg.cacheKey+": "+warn);
+                    });
                 }
                 workers[job.worker].numInProgress--;
                 job.callback(msg.plaintext, msg.error);
@@ -225,7 +229,7 @@ function startPgpDecryptWorkers(){
 // * ASCII-armored ciphertext
 // * (optional) ASCII-armored public key for signature verification or null
 // * a callback cb(plaintext)
-function cachedDecodePgp(cacheKey, armoredText, publicKeyArmored, cb){
+function cachedDecryptPgp(cacheKey, armoredText, publicKeyArmored, cb){
     var plain = cache.plaintextCache[cacheKey];
     if (typeof(plain) !== "undefined"){
         cb(plain);
@@ -604,12 +608,15 @@ function showEncryptedBox(boxSummary, box) {
 // Asynchronously decrypts a box (eg inbox and sent). Uses Web Workers.
 function startDecryptingBox(boxSummary, box) {
     getContacts(function() {
+        // Start decrypting the subjects
         boxSummary.EmailHeaders.forEach(decryptSubject);
+        // Start prefetching and decrypting the bodies
+        boxSummary.EmailHeaders.forEach(prefetchAndDecryptThread);
     });
 }
 
 function decryptSubject(h) {
-    cachedDecodePgp(h.MessageID+" subject", h.CipherSubject, null, function(subject){
+    cachedDecryptPgp(h.ThreadID+" subject", h.CipherSubject, null, function(subject){
         if (subject == null) {
             subject = "(Decryption failed)";
         } else if (trim(subject)=="") {
@@ -618,6 +625,13 @@ function decryptSubject(h) {
         $("#subject-"+h.HexMessageID).text(subject);
         $("#subject-header-"+h.HexMessageID).text(subject);
     })
+}
+
+function prefetchAndDecryptThread(h){
+    cachedLoadEmail({msgID:h.MessageID, threadID:h.ThreadID}, function(emailDatas) {
+        console.log("Prefetched thread, # emails: "+emailDatas.length);
+        startDecryptEmailThread(emailDatas); 
+    });
 }
 
 function readNextEmail() {
@@ -744,20 +758,20 @@ function displayEmail(emailHeader) {
     var params = {
         msgID: msgID,
         threadID: threadID,
-        box: viewState.box // not used now, but maybe used in the future.
     };
     cachedLoadEmail(params, function(emailDatas) {
         viewState.emails = emailDatas;
-        showAndDecryptEmailThread(emailDatas);
+
+        // Construct thread element, show placeholders.
+        showEmailThread(emailDatas);
+        // Reply, Fwd buttons, etc
+        bindEmailEvents();
+        // Start decoding. Actual messages appear when this is done.
+        startDecryptEmailThread(emailDatas);
     });
 }
 
-function showAndDecryptEmailThread(emailDatas){
-    // Construct thread element, insert emails
-    showEmailThread(emailDatas);
-    // Reply, Fwd buttons, etc
-    bindEmailEvents();
-    
+function startDecryptEmailThread(emailDatas){
     // Asynchronously verify+decrypt
     var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
     lookupPublicKeys(fromAddrs, function(keyMap, newResolutions) {
@@ -795,7 +809,7 @@ function decryptAndVerifyEmail(data, keyMap) {
         console.log("No key found for "+from+". This email is unverifiable "+
             "regardless of whether it has a signature.");
     }
-    cachedDecodePgp(data.MessageID+" body", data.CipherBody, fromKey, function(plain){
+    cachedDecryptPgp(data.MessageID+" body", data.CipherBody, fromKey, function(plain){
         $("#body-"+bin2hex(data.MessageID)).text(plain);
     });
 }
@@ -808,16 +822,17 @@ function createEmailViewModel(data) {
 
     // The model for rendering the email template
     return {
-        msgID:       data.MessageID,
-        ancestorIDs: data.AncestorIDs,
-        threadID:    data.ThreadID,
-        time:        new Date(data.UnixTime*1000),
-        unixTime:    data.UnixTime,
-        from:        trimToLower(data.From),
-        fromAddress: fromAddress,
-        to:          trimToLower(data.To),
-        toAddresses: toAddresses,
-        hexMsgID:    bin2hex(data.MessageID)
+        msgID:         data.MessageID,
+        ancestorIDs:   data.AncestorIDs,
+        threadID:      data.ThreadID,
+        time:          new Date(data.UnixTime*1000),
+        unixTime:      data.UnixTime,
+        from:          trimToLower(data.From),
+        fromAddress:   fromAddress,
+        to:            trimToLower(data.To),
+        toAddresses:   toAddresses,
+        hexMsgID:      bin2hex(data.MessageID),
+        cipherSubject: data.cipherSubject
         // missing subject, htmlBody, plainBody
         // those are decrypted asynchronously
     };
@@ -872,7 +887,9 @@ function createHyperlinks(text) {
 function emailReply(email) {
     if (!email) return;
     var replyTo = email.fromAddress.name || email.fromAddress.address;
-    displayComposeInline(email, replyTo, email.subject, undefined);
+    cachedDecryptPgp(email.threadID + " subject", email.cipherSubject, null, function(subject){
+        displayComposeInline(email, replyTo, subject, undefined);
+    });
 }
 
 function emailReplyAll(email) {
@@ -1398,24 +1415,6 @@ function sendEmailPost(data, cb, failCb) {
     }).fail(function(xhr) {
         failCb("Sending failed:\n"+xhr.responseText);
     });
-}
-
-// plaintextBody is of the form:
-// ```
-// Subject: <subject line>
-//
-// <body lines...>
-// ```
-//
-// Returns {subject:<subject line>, body:<body...>, ok:<boolean>}
-function parseBody(plaintextBody) {
-    var parts = REGEX_BODY.exec(plaintextBody);
-    if (parts == null) {
-        // for legacy emails
-        return {subject:"(Unknown subject)", body:plaintextBody, ok:false};
-    } else {
-        return {subject:parts[1], body:parts[2], ok:true};
-    }
 }
 
 

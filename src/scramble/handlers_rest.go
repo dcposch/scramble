@@ -215,8 +215,6 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 //  in the given box for the given threadID
 func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	threadID := validateMessageID(r.FormValue("threadID"))
-	// We may need this in the future:
-	_ = validateBox(r.FormValue("box"))
 
 	threadEmails := LoadThread(userID.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
