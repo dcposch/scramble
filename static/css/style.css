@@ -4678,7 +4678,7 @@ body.modal-open,
   -webkit-transition: transform 0.3s ease-out;
   transition: transform 0.3s ease-out;
 }
-.modal.in .modal-dialog {
+.modal.in.modal-dialog {
   -webkit-transform: translate(0, 0);
   -ms-transform: translate(0, 0);
   transform: translate(0, 0);
@@ -5744,7 +5744,7 @@ hr.invis {
   left: 0;
   bottom: 0;
   width: 400px;
-  overflow: scroll;
+  overflow-y: scroll;
 }
 .main-panel {
   position: fixed;
@@ -5753,8 +5753,9 @@ hr.invis {
   top: 80px;
   left: 400px;
   bottom: 0;
-  width: 600px;
-  overflow: scroll;
+  right: 0;
+  min-width: 600px;
+  overflow-y: scroll;
 }
 .navbar-inverse .navbar-brand {
   color: #fff !important;
@@ -5771,7 +5772,7 @@ hr.invis {
 }
 .scrolltainer {
   bottom: 0;
-  overflow: scroll;
+  overflow-y: scroll;
   position: relative;
 }
 .scroller {
@@ -5780,7 +5781,7 @@ hr.invis {
   bottom: 85px;
   left: 15px;
   right: 15px;
-  overflow: scroll;
+  overflow-y: scroll;
 }
 .form-signin {
   margin-top: 10%;

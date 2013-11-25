@@ -12,7 +12,6 @@ hr.invis
   border none
   margin none
   padding-left 0
-  // height 100%
   width 100%
 
 .invis-input-group
@@ -38,7 +37,7 @@ $sidebar-percent-width = 40%
   left 0
   bottom 0
   width 400px
-  overflow scroll
+  overflow-y scroll
 
 .main-panel
   position fixed
@@ -47,8 +46,9 @@ $sidebar-percent-width = 40%
   top $nav-height
   left 400px
   bottom 0
-  width 600px
-  overflow scroll
+  right 0
+  min-width 600px
+  overflow-y scroll
 
 .navbar-inverse
   .navbar-brand
@@ -64,17 +64,9 @@ $sidebar-percent-width = 40%
 .capitalize
   text-transform capitalize
 
-// .sidebar
-//   // positison fixed
-//   overflow scroll
-
-// .main-panel
-//   overflow scroll
-//   max-height 100%
-
 .scrolltainer
   bottom 0
-  overflow scroll
+  overflow-y scroll
   position relative
 
 .scroller
@@ -83,7 +75,7 @@ $sidebar-percent-width = 40%
   bottom 85px
   left ($grid-gutter-width / 2)
   right ($grid-gutter-width / 2)
-  overflow scroll
+  overflow-y scroll
 
 .form-signin
   margin-top 10%
@@ -112,9 +104,6 @@ $sidebar-percent-width = 40%
     left 45%
     right 45%
     top -5px
-
-// .modal-dialog
-//   position relative
 
 .spinner-overlay
   position absolute

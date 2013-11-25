@@ -86,7 +86,13 @@ func deliverMailLocally(msg *SMTPMessage) error {
 
 	err := SaveMessage(email)
 	if err == nil {
-		// all good
+		// all good, add to inbox locally
+		for _, addr := range msg.rcptTo {
+			AddMessageToBox(email, addr, "inbox")
+		}
+
+		log.Printf("Saved new email %s from %s to %s\n",
+			email.MessageID, email.From, email.To)
 	} else if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
 		// tried to save mail, but the MessageID already exists
 		// this can happen, for example, if you send an email
@@ -102,13 +108,6 @@ func deliverMailLocally(msg *SMTPMessage) error {
 	} else {
 		// unknown error trying to save mail
 		panic(err)
-	}
-	log.Printf("Saved new email %s from %s to %s\n",
-		email.MessageID, email.From, email.To)
-
-	// add to inbox locally
-	for _, addr := range msg.rcptTo {
-		AddMessageToBox(email, addr, "inbox")
 	}
 
 	return nil
