@@ -73,7 +73,7 @@ var SaveMailChan chan *SMTPMessage
 // Private implementation
 
 var emailRegex = regexp.MustCompile(`<(.+?)>`)
-var mimeHeaderRegex = regexp.MustCompile(`=\?(.+?)\?([QBqp])\?(.+?)\?=`)
+var mimeHeaderRegex = regexp.MustCompile(`=\?(.+?)\?([QBqb])\?(.+?)\?=`)
 var charsetIllegalCharRegex = regexp.MustCompile(`[_:.\/\\]`)
 
 type client struct {

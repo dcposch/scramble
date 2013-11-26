@@ -215,10 +215,8 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 //  in the given box for the given threadID
 func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	threadID := validateMessageID(r.FormValue("threadID"))
-	// We may need this in the future:
-	_ = validateBox(r.FormValue("box"))
 
-	threadEmails := LoadThreadFromBoxes(userID.EmailAddress, threadID)
+	threadEmails := LoadThread(userID.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
 		http.Error(w, "Not found or unauthorized", http.StatusUnauthorized)
 		return
@@ -301,14 +299,20 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	}
 
 	// This will fail if the client tried to send the same
-	// message twice---because at the point there will be a dupe Message-ID
-	SaveMessage(email)
+	// message twice---because at that point there will be a dupe Message-ID
+	err := SaveMessage(email)
+	if err != nil {
+		w.WriteHeader(500)
+		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+			w.Write([]byte("Already sent."))
+		} else {
+			w.Write([]byte("Error sending mail. Please try again."))
+		}
+		return
+	}
 
 	// Add message to sender's sent box
 	AddMessageToBox(email, userID.EmailAddress, "sent")
-
-	// TODO: separate goroutine?
-	// TODO: parallize mx lookup?
 
 	// Deliver mail locally
 	for mxHost, addrs := range mxHostAddrs {
@@ -325,7 +329,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 
 	// Deliver mail outside synchronously
 	// In the future we may want more advanced logic.
-	err := smtpSend(outgoingEmail)
+	err = smtpSend(outgoingEmail)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
