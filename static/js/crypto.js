@@ -1,6 +1,6 @@
 "use strict";
 
-/* global alert, cache */
+/* global $, alert, cache, constants, openpgp_crypto_symmetricDecrypt, openpgp, util, openpgp_crypto_getPrefixRandom, openpgp_crypto_symmetricEncrypt, scrypt_module_factory*/
 
 
 
@@ -12,7 +12,7 @@ var crypto = function() {
     return {
 
         decryptPrivateKey: function(cipherPrivateKeyHex) {
-          var cipherPrivateKey = hex2bin(cipherPrivateKeyHex),
+          var cipherPrivateKey = util.hex2bin(cipherPrivateKeyHex),
               privateKeyArmored = this.passphraseDecrypt(cipherPrivateKey);
               
           if (!privateKeyArmored) {
@@ -107,6 +107,7 @@ var crypto = function() {
 
                 for (var i=0; i<addresses.length; i++) {
                     var addr = addresses[i];
+                    // JNTTODO: deal with contact situation :(
                     var contact = getContact(addr);
                     if (contact) {
                         if (contact.pubHash) {
@@ -136,7 +137,7 @@ var crypto = function() {
                     needPubKey:    needPubKey.join(","),
                     notaries:      notaries.join(","),
                 };
-                $.post(HOST_PREFIX+"/publickeys/query", params, function(data) {
+                $.post(constants.get("HOST_PREFIX")+"/publickeys/query", params, function(data) {
 
                     var nameResolution = data.nameResolution;
                     var publicKeys =     data.publicKeys;
@@ -168,7 +169,7 @@ var crypto = function() {
                         } else if (result.status == "OK") {
                             var pubKeyArmor = result.pubKey;
                             // check pubKeyArmor against knownHashes.
-                            var computedHash = computePublicHash(pubKeyArmor);
+                            var computedHash = this.computePublicHash(pubKeyArmor);
                             if (computedHash != knownHashes[addr]) {
                                 // this is a serious error. security breach?
                                 var error = "SECURITY WARNING! We received an incorrect key for "+addr;
@@ -273,7 +274,7 @@ var crypto = function() {
                 var missingNotariesForAddress = notaries.filter(function(notary){
                     return !notarized[address] || notarized[address].indexOf(notary) < 0;
                 });
-                if(missingNotariesForAddress.length > MAX_MISSING_NOTARIES){
+                if(missingNotariesForAddress.length > constants.get("MAX_MISSING_NOTARIES")){
                     missingAddresses.push(address);
                 } else {
                     // this address is *NOT* available from at least one notary, or
@@ -282,6 +283,7 @@ var crypto = function() {
                         " from: "+missingNotariesForAddress.join(",")+". " +
                         "However, we got enough responses to proceed.");
                 }
+                // JNTTODO: deal with addAllToSet
                 addAllToSet(missingNotariesForAddress, missingNotaries);
             }
             if(missingAddresses.length > 0){
@@ -294,6 +296,7 @@ var crypto = function() {
 
         // Load list of notaries.
         // cb: function(notaries), notaries: {<host>:<publicKey>, ...}
+        // JNTTODO: deal with viewstate nonsense 
         loadNotaries: function(cb) {
             if (viewState.notaries) {
                 cb(viewState.notaries);
@@ -303,7 +306,7 @@ var crypto = function() {
                 var notaries = this.parseNotaries(data.notaries);
                 cb(notaries);
             } else {
-                $.getJSON(HOST_PREFIX+"/publickeys/notary", function(data) {
+                $.getJSON(constants.get("HOST_PREFIX")+"/publickeys/notary", function(data) {
                     var notaries = this.parseNotaries(data.notaries);
                     if (!notaries) {
                         alert("Failed to retrieve default notaries from server!");
@@ -347,7 +350,7 @@ var crypto = function() {
 
         computeAesKey: function(token, pass) {
             var salt = "2"+token;
-            return hex2bin(computeScrypt(pass, salt, 16)); // 16 bytes = 128 bits
+            return util.hex2bin(this.computeScrypt(pass, salt, 16)); // 16 bytes = 128 bits
         },
 
         // Backcompat only: uses SHA1 to create a AES-128 key (binary)
@@ -361,11 +364,11 @@ var crypto = function() {
         // Returns 160-bit hex
         computeAuth: function(token, pass) {
             var salt = "1"+token;
-            return computeScrypt(pass, salt, 20); // 20 bytes = 160 bits
+            return this.computeScrypt(pass, salt, 20); // 20 bytes = 160 bits
         },
 
         computeScrypt: function(pass, salt, nbytes) {
-            var param = SCRYPT_PARAMS;
+            var param = constants.get("SCRYPT_PARAMS");
             var hash = scrypt.crypto_scrypt(
                     scrypt.encode_utf8(pass),
                     scrypt.encode_utf8(salt),
@@ -388,11 +391,11 @@ var crypto = function() {
                 alert("Missing passphrase. Please log out and back in.");
                 return null;
             }
-            var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128);
+            var prefixRandom = openpgp_crypto_getPrefixRandom(constants.get("ALGO_AES128"));
             plainText = util.encode_utf8(plainText);
             return openpgp_crypto_symmetricEncrypt(
                 prefixRandom,
-                ALGO_AES128,
+                constants.get("ALGO_AES128"),
                 sessionStorage["passKey"],
                 plainText);
         },
@@ -408,14 +411,14 @@ var crypto = function() {
             var plain;
             try {
                 plain = openpgp_crypto_symmetricDecrypt(
-                    ALGO_AES128,
-                    sessionStorage["passKey"], 
+                    constants.get("ALGO_AES128"),
+                    sessionStorage["passKey"],
                     cipherText);
             } catch(e) {
                 // Backcompat: people with old accounts had weaker key derivation
                 plain = openpgp_crypto_symmetricDecrypt(
-                    ALGO_AES128, 
-                    sessionStorage["passKeyOld"], 
+                    constants.get("ALGO_AES128"),
+                    sessionStorage["passKeyOld"],
                     cipherText);
                 console.log("Warning: old account, used backcompat AES key");
             }
@@ -449,10 +452,10 @@ var crypto = function() {
             var cc2 = "2".charCodeAt(0);
             for (var i = 0; i < 16; i++) {
                 var digit =
-                    sha1Bits[i*5]*16 + 
-                    sha1Bits[i*5+1]*8 + 
-                    sha1Bits[i*5+2]*4 + 
-                    sha1Bits[i*5+3]*2 + 
+                    sha1Bits[i*5]*16 +
+                    sha1Bits[i*5+1]*8 +
+                    sha1Bits[i*5+2]*4 +
+                    sha1Bits[i*5+3]*2 +
                     sha1Bits[i*5+4];
                 if (digit < 26) {
                     hash += String.fromCharCode(ccA+digit);
@@ -469,11 +472,11 @@ var crypto = function() {
             return openpgp.read_privateKey(armor);
         },
 
-        getPublicKey: function(fn) {
+        getPublicKey: function() {
             var privateKey = this.getPrivateKey();
             var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey());
             return publicKey;
         }
     
     };
-}
+};
