@@ -1,0 +1,26 @@
+<script id="page-template" type="text/x-handlebars-template">
+  <div>{{token}}</div>
+  <div>{{box_name}}</div>
+  <div class="box"></div>
+</script>
+
+<script id="box-template" type="text/x-handlebars-template">
+  <div class="box">
+    <ul class="pagination">
+    {{#each pages}}
+        <li>{{num}}</li>
+    {{/each}}
+    </ul>
+    <ul class="headers">
+      {{#each headers}}
+        {{> box-header-partial}}
+      {{/each}}
+    </ul>
+  </div>
+</script>
+
+<script id="box-header-partial" type="text/x-handlebars-template">
+  <li class="header" data-id="{{header_id}}">
+    <span class="subject">{{subject}}</span>
+  </li>
+</script>
