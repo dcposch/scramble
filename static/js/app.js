@@ -1,3 +1,5 @@
+"use strict";
+
 //
 // SCRAMBLE.IO
 // Secure email for everyone
