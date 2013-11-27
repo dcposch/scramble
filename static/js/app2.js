@@ -12,6 +12,7 @@ var app = new App();
 $.route(function(hash) {
   //check if logged in
   if (!(page.data.token && page.data.passKey)) {
+    crypto.startPgpDecryptWorkers();
     return displayLogin();
   }
 

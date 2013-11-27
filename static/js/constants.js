@@ -1,5 +1,5 @@
 'use strict';
-//Tucking these away in a closure to keep people from messing with them
+// Tucking these away in a closure to keep people from messing with them
 var constants = (function() {
   var data = {
     KEY_TYPE_RSA: 1,
@@ -43,5 +43,6 @@ var constants = (function() {
     get: function(name) {
       return data[name];
     }
+    // No setter function.
   };
 })();

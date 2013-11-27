@@ -1,24 +1,30 @@
 "use strict";
 
-/* global $, alert, cache, constants, openpgp_crypto_symmetricDecrypt, openpgp, util, openpgp_crypto_getPrefixRandom, openpgp_crypto_symmetricEncrypt, scrypt_module_factory*/
+/* global $, alert, cache, constants, openpgp_crypto_symmetricDecrypt, openpgp, util, openpgp_crypto_getPrefixRandom, openpgp_crypto_symmetricEncrypt, scrypt_module_factory */
 
 
 
 var crypto = function() {
     var workers = [],
         pendingDecryption = {},
-        scrypt = scrypt_module_factory();
+        scrypt = scrypt_module_factory(),
+        self = this,
+        cache = {};
+
+        cache.keyMap = {}; // email address -> notarized public key
+        cache.plaintextCache = {}; // cache key -> plaintext
 
     return {
 
         decryptPrivateKey: function(cipherPrivateKeyHex) {
-          var cipherPrivateKey = util.hex2bin(cipherPrivateKeyHex),
-              privateKeyArmored = this.passphraseDecrypt(cipherPrivateKey);
+            var cipherPrivateKey = util.hex2bin(cipherPrivateKeyHex),
+                privateKeyArmored = self.passphraseDecrypt(cipherPrivateKey);
               
-          if (!privateKeyArmored) {
-            alert("Can't decrypt our own private key. Please refresh and try again.");
-          }
-          return privateKeyArmored;
+            if (!privateKeyArmored) {
+                alert("Can't decrypt our own private key. Please refresh and try again.");
+            }
+            
+            return privateKeyArmored;
         },
 
         // Starts web workers
@@ -98,7 +104,7 @@ var crypto = function() {
             var keyMap = {};         // {<address>: {pubHash, pubKeyArmor, pubKey || error}
             var newResolutions = []; // [{address,pubHash}]
 
-            this.loadNotaries(function(notaryKeys) {
+            self.loadNotaries(function(notaryKeys) {
 
                 var needResolution = []; // addresses that need to be notarized
                 var needPubKey = []; // addresses for which we need pubkeys
@@ -144,7 +150,7 @@ var crypto = function() {
 
                     // verify notary responses
                     if (needResolution.length > 0) {
-                        var res = this.verifyNotaryResponses(notaryKeys, needResolution, nameResolution);
+                        var res = self.verifyNotaryResponses(notaryKeys, needResolution, nameResolution);
                         // TODO improve error handling
                         if (res.errors.length > 0) {
                             alert(res.errors.join("\n\n"));
@@ -169,7 +175,7 @@ var crypto = function() {
                         } else if (result.status == "OK") {
                             var pubKeyArmor = result.pubKey;
                             // check pubKeyArmor against knownHashes.
-                            var computedHash = this.computePublicHash(pubKeyArmor);
+                            var computedHash = self.computePublicHash(pubKeyArmor);
                             if (computedHash != knownHashes[addr]) {
                                 // this is a serious error. security breach?
                                 var error = "SECURITY WARNING! We received an incorrect key for "+addr;
@@ -243,7 +249,7 @@ var crypto = function() {
                         errors.push("Unsolicited notary response from "+notary+" for "+address);
                         continue;
                     }
-                    if (!this.verifyNotarySignature(addressRes, notaryPublicKey)) {
+                    if (!self.verifyNotarySignature(addressRes, notaryPublicKey)) {
                         // This is a serious error in terms of security.
                         // Handle with care.
                         errors.push("Invalid notary response from "+notary+" for "+address);
@@ -303,11 +309,11 @@ var crypto = function() {
 
             } else if (sessionStorage["/publickeys/notary"]) {
                 var data = JSON.parse(sessionStorage["/publickeys/notary"]);
-                var notaries = this.parseNotaries(data.notaries);
+                var notaries = self.parseNotaries(data.notaries);
                 cb(notaries);
             } else {
                 $.getJSON(constants.get("HOST_PREFIX")+"/publickeys/notary", function(data) {
-                    var notaries = this.parseNotaries(data.notaries);
+                    var notaries = self.parseNotaries(data.notaries);
                     if (!notaries) {
                         alert("Failed to retrieve default notaries from server!");
                         return;
@@ -350,7 +356,7 @@ var crypto = function() {
 
         computeAesKey: function(token, pass) {
             var salt = "2"+token;
-            return util.hex2bin(this.computeScrypt(pass, salt, 16)); // 16 bytes = 128 bits
+            return util.hex2bin(self.computeScrypt(pass, salt, 16)); // 16 bytes = 128 bits
         },
 
         // Backcompat only: uses SHA1 to create a AES-128 key (binary)
@@ -364,7 +370,7 @@ var crypto = function() {
         // Returns 160-bit hex
         computeAuth: function(token, pass) {
             var salt = "1"+token;
-            return this.computeScrypt(pass, salt, 20); // 20 bytes = 160 bits
+            return self.computeScrypt(pass, salt, 20); // 20 bytes = 160 bits
         },
 
         computeScrypt: function(pass, salt, nbytes) {
@@ -473,7 +479,7 @@ var crypto = function() {
         },
 
         getPublicKey: function() {
-            var privateKey = this.getPrivateKey();
+            var privateKey = self.getPrivateKey();
             var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey());
             return publicKey;
         }

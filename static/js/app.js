@@ -117,8 +117,8 @@ viewState.notaries = null; // notaries that client trusts.
 // Maps email addresses to OpenPGP public key objects
 var cache = {};
 cache.keyMap = {}; // email address -> notarized public key
-cache.emailCache = {};
 cache.plaintextCache = {}; // cache key -> plaintext
+cache.emailCache = {};
 
 
 //
@@ -1930,7 +1930,7 @@ function verifyNotarySignature(notaryRes, notaryPublicKey) {
 // Returns 128-bit binary
 var scrypt = scrypt_module_factory();
 function computeAesKey(token, pass) {
-    var salt = "2"+token;
+    var salt = "2" + token;
     return hex2bin(computeScrypt(pass, salt, 16)); // 16 bytes = 128 bits
 }
 

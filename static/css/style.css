@@ -4678,7 +4678,7 @@ body.modal-open,
   -webkit-transition: transform 0.3s ease-out;
   transition: transform 0.3s ease-out;
 }
-.modal.in.modal-dialog {
+.modal.in .modal-dialog {
   -webkit-transform: translate(0, 0);
   -ms-transform: translate(0, 0);
   transform: translate(0, 0);
