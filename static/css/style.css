@@ -5840,6 +5840,9 @@ hr.invis {
   -o-animation: spin 3s linear infinite;
   animation: spin 3s linear infinite;
 }
+.js-box-item.js-unread {
+  font-weight: bold;
+}
 @-moz-keyframes spin {
   0% {
     -webkit-transform: rotate(0deg);

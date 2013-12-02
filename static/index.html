@@ -176,7 +176,7 @@
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
         <li id="subject-{{HexMessageID}}" 
-            class="js-box-item list-group-item"
+            class="js-box-item list-group-item {{#if IsRead}}js-read{{else}}js-unread{{/if}}"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
             data-time="{{UnixTime}}"
@@ -240,7 +240,7 @@
     <div class="js-email" data-msg-id="{{msgID}}">
         <div class="panel panel-default">
             <div class="panel-heading">
-                <small class="received pull-right">{{formatDate time format="MMM D YYYY, hh:mm"}}</small>
+                <small class="received pull-right">{{formatDate time format="MMM D YYYY, HH:mm"}}</small>
                 <div class="from">
                     {{> email-address-partial fromAddress}}
                 </div>

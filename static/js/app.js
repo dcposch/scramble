@@ -272,8 +272,8 @@ var keyMap = {
     "r":function(){emailReply(viewState.getLastEmailFromAnother())},
     "a":function(){emailReplyAll(viewState.getLastEmail())},
     "f":function(){emailForward(viewState.getLastEmail())},
-    "y":function(){emailMove(viewState.getLastEmail(), "archive", true)},
-    "d":function(){emailMove(viewState.getLastEmail(), "trash", true)},
+    "y":function(){threadMove(viewState.getLastEmail(), "archive")},
+    "d":function(){threadMove(viewState.getLastEmail(), "trash")},
 };
 
 function bindKeyboardShortcuts() {
@@ -673,9 +673,6 @@ function bindEmailEvents() {
     $(".js-email-control .js-reply-button").click(withEmail(emailReply));
     $(".js-email-control .js-reply-all-button").click(withEmail(emailReplyAll));
     $(".js-email-control .js-forward-button").click(withEmail(emailForward));
-    $(".js-email-control .js-archive-button").click(withEmail(function(email){emailMove(email, "archive", false)}));
-    $(".js-email-control .js-move-to-inbox-button").click(withEmail(function(email){emailMove(email, "inbox", false)}));
-    $(".js-email-control .js-delete-button").click(withEmail(function(email){emailMove(email, "trash", false)}));
     $(".email .js-enter-add-contact-button").click(addContact);
 
     var withLastEmail = function(cb) {
@@ -692,9 +689,9 @@ function bindEmailEvents() {
     $(".js-thread-control .js-reply-button").click(withLastEmailFromAnother(emailReply));
     $(".js-thread-control .js-reply-all-button").click(withLastEmail(emailReplyAll));
     $(".js-thread-control .js-forward-button").click(withLastEmail(emailForward));
-    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){emailMove(email, "archive", true)}));
-    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){emailMove(email, "inbox", true)}));
-    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){emailMove(email, "trash", true)}));
+    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){threadMove(email, "archive")}));
+    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){threadMove(email, "inbox")}));
+    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){threadMove(email, "trash")}));
 }
 
 function addContact() {
@@ -832,6 +829,7 @@ function createEmailViewModel(data) {
         to:            trimToLower(data.To),
         toAddresses:   toAddresses,
         hexMsgID:      bin2hex(data.MessageID),
+        isRead:        data.IsRead,
         cipherSubject: data.cipherSubject
         // missing subject, htmlBody, plainBody
         // those are decrypted asynchronously
@@ -839,8 +837,14 @@ function createEmailViewModel(data) {
 }
 
 function showEmailThread(emailDatas) {
-    // Construct view modls
+    // Construct view models
     var emails = emailDatas.map(createEmailViewModel);
+    
+    // Mark as read
+    // (any more recent emails on the same thread will not be marked)
+    markAsRead(emails, true);
+    
+    // Render HTML
     var tid = emails[emails.length-1].threadID;
     var subj = cache.plaintextCache[tid+" subject"]
     var thread = {
@@ -858,6 +862,35 @@ function showEmailThread(emailDatas) {
     }
 
     $("#content").empty().append(elThread);
+}
+
+function markAsRead(emails, isRead){
+	var msgID = emails[emails.length-1].msgID;
+	var hexMsgID = emails[emails.length-1].hexMsgID;
+
+	// Update the view models
+	var changed = false;
+	for(var i = 0; i < emails.length; i++){
+		changed |= (emails[i].isRead != isRead);
+		emails[i].isRead = isRead;
+	}
+	
+	// Update the view
+	$("#subject-"+hexMsgID)
+		.addClass("js-read")
+		.removeClass("js-unread");
+	
+	// Persist the read/unread status
+    $.ajax({
+        url: HOST_PREFIX+'/email/'+encodeURI(msgID),
+        type: 'PUT',
+        data: {isRead: isRead},
+    }).done(function() {
+        // Marked as read
+    }).fail(function(xhr) {
+        console.log("Marking thread for "+msgID+" as "+
+        	(isRead?"read":"unread")+" failed: "+xhr.responseText);
+    });
 }
 
 // Turns URLS into links in the plaintext.
@@ -917,49 +950,35 @@ function emailForward(email) {
     displayComposeInline(email, "", email.subject, email.plainBody);
 }
 
-// email: the email object
-// moveThread: if true, moves all emails in box for thread up to email.unixTime.
-//  (that way, server doesn't move new emails that the user hasn't seen)
-function emailMove(email, box, moveThread) {
+// Moves all emails in box for thread up to email.unixTime.
+// That way, server doesn't move new emails that the user hasn't seen.
+function threadMove(email, box) {
     if (keepUnsavedWork()) { return; }
     // Do nothing if already moved.
-    if (email._movedThread || (email._moved && !moveThread)) {
+    if (email._movedThread) {
         return;
     }
     // Confirm if deleting
     if (box == "trash") {
-        if (moveThread) {
-            if (!confirm("Are you sure you want to delete this thread?")) return;
-        } else {
-            if (!confirm("Are you sure you want to delete this email?")) return;
-        }
+		if (!confirm("Are you sure you want to delete this thread?")) return;
     }
     // Disable buttons while moving
-    email._moved = true;
-    email._movedThread = moveThread;
+    email._movedThread = true;
     var elEmail = getEmailElement(email.msgID);
     var elThread = elEmail.closest("#thread");
-    if (moveThread) {
-        elThread.find(".js-thread-control button").prop("disabled", true);
-    } else {
-        elEmail.find(".js-email-control button").prop("disabled", true);
-    }
+	elThread.find(".js-thread-control button").prop("disabled", true);
+    
     // Send request
     var params = {
-        box: box,
-        moveThread: (moveThread || false)
+        box: box
     };
     $.ajax({
         url: HOST_PREFIX+'/email/'+encodeURI(email.msgID),
         type: 'PUT',
         data: params,
     }).done(function() {
-        if (moveThread) {
-            $("#thread").remove();
-            showNextThread();
-        } else {
-            removeEmailFromThread(email);
-        }
+        $("#thread").remove();
+        showNextThread();
         displayStatus("Moved to "+box);
     }).fail(function(xhr) {
         alert("Move to "+box+" failed: "+xhr.responseText);
@@ -973,18 +992,6 @@ function getEmailElement(msgID) {
         return;
     }
     return elEmail;
-}
-
-// Remove the email from the thread.
-// If thread is empty, show the next thread.
-function removeEmailFromThread(email) {
-    var elEmail = getEmailElement(email.msgID);
-    var elThread = elEmail.closest("#thread");
-    elEmail.remove();
-    // If this thread has no emails left, then show the next thread.
-    if (elThread.find("#thread-emails .js-email").length == 0) {
-        showNextThread();
-    }
 }
 
 function showNextThread() {

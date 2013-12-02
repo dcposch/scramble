@@ -27,6 +27,7 @@ type EmailHeader struct {
 	UnixTime      int64
 	From          string
 	To            string
+	IsRead        bool
 	CipherSubject string
 }
 

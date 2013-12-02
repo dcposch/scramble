@@ -205,7 +205,7 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	if r.Method == "GET" {
 		emailFetchHandler(w, r, userID)
 	} else if r.Method == "PUT" {
-		emailBoxHandler(w, r, userID)
+		emailPutHandler(w, r, userID)
 	} else if r.Method == "POST" {
 		emailSendHandler(w, r, userID)
 	}
@@ -229,24 +229,23 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 }
 
 // PUT /email/id can change things about an email, eg what box it's in
-func emailBoxHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+func emailPutHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	id := validateMessageID(r.URL.Path[len("/email/"):])
-	newBox := validateBox(r.FormValue("box"))
-	moveThread := (r.FormValue("moveThread") == "true")
+	if r.FormValue("box") != "" {
+		newBox := validateBox(r.FormValue("box"))
+		threadMoveBox(id, userID, newBox)
+	}
+	if r.FormValue("isRead") != "" {
+		isRead := r.FormValue("isRead") == "true"
+		ThreadMarkAsRead(userID.EmailAddress, id, isRead)
+	}
+}
 
-	// For now just delete emails instead of moving to "trash".
+func threadMoveBox(id string, userID *UserID, newBox string) {
 	if newBox == "trash" {
-		if moveThread {
-			DeleteThreadFromBoxes(userID.EmailAddress, id)
-		} else {
-			DeleteFromBoxes(userID.EmailAddress, id)
-		}
+		DeleteThreadFromBoxes(userID.EmailAddress, id)
 	} else {
-		if moveThread {
-			MoveThread(userID.EmailAddress, id, newBox)
-		} else {
-			MoveEmail(userID.EmailAddress, id, newBox)
-		}
+		MoveThread(userID.EmailAddress, id, newBox)
 	}
 }
 
@@ -266,9 +265,9 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 
 	// fail immediately if any address cannot be resolved.
 	if len(failedHostAddrs) != 0 {
-		// TODO: better error handling
+		errMessage := fmt.Sprintf("MX record lookup failed for %v", failedHostAddrs.String())
 		w.WriteHeader(500)
-		w.Write([]byte(fmt.Sprintf("MX record lookup failed for %v", failedHostAddrs.String())))
+		w.Write([]byte(errMessage))
 		return
 	}
 
@@ -720,5 +719,14 @@ func reverseQueryHandler(w http.ResponseWriter, r *http.Request, userID *UserID)
 	if err != nil {
 		panic(err)
 	}
+	w.Write(resJSON)
+}
+
+func writeJson(w http.ResponseWriter, res *interface{}) {
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		panic(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(resJSON)
 }

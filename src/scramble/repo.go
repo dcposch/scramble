@@ -206,7 +206,7 @@ func SaveContacts(token string, cipherContacts string) {
 // That are encrypted for a given user
 func LoadBox(address string, box string, offset, limit int) []EmailHeader {
 	rows, err := db.Query("SELECT m.message_id, m.unix_time, "+
-		" m.from_email, m.to_email, m.cipher_subject, m.thread_id "+
+		" m.from_email, m.to_email, b.is_read, m.cipher_subject, m.thread_id "+
 		" FROM email AS m INNER JOIN box AS b "+
 		" ON b.message_id = m.message_id "+
 		" WHERE b.address = ? and b.box=? "+
@@ -223,9 +223,9 @@ func LoadBox(address string, box string, offset, limit int) []EmailHeader {
 // Like LoadBox(), but only returns the latest mail in the box for each thread.
 func LoadBoxByThread(address string, box string, offset, limit int) []EmailHeader {
 	rows, err := db.Query("SELECT e.message_id, e.unix_time, "+
-		"e.from_email, e.to_email, e.cipher_subject, e.thread_id "+
+		"e.from_email, e.to_email, m.is_read, e.cipher_subject, e.thread_id "+
 		"FROM email AS e INNER JOIN ( "+
-		"    SELECT box.message_id FROM box INNER JOIN ( "+
+		"    SELECT box.message_id, box.is_read FROM box INNER JOIN ( "+
 		"        SELECT MAX(unix_time) AS unix_time, thread_id FROM box "+
 		"        WHERE address = ? AND box = ? GROUP BY thread_id "+
 		"        ORDER BY unix_time DESC "+
@@ -263,6 +263,7 @@ func rowsToHeaders(rows *sql.Rows) []EmailHeader {
 			&header.UnixTime,
 			&header.From,
 			&header.To,
+			&header.IsRead,
 			&header.CipherSubject,
 			&header.ThreadID,
 		)
@@ -507,6 +508,25 @@ func MoveThread(address string, messageID string, newBox string) {
 	}
 	if rows == 0 {
 		log.Panicf("Expected to move at least one message (%v/%v), found none", address, messageID)
+	}
+}
+
+// Marks a given set of emails as read (or unread)
+func ThreadMarkAsRead(address string, messageID string, isRead bool) {
+	_, err := db.Exec(
+		"UPDATE box AS b "+
+			"INNER JOIN ( "+
+			"SELECT thread_id, unix_time FROM email "+
+			"WHERE message_id = ? "+
+			") AS e ON "+
+			"b.thread_id = e.thread_id "+
+			"SET is_read = ? "+
+			"WHERE "+
+			"b.address = ? AND "+
+			"b.unix_time <= e.unix_time",
+		messageID, isRead, address)
+	if err != nil {
+		panic(err)
 	}
 }
 

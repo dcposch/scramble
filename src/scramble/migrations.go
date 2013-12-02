@@ -25,6 +25,7 @@ var migrations = []func() error{
 	migrateAddNameResolutionTimestamp,
 	migrateBoxRemoveError,
 	migrateAddUserSecondaryEmail,
+	migrateAddUnreadEmail,
 }
 
 func migrateDb() {
@@ -438,6 +439,13 @@ func migrateBoxRemoveError() error {
 func migrateAddUserSecondaryEmail() error {
 	_, err := db.Exec(`ALTER TABLE user ADD COLUMN
         secondary_email VARCHAR(254) NOT NULL
+	`)
+	return err
+}
+
+func migrateAddUnreadEmail() error {
+	_, err := db.Exec(`ALTER TABLE box ADD COLUMN
+		is_read BOOLEAN NOT NULL DEFAULT FALSE;
 	`)
 	return err
 }
