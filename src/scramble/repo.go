@@ -225,20 +225,15 @@ func LoadBoxByThread(address string, box string, offset, limit int) []EmailHeade
 	rows, err := db.Query("SELECT e.message_id, e.unix_time, "+
 		"e.from_email, e.to_email, m.is_read, e.cipher_subject, e.thread_id "+
 		"FROM email AS e INNER JOIN ( "+
-		"    SELECT box.message_id, box.is_read FROM box INNER JOIN ( "+
-		"        SELECT MAX(unix_time) AS unix_time, thread_id FROM box "+
-		"        WHERE address = ? AND box = ? GROUP BY thread_id "+
-		"        ORDER BY unix_time DESC "+
-		"        LIMIT ?, ? "+
-		"        ) AS max ON "+
-		"        max.unix_time = box.unix_time AND "+
-		"        max.thread_id = box.thread_id AND "+
-		"        box.address = ? AND box.box = ? "+
+		"    SELECT MAX(message_id) as message_id, MIN(is_read) as is_read FROM box "+
+		"       WHERE address=? AND box=? "+
+		"       GROUP BY thread_id "+
+		"       ORDER BY unix_time DESC "+
+		"       LIMIT ?, ? "+
 		") AS m ON e.message_id = m.message_id "+
 		"ORDER BY e.unix_time DESC ",
 		address, box,
 		offset, limit,
-		address, box,
 	)
 	if err != nil {
 		panic(err)
