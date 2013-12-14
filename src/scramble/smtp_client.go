@@ -61,24 +61,26 @@ func smtpSend(msg *OutgoingEmail) error {
 	// TODO: parallel send?
 
 	errs := []string{}
-	for mxHost, addrs := range mxHostAddrs {
-		if mxHost == GetConfig().SMTPMxHost {
-			continue // don't send to self, local deliveries use different logic.
-		}
-		err := smtpSendTo(msg, mxHost, addrs)
-		if err != nil {
-			errMsg := err.Error()
-			if strings.HasPrefix(errMsg, "550 5.1.1 ") {
-				errMsg = errMsg[len("550 5.1.1 "):]
+	for mxHost, addrLists := range mxHostAddrs {
+		for _, addrs := range addrLists {
+			if mxHost == GetConfig().SMTPMxHost {
+				continue // don't send to self, local deliveries use different logic.
 			}
-			if strings.HasSuffix(errMsg, ". Please try") {
-				// Make the message a bit nicer for nonexistent email recipients
-				errMsg = errMsg[:len(errMsg)-len(". Please try")]
+			err := smtpSendTo(msg, mxHost, addrs)
+			if err != nil {
+				errMsg := err.Error()
+				if strings.HasPrefix(errMsg, "550 5.1.1 ") {
+					errMsg = errMsg[len("550 5.1.1 "):]
+				}
+				if strings.HasSuffix(errMsg, ". Please try") {
+					// Make the message a bit nicer for nonexistent email recipients
+					errMsg = errMsg[:len(errMsg)-len(". Please try")]
+				}
+				errs = append(errs, fmt.Sprintf("Couldn't send mail to %v: %s\n",
+					addrs, errMsg))
+			} else {
+				log.Printf("Email sent to \n", mxHost)
 			}
-			errs = append(errs, fmt.Sprintf("Couldn't send mail to %v: %s\n",
-				addrs, errMsg))
-		} else {
-			log.Printf("Email sent to \n", mxHost)
 		}
 	}
 	if len(errs) > 0 {

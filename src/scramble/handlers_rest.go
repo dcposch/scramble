@@ -261,7 +261,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	email.To = r.FormValue("to")
 
 	// for each address, lookup MX record & determine what to do.
-	mxHostAddrs, failedHostAddrs := ParseEmailAddresses(email.To).GroupByMxHost()
+	mxHostAddrs, failedHostAddrs := ParseEmailAddresses(email.To).GroupByMxHostFlat()
 
 	// fail immediately if any address cannot be resolved.
 	if len(failedHostAddrs) != 0 {
@@ -468,7 +468,7 @@ func publicKeysHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse & prepare parameters
 	needResolution := ParseEmailAddresses(r.FormValue("needResolution"))
 	needPubKey := ParseEmailAddresses(r.FormValue("needPubKey"))
-	needPubKeyByMxHost, needPubKeyFailedAddrs := needPubKey.GroupByMxHost()
+	needPubKeyByMxHost, needPubKeyFailedAddrs := needPubKey.GroupByMxHostFlat()
 	notaries := strings.Split(r.FormValue("notaries"), ",")
 	for _, notary := range notaries {
 		validateHost(notary)

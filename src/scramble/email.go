@@ -161,16 +161,16 @@ func (addrs EmailAddresses) GroupByHost() map[string]EmailAddresses {
 
 // Like GroupByHost, but resolves the hostname to Mx host.
 // The second return value is an array of all addresses that couldn't be resolved.
-func (addrs EmailAddresses) GroupByMxHost() (map[string]EmailAddresses, EmailAddresses) {
+func (addrs EmailAddresses) GroupByMxHost() (map[string][]EmailAddresses, EmailAddresses) {
 	hostAddrs := addrs.GroupByHost()
-	mxHostAddrs := map[string]EmailAddresses{}
+	mxHostAddrs := map[string][]EmailAddresses{}
 	failedAddrs := EmailAddresses{}
 	for host, addrs := range hostAddrs {
 		var mxHost string
 		// Skip lookup for self
 		// This helps with localhost testing
 		if host == GetConfig().SMTPMxHost {
-			mxHostAddrs[host] = append(mxHostAddrs[host], addrs...)
+			mxHostAddrs[host] = append(mxHostAddrs[host], addrs)
 			continue
 		}
 		// Lookup Mx record
@@ -178,10 +178,23 @@ func (addrs EmailAddresses) GroupByMxHost() (map[string]EmailAddresses, EmailAdd
 		if err != nil {
 			failedAddrs = append(failedAddrs, addrs...)
 		} else {
-			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs...)
+			mxHostAddrs[mxHost] = append(mxHostAddrs[mxHost], addrs)
 		}
 	}
 	return mxHostAddrs, failedAddrs
+}
+
+func (addrs EmailAddresses) GroupByMxHostFlat() (map[string]EmailAddresses, EmailAddresses) {
+	mxHostAddrs, failedAddrs := addrs.GroupByMxHost()
+	ret := make(map[string]EmailAddresses)
+	for mxHost, addrLists := range mxHostAddrs {
+		allAddrs := EmailAddresses{}
+		for _, addrs := range addrLists {
+			allAddrs = append(allAddrs, addrs...)
+		}
+		ret[mxHost] = allAddrs
+	}
+	return ret, failedAddrs
 }
 
 //
