@@ -159,7 +159,7 @@ function main() {
     }
 }
 
-function login(){
+function login(failureCb){
     $.get(HOST_PREFIX+"/user/me", function(data){
         // (first load after login)
         sessionStorage["emailAddress"] = data.EmailAddress;
@@ -169,8 +169,13 @@ function login(){
         startPgpDecryptWorkers();
 
         loadDecryptAndDisplayBox("inbox");
-    }, "json").fail(function(){
-        alert("Login failed. Please refresh and try again.");
+    }, "json").fail(function(xhr){
+        clearCredentials(); 
+        if(failureCb){
+            failureCb(xhr.responseText);
+        } else {
+            alert("Login failed. Please refresh and try again.");
+        }
     })
 }
 
@@ -400,7 +405,9 @@ function bindLoginEvents() {
         var token = $("#token").val();
         var pass = $("#pass").val();
         setAuthTokens(token, pass);
-        login();
+        login(function(err){
+            $(".error-signin").text(err);
+        });
     });
 
     var keys = null;
@@ -636,10 +643,10 @@ function prefetchAndDecryptThread(h){
 
 function readNextEmail() {
     var msg;
-    if ($(".current").length == 0) {
-        msg = $("li").first();
+    if ($(".js-box-item.active").length == 0) {
+        msg = $(".js-box-item").first();
     } else {
-        msg = $(".current").next();
+        msg = $(".js-box-item.active").next();
     }
     if (msg.length > 0) {
         displayEmail(msg);
@@ -647,7 +654,7 @@ function readNextEmail() {
 }
 
 function readPrevEmail() {
-    var msg = $(".current").prev();
+    var msg = $(".js-box-item.active").prev();
     if (msg.length > 0) {
         displayEmail(msg);
     }
