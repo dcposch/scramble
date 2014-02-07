@@ -450,9 +450,9 @@ function displayCreateAccountModal() {
         keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
-        // Change "Generating..." to "Done", explain what's going on to the user
-        $(".js-spinner").css("display", "none");
-        $("#createForm").css("display", "block");
+        // Show the user progress
+        $(".js-generating-keys").text("Done!");
+        $("#createButton").prop("disabled", false);
 
         // call cb, the user had already pressed the create button
         if (cb) { cb() }

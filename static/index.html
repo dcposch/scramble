@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Scramble.io</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css"></link>
     <link rel="stylesheet" href="/css/style.css"></link>
 </head>
 <body>
@@ -13,16 +14,18 @@
     <div class="container">
         <div class="row">
             <div class="form-signin center-block text-center" id="login">
-                <h1 class="text-center"><img src="./img/black_rubik.svg" class="logo-img"/>Scramble</h1>
+                <img src="./img/black_rubik.svg" class="logo-img"/>
+                <h1 class="text-center">Scramble</h1>
                 <h3 class="text-center">Encrypted email for everyone</h3>
                 <hr class="invis"/>
                 <input type="text" class="form-control" placeholder="Username" required="" autofocus="" id="token">
                 <br />
-                <input type="password" class="form-control" placeholder="Password" required="" id="pass">
-                <hr />
+                <input type="password" class="form-control" placeholder="Passphrase" required="" id="pass">
+                <br />
                 <button class="btn btn-lg btn-default btn-block" type="submit" id="enterButton">Sign in</button>
+                <br />
                 <div class="error-signin text-danger"></div>
-                <div class="strike"><hr/><div class="label">or</div></div>
+                <div class="strike"><hr/><span>or</span></div>
                 <button class="btn btn-lg btn-primary btn-block" type="submit" id="generateButton">Create Account</button>
                 <small>
                     <hr class="invis"/>
@@ -48,26 +51,33 @@
                     <h4 class="modal-title">Welcome to Scramble!</h4>
                 </div>
 
-                <div class="js-spinner spinner-overlay">
-                    {{!-- <img src="spinner.gif" /> --}}
-                    <div class="spinner"></div>
-                    <h2>Generating PGP keys...</h2>
-                </div>
 
-                <div class="modal-body" id="createForm">
+                <div class="modal-body form-horizontal" id="createForm">
+
+                    <div class="text-center">
+                        <em class="js-generating-keys">Generating PGP keys...</em>
+                    </div>
+                    <br/>
+
                     <div class="form-group">
-                        <label for="createToken">Username</label>
-                        <input type="text" class="form-control" id="createToken" placeholder="Username">
+                        <label for="createToken" class="col-sm-3 control-label">Username</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="createToken" />
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="createPass">Password</label>
-                        <input type="password" class="form-control" id="createPass" placeholder="Password">
+                        <label for="createPass" class="col-sm-3 control-label">Password</label>
+                        <div class="col-sm-9">
+                            <input type="password" class="form-control" id="createPass" />
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="confirmPass">Confirm Password</label>
-                        <input type="password" class="form-control" id="confirmPass" placeholder="Password">
+                        <label for="confirmPass" class="col-sm-3 control-label">Confirm Password</label>
+                        <div class="col-sm-9">
+                            <input type="password" class="form-control" id="confirmPass" />
+                        </div>
                     </div>
 
                     <p class="help-block">Please choose a strong passphrase and don't forget it.<br/>
@@ -76,8 +86,10 @@
                     </p>
 
                     <div class="form-group">
-                        <label for="secondaryEmail">Secondary Email</label>
-                        <input type="text" class="form-control" id="secondaryEmail" placeholder="Secondary Email">
+                        <label for="secondaryEmail" class="col-sm-3 control-label">Secondary Email</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="secondaryEmail" />
+                        </div>
                     </div>
 
                     <p class="help-block">If you give us your other email, we'll keep you updated on our progress.<br/>
@@ -87,7 +99,7 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="createButton" >Create Account</button>
+                    <button type="button" class="btn btn-primary" disabled="" id="createButton" >Create Account</button>
                 </div>
             </div>
         </div>
@@ -99,9 +111,17 @@
 <script id="page-template" type="text/x-handlebars-template">
 
     <div class="navbar navbar-inverse">
-        <div class="container container-left">
+        <div class="container-fluid">
             <div class="navbar-header">
-                <span class="navbar-brand"><img src="./img/white_rubik.svg" class="logo-img"/>Scramble</span>
+                <button type="button" class="navbar-toggle" data-toggle="collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <span class="navbar-brand">Scramble</span>
             </div>
             <div class="collapse navbar-collapse">
                 <ul class="nav navbar-nav">
@@ -111,31 +131,28 @@
                     <li class="js-tab js-tab-archive"><a href="#">Archive</a></li>
                     <li class="js-tab js-tab-contacts"><a href="#">Contacts</a></li>
                 </ul>
+                <p class="navbar-text navbar-right">
+                    Welcome, {{token}} &nbsp;&nbsp;
+                    <a href="/" id="link-logout">Log Out</a>
+                </p>
             </div>
         </div>
     </div>
 
-    <div id="sidebar" class="sidebar">
-        <div class="panel panel-default">
-            <div class="panel-heading">
+    <div class="container-fluid">
+        <div class="row">
+            <div id="sidebar" class="col-md-4">
                 <div class="warning" id="warningBar"></div>
-                <div class="welcome">Welcome, {{token}}. <a href="/" id="link-logout" class="pull-right">Log Out</a></div>
+                <div id="inbox" class="box"></div>
+                <div id="sent" class="box"></div>
+                <div id="archive" class="box"></div>
+                <a href="#" data-toggle="modal" data-target="#kbShortcutsModal">Keyboard shortcuts</a>
             </div>
-            <div class="panel-body">
-                <code>{{emailAddress}}<br/>
-                #{{pubHash}}</code>
+            <div class="col-md-8">
+                <div id="statusBar"></div>
+                <div id="content"></div>
             </div>
         </div>
-        {{!-- <a href="#" id="link-kb-shortcuts" class="hint">Keyboard shortcuts available</a> --}}
-        <a data-toggle="modal" data-target="#kbShortcutsModal">Keyboard shortcuts</a>
-        <div class="lead capitalize">{{box}}</div class="lead">
-        <div id="inbox" class="box"></div>
-        <div id="sent" class="box"></div>
-        <div id="archive" class="box"></div>
-    </div>
-    <div class="main-panel">
-        <div id="statusBar"></div>
-        <div id="content"></div>
     </div>
 
 
@@ -177,13 +194,13 @@
 <div class="js-box-items list-group">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
-        <li id="subject-{{HexMessageID}}" 
+        <a href="#" id="subject-{{HexMessageID}}" 
             class="js-box-item list-group-item {{#if IsRead}}js-read{{else}}js-unread{{/if}}"
             data-msg-id="{{MessageID}}"
             data-thread-id="{{ThreadID}}"
             data-time="{{UnixTime}}"
             data-from="{{From}}"
-            data-to="{{To}}">{{#if Subject}}{{Subject}}{{else}}#####{{/if}}</li>
+            data-to="{{To}}">{{#if Subject}}{{Subject}}{{else}}#####{{/if}}</a>
     {{/each}}
 </div>
 {{> box-pagination-partial}}
