@@ -1454,15 +1454,14 @@ function displayContacts() {
 
 function bindContactsEvents() {
     $(".contacts li .js-delete-button").click(deleteRow);
-    $(".addContactButton").click(newRow);
-    $(".saveContactsButton").click(function() {
-        var rows = $(".contacts li");
+    $(".js-add-contact").click(newRow);
+    $(".js-save-contacts").click(function() {
+        var rows = $(".js-contacts-form > div");
         var contacts = [];
-        var needResolution = {}; // need to find pubhash before saving
-                                // {address: name}
+        var needResolution = {}; // need to find pubhash before saving {address: name}
         for (var i = 0; i < rows.length; i++) {
-            var name = trim($(rows[i]).find(".name").val());
-            var address = trim($(rows[i]).find(".address").val());
+            var name = trim($(rows[i]).find(".js-name").val());
+            var address = trim($(rows[i]).find(".js-address").val());
             var contact = getContact(address);
             if (!address) {
                 continue;
@@ -1501,7 +1500,7 @@ function bindContactsEvents() {
 function newRow() {
     var row = $(render("new-contact-template"));
     row.find(".js-delete-button").click(deleteRow);
-    $(".contacts ul").append(row);
+    $(".js-contacts-form").append(row);
 }
 function deleteRow(e) {
     $(e.target).parent().remove();

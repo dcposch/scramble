@@ -109,7 +109,6 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
-
     <div class="navbar navbar-inverse">
         <div class="container-fluid">
             <div class="navbar-header">
@@ -291,25 +290,27 @@
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-    <div>
+    <div class="form">
         {{#if inline}}
-        <input type="hidden" name="subject" value="{{subject}}"/>
+        <input type="hidden" name="subject" value="{{subject}}" />
         {{else}}
-        <input type="text" name="subject" value="{{subject}}" class="invis-input lead" placeholder="Subject"/>
+        <div class="form-group">
+            <input type="text" name="subject" value="{{subject}}" class="form-control input-lg" placeholder="Subject" />
+        </div>
         {{/if}}
         <div class="panel panel-default">
             <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
             <input type="hidden" name="threadID" value="{{threadID}}"/>
 
-            <div class="input-group invis-input-group">
-                <span class="input-group-addon">To:</span><input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient."></input>
+            <div class="input-group">
+                <span class="input-group-addon">To:</span>
+                <input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient." />
             </div>
-            <div class="panel-body">
-                <textarea name="body" class="invis-input">{{body}}</textarea>
-            </div>
+
+            <textarea name="body" rows="15" class="form-control">{{body}}</textarea>
         </div>
 
-        <input type="submit" class="js-send-button btn btn-primary btn-lg" value="Send"></input>
+        <input type="submit" class="js-send-button btn btn-primary" value="Send"></input>
     </div>
 </script>
 
@@ -317,29 +318,35 @@
 
 <!-- CONTACTS -->
 <script id="contacts-template" type="text/x-handlebars-template">
-<div class="contacts">
-    <h2>Contacts</h2>
-    <ul>
-        {{#each this}}
-        <li>
-        <input type="text" class="name" placeholder="(name)" value="{{name}}" />
-        <input type="text" class="address" placeholder="(address)" value="{{address}}" />
-        <input type="text" class="pubHash" placeholder="(key hash)" value="{{pubHash}}" disabled="true" />
-        <a href="#" class="js-delete-button">[X]</a>
-        </li>
-        {{/each}}
-    </ul>
-    <button class="addContactButton">Add Contact</button>
-    <button class="saveContactsButton">Save</button>
+<div class="js-contacts-form form form-horizontal">
+    {{#each this}}
+    <div class="form-group">
+        <div class="col-sm-3">
+            <input type="text" class="js-name form-control" placeholder="Name" value="{{name}}" />
+        </div>
+        <div class="col-sm-4">
+            <input type="text" class="js-address form-control" placeholder="Email address" value="{{address}}" />
+        </div>
+        <div class="js-pubhash col-sm-3" >{{pubHash}}&nbsp;</div>
+        <a href="#" class="js-delete-button col-sm-1">[X]</a>
+    </div>
+    {{/each}}
 </div>
+<button class="js-add-contact btn btn-default">Add Contact</button>
+<button class="js-save-contacts btn btn-primary">Save</button>
 </script>
 
 <script id="new-contact-template" type="text/x-handlebars-template">
-<li class="new">
-<input type="text" class="name" placeholder="(name)"/>
-<input type="text" class="address" placeholder="(email address)"/>
-<a href="#" class="js-delete-button">[X]</a>
-</li>
+<div class="form-group">
+    <div class="col-sm-3">
+        <input type="text" class="js-name form-control" placeholder="Name" />
+    </div>
+    <div class="col-sm-4">
+        <input type="text" class="js-address form-control" placeholder="Email address" />
+    </div>
+    <div class="js-pubhash col-sm-3" >&nbsp;</div>
+    <a href="#" class="js-delete-button col-sm-1">[X]</a>
+</div>
 </script>
 
 
