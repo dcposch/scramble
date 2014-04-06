@@ -15,7 +15,7 @@ window.localStorage = {
     setItem: function(key,val){ls[key]=val}
 };
 
-importScripts("openpgp.js")
+importScripts("lib/openpgp.js")
 openpgp.init();
 util.print_error = function(str) {
     postMessage(JSON.stringify({type:"log", level:"error", message:str}));

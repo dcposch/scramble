@@ -550,13 +550,13 @@ function validateNewPassword() {
 // BOX
 //
 
-function bindBoxEvents(box) {
+function bindBoxEvents() {
     // Click on an email to open it
-    $("#"+box+" .js-box-item").click(function(e) {
-        displayEmail($(e.target));
+    $("#box .js-box-item").click(function(e) {
+        displayEmail($(e.currentTarget));
     });
     // Click on a pagination link
-    $("#"+box+" .box-pagination a").click(function(e) {
+    $("#box .box-pagination a").click(function(e) {
         var box = $(this).data("box");
         var page = $(this).data("page");
         loadDecryptAndDisplayBox(box, page);
@@ -584,9 +584,6 @@ function loadDecryptAndDisplayBox(box, page) {
 // Shows a box (eg inbox or sent) immediately,
 // even though the contents have not yet been decrypted
 function showEncryptedBox(boxSummary, box) {
-    boxSummary.EmailHeaders.forEach(function(header){
-        header.HexMessageID = bin2hex(header.MessageID)
-    });
     var data = {
         token:        sessionStorage["token"],
         box:          box,
@@ -597,7 +594,7 @@ function showEncryptedBox(boxSummary, box) {
         total:        boxSummary.Total,
         page:         Math.floor(boxSummary.Offset / boxSummary.Limit)+1,
         totalPages:   Math.ceil(boxSummary.Total / boxSummary.Limit),
-        emailHeaders: boxSummary.EmailHeaders,
+        emailHeaders: boxSummary.EmailHeaders.map(createEmailViewModel)
     };
     var pages = [];
     for (var i=0; i<data.totalPages; i++) {
@@ -607,8 +604,8 @@ function showEncryptedBox(boxSummary, box) {
     $("#wrapper").html(render("page-template", data));
     bindSidebarEvents();
     setSelectedTab($(".js-tab-"+box));
-    $("#"+box).html(render("box-template", data));
-    bindBoxEvents(box);
+    $("#box").html(render("box-template", data));
+    bindBoxEvents();
     viewState.box = box;
 }
 
@@ -629,8 +626,9 @@ function decryptSubject(h) {
         } else if (trim(subject)=="") {
             subject = "(No subject)";
         }
-        $("#subject-"+h.HexMessageID).text(subject);
-        $("#subject-header-"+h.HexMessageID).text(subject);
+        var hexMsgID = bin2hex(h.MessageID);
+        $("#subject-"+hexMsgID).text(subject);
+        $("#subject-header-"+hexMsgID).text(subject);
     })
 }
 
@@ -654,7 +652,12 @@ function readNextEmail() {
 }
 
 function readPrevEmail() {
-    var msg = $(".js-box-item.active").prev();
+    var msg;
+    if ($(".js-box-item.active").length == 0) {
+        msg = $(".js-box-item").last();
+    } else {
+        msg = $(".js-box-item.active").prev();
+    }
     if (msg.length > 0) {
         displayEmail(msg);
     }
@@ -730,40 +733,35 @@ function addContact() {
     For convenience, you can pass in the li.js-box-item jquery element,
      which has the relevant .data() attributes.
 
-    emailHeader => {
+    arg should either be $(<box item>) or an email ID object:  
+    {
         msgID (id of the selected email)
         threadID (thread id of the selected email)
     }
-
-    Also uses viewState.box to determine current box.
 */
-function displayEmail(emailHeader) {
+function displayEmail(arg) {
     if (keepUnsavedWork()) { return; }
 
-    if (emailHeader instanceof jQuery) {
-        if (emailHeader.length == 0) {
+    var emailID;
+    if(!arg){
+        return;
+    } else if (arg instanceof jQuery) {
+        if (arg.length == 0) {
             return;
         }
-        emailHeader = {
-            msgID:     emailHeader.data("msgId"),
-            threadID:  emailHeader.data("threadId"),
+        emailID = {
+            msgID:     arg.data("msgId"),
+            threadID:  arg.data("threadId"),
         };
-    } else if (!emailHeader) {
-        return;
+    } else {
+        emailID = arg;
     }
-
-    var msgID    = emailHeader.msgID;
-    var threadID = emailHeader.threadID;
 
     $("#content").empty();
     $(".js-box-item.active").removeClass("active");
-    $(".js-box-item[data-thread-id='"+threadID+"']").addClass("active");
+    $(".js-box-item[data-thread-id='"+emailID.threadID+"']").addClass("active");
 
-    var params = {
-        msgID: msgID,
-        threadID: threadID,
-    };
-    cachedLoadEmail(params, function(emailDatas) {
+    cachedLoadEmail(emailID, function(emailDatas) {
         viewState.emails = emailDatas;
 
         // Construct thread element, show placeholders.
@@ -829,8 +827,9 @@ function createEmailViewModel(data) {
         msgID:         data.MessageID,
         ancestorIDs:   data.AncestorIDs,
         threadID:      data.ThreadID,
-        time:          new Date(data.UnixTime*1000),
         unixTime:      data.UnixTime,
+        time:          new Date(data.UnixTime*1000),
+        prettyTime:    moment(data.UnixTime*1000).calendar(), 
         from:          trimToLower(data.From),
         fromAddress:   fromAddress,
         to:            trimToLower(data.To),
@@ -838,6 +837,7 @@ function createEmailViewModel(data) {
         hexMsgID:      bin2hex(data.MessageID),
         isRead:        data.IsRead,
         cipherSubject: data.cipherSubject
+
         // missing subject, htmlBody, plainBody
         // those are decrypted asynchronously
     };
@@ -883,7 +883,7 @@ function markAsRead(emails, isRead){
 	}
 	
 	// Update the view
-	$("#subject-"+hexMsgID)
+	$("#box-item-"+hexMsgID)
 		.addClass("js-read")
 		.removeClass("js-unread");
 	
@@ -2191,4 +2191,13 @@ function setHostPrefix(hostPrefix) {
     HOST_PREFIX = hostPrefix;
     sessionStorage["hostPrefix"] = hostPrefix;
 }
+
+
+moment.lang('en', {
+    calendar : {
+        lastDay : '[Yesterday] LT',
+        sameDay : '[Today] LT',
+        sameElse : 'll'
+    }
+});
 

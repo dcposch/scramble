@@ -1,3 +1,14 @@
+
+/*
+ * PAGE
+ */
+body {
+    overflow-y:scroll;
+}
+
+
+
+
 /*
  * LOGIN 
  */
@@ -19,12 +30,51 @@
 }
 
 
+
+
 /*
  * INBOX
  */
 
-body {
-    overflow-y:scroll;
+.js-box-item.js-unread {
+    font-weight:bold;
 }
-.active {
+.js-box-item .js-subject {
+    display:inline-block;
+    width: 250px;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    vertical-align:bottom;
 }
+.js-box-item .js-date {
+    display:inline-block;
+    width: 130px;
+    white-space:nowrap;
+    text-align:right;
+}
+.email-body {
+    white-space:pre-wrap;
+    font:12px Consolas,monospace;
+}
+.email-body:before,.email-body:after {
+    white-space:normal;
+}
+
+
+
+
+/*
+ * COMPOSE
+ */
+.compose-form .to-label, .compose-form .to {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.compose-form .body {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top-width:0;
+    width:870px;
+}
+

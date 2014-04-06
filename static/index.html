@@ -120,7 +120,7 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <span class="navbar-brand">Scramble</span>
+                <a class="navbar-brand" href="/">Scramble</a>
             </div>
             <div class="collapse navbar-collapse">
                 <ul class="nav navbar-nav">
@@ -141,11 +141,8 @@
     <div class="container-fluid">
         <div class="row">
             <div id="sidebar" class="col-md-4">
-                <div class="warning" id="warningBar"></div>
-                <div id="inbox" class="box"></div>
-                <div id="sent" class="box"></div>
-                <div id="archive" class="box"></div>
-                <a href="#" data-toggle="modal" data-target="#kbShortcutsModal">Keyboard shortcuts</a>
+                <div id="box" class="box"></div>
+                <a href="#" data-toggle="modal" data-target="#modal-shortcuts">Keyboard shortcuts</a>
             </div>
             <div class="col-md-8">
                 <div id="statusBar"></div>
@@ -155,7 +152,7 @@
     </div>
 
 
-    <div class="modal fade" id="kbShortcutsModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal fade" id="modal-shortcuts" tabindex="-1" role="dialog" >
         <div class="modal-dialog">
             <div class="modal-content">
 
@@ -189,17 +186,23 @@
 
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
+{{#unless emailHeaders.length}}
+<em>No messages here</em>
+{{/unless}}
 {{> box-pagination-partial}}
 <div class="js-box-items list-group">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
-        <a href="#" id="subject-{{HexMessageID}}" 
-            class="js-box-item list-group-item {{#if IsRead}}js-read{{else}}js-unread{{/if}}"
-            data-msg-id="{{MessageID}}"
-            data-thread-id="{{ThreadID}}"
-            data-time="{{UnixTime}}"
-            data-from="{{From}}"
-            data-to="{{To}}">{{#if Subject}}{{Subject}}{{else}}#####{{/if}}</a>
+        <a href="#"  id="box-item-{{hexMsgID}}"
+            class="js-box-item list-group-item {{#if isRead}}js-read{{else}}js-unread{{/if}}"
+            data-msg-id="{{msgID}}"
+            data-thread-id="{{threadID}}"
+            data-time="{{unixTime}}"
+            data-from="{{from}}"
+            data-to="{{to}}">
+            <span class="js-subject" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}#####{{/if}}</span>
+            <span class="js-date text-muted">{{prettyTime}}</span> 
+        </a>
     {{/each}}
 </div>
 {{> box-pagination-partial}}
@@ -258,7 +261,7 @@
     <div class="js-email" data-msg-id="{{msgID}}">
         <div class="panel panel-default">
             <div class="panel-heading">
-                <small class="received pull-right">{{formatDate time format="MMM D YYYY, HH:mm"}}</small>
+                <small class="received pull-right">{{formatDate time format="lll"}}</small>
                 <div class="from">
                     {{> email-address-partial fromAddress}}
                 </div>
@@ -290,7 +293,7 @@
 
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
-    <div class="form">
+    <div class="form compose-form">
         {{#if inline}}
         <input type="hidden" name="subject" value="{{subject}}" />
         {{else}}
@@ -298,17 +301,16 @@
             <input type="text" name="subject" value="{{subject}}" class="form-control input-lg" placeholder="Subject" />
         </div>
         {{/if}}
-        <div class="panel panel-default">
-            <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
-            <input type="hidden" name="threadID" value="{{threadID}}"/>
 
-            <div class="input-group">
-                <span class="input-group-addon">To:</span>
-                <input name="to" type="text" class="form-control" value="{{to}}" placeholder="You must choose at least one recipient." />
-            </div>
+        <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
+        <input type="hidden" name="threadID" value="{{threadID}}"/>
 
-            <textarea name="body" rows="15" class="form-control">{{body}}</textarea>
+        <div class="input-group">
+            <span class="input-group-addon to-label">To:</span>
+            <input name="to" type="text" class="form-control to" value="{{to}}" placeholder="You must choose at least one recipient." />
         </div>
+
+        <textarea name="body" rows="15" class="form-control body">{{body}}</textarea>
 
         <input type="submit" class="js-send-button btn btn-primary" value="Send"></input>
     </div>
@@ -350,14 +352,14 @@
 </script>
 
 
-<script type="text/javascript" src="/js/jquery.min.js"></script>
-<script type="text/javascript" src="/js/jquery.cookie.js"></script>
-<script type="text/javascript" src="/js/bootstrap.min.js"></script>
-<script type="text/javascript" src="/js/sugar.min.js"></script>
-<script type="text/javascript" src="/js/moment.min.js"></script>
-<script type="text/javascript" src="/js/handlebars.js"></script>
-<script type="text/javascript" src="/js/openpgp.js"></script>
-<script type="text/javascript" src="/js/scrypt.js"></script>
+<script type="text/javascript" src="/js/lib/jquery.min.js"></script>
+<script type="text/javascript" src="/js/lib/jquery.cookie.js"></script>
+<script type="text/javascript" src="/js/lib/bootstrap.min.js"></script>
+<script type="text/javascript" src="/js/lib/sugar.min.js"></script>
+<script type="text/javascript" src="/js/lib/moment.min.js"></script>
+<script type="text/javascript" src="/js/lib/handlebars.js"></script>
+<script type="text/javascript" src="/js/lib/openpgp.js"></script>
+<script type="text/javascript" src="/js/lib/scrypt.js"></script>
 <script type="text/javascript" src="/js/app.js"></script>
 <script type="text/javascript" src="/js/start.js"></script>
 </body>

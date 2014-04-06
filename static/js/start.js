@@ -1,3 +1,5 @@
+
+// Either run as a Chrome App, or as a single-page webapp
 if ('chrome.runtime' in window) {
     if (sessionStorage["hostPrefix"]) {
         // e.g. user refreshed the chrome extension page.
