@@ -1,7 +1,7 @@
 //
 // SCRAMBLE.IO
 // Secure email for everyone
-// by DC - http://dcpos.ch/
+// by DC and Jaekwon - http://dcpos.ch/, https://github.com/jaekwon
 //
 
 
@@ -60,7 +60,8 @@ var MAX_MISSING_NOTARIES = 1;
 //
 // These are never seen by the server, and never go in cookies or localStorage
 // sessionStorage["passKey"] is AES128 key derived from passphrase, used to encrypt to private key
-// sessionStorage["privateKeyArmored"] is the plaintext private key, PGP ascii armored
+// sessionStorage["publicKeyArmored"] is the PGP public key, ascii armored
+// sessionStorage["privateKeyArmored"] is the plaintext private key, ascii armored
 //
 
 
@@ -164,6 +165,7 @@ function login(failureCb){
         // (first load after login)
         sessionStorage["emailAddress"] = data.EmailAddress;
         sessionStorage["pubHash"] = data.PublicHash;
+        sessionStorage["publicKeyArmored"] = data.PublicKey;
         sessionStorage["privateKeyArmored"] = decryptPrivateKey(data.CipherPrivateKey);
 
         startPgpDecryptWorkers();
@@ -269,11 +271,12 @@ var keyMap = {
     "j":readNextEmail,
     "k":readPrevEmail,
     "g":{
-        "c":displayCompose,
+        "c":displayContacts,
         "i":function(){loadDecryptAndDisplayBox("inbox")},
         "s":function(){loadDecryptAndDisplayBox("sent")},
         "a":function(){loadDecryptAndDisplayBox("archive")}
     },
+    "c":displayCompose,
     "r":function(){emailReply(viewState.getLastEmailFromAnother())},
     "a":function(){emailReplyAll(viewState.getLastEmail())},
     "f":function(){emailForward(viewState.getLastEmail())},
@@ -1441,13 +1444,23 @@ function displayContacts() {
     if (keepUnsavedWork()) { return; }
     loadAndDecryptContacts(function(contacts) {
         // clean up 
-        $(".box").html("");
         viewState.clearEmails();
+
+        // go to Contacts
         setSelectedTab($(".js-tab-contacts"));
 
-        // render compose form into #content
-        var html = render("contacts-template", contacts);
-        $("#content").html(html);
+        // render contacts list in the sidebar
+        var model = {
+            "name": "Me",
+            "address": sessionStorage["emailAddress"],
+            "public-key": sessionStorage["publicKeyArmored"],
+            "private-key": sessionStorage["privateKeyArmored"],
+            "contacts": contacts
+        };
+        $(".box").html(render("contacts-list-template", model));
+
+        // render the user's own info as the content
+        $("#content").html(render("view-self-template", model));
         bindContactsEvents();
     });
 }
@@ -1693,6 +1706,7 @@ function contactAddressFromName(name) {
             return contact.address;
         }
     }
+    keybaseLookup(name);
     return null;
 }
 
@@ -2195,8 +2209,9 @@ function setHostPrefix(hostPrefix) {
 
 moment.lang('en', {
     calendar : {
-        lastDay : '[Yesterday] LT',
         sameDay : '[Today] LT',
+        lastDay : '[Yesterday]',
+        lastWeek: 'll',
         sameElse : 'll'
     }
 });

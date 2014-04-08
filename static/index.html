@@ -142,7 +142,6 @@
         <div class="row">
             <div id="sidebar" class="col-md-4">
                 <div id="box" class="box"></div>
-                <a href="#" data-toggle="modal" data-target="#modal-shortcuts">Keyboard shortcuts</a>
             </div>
             <div class="col-md-8">
                 <div id="statusBar"></div>
@@ -187,9 +186,8 @@
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
 {{#unless emailHeaders.length}}
-<em>No messages here</em>
+    <em>No messages here</em>
 {{/unless}}
-{{> box-pagination-partial}}
 <div class="js-box-items list-group">
     {{#each emailHeaders}}
         {{!-- data-msg-id becomes .data("msgID") --}}
@@ -206,6 +204,7 @@
     {{/each}}
 </div>
 {{> box-pagination-partial}}
+<a href="#" data-toggle="modal" data-target="#modal-shortcuts">Keyboard shortcuts</a>
 </script>
 
 <script id="box-pagination-partial" type="text/x-handlebars-template">
@@ -319,36 +318,68 @@
 
 
 <!-- CONTACTS -->
-<script id="contacts-template" type="text/x-handlebars-template">
-<div class="js-contacts-form form form-horizontal">
-    {{#each this}}
-    <div class="form-group">
-        <div class="col-sm-3">
-            <input type="text" class="js-name form-control" placeholder="Name" value="{{name}}" />
-        </div>
-        <div class="col-sm-4">
-            <input type="text" class="js-address form-control" placeholder="Email address" value="{{address}}" />
-        </div>
-        <div class="js-pubhash col-sm-3" >{{pubHash}}&nbsp;</div>
-        <a href="#" class="js-delete-button col-sm-1">[X]</a>
+<script id="contacts-list-template" type="text/x-handlebars-template">
+    {{#unless contacts.length}}
+        <em>No contacts yet... add one!</em>
+    {{/unless}}
+    <div class="js-box-items list-group">
+        <a href="#" data-address="me" class="list-group-item">
+            <div class="contact-name">Me</div>
+            <div class="contact-email">{{my-email}}</div> 
+        </a>
+        {{#each contacts}}
+            <a href="#" data-address="{{address}}" class="list-group-item">
+                <div class="contact-name">{{name}}</div>
+                <div class="contact-email">{{address}}</div> 
+            </a>
+        {{/each}}
     </div>
-    {{/each}}
-</div>
-<button class="js-add-contact btn btn-default">Add Contact</button>
-<button class="js-save-contacts btn btn-primary">Save</button>
+    <button class="js-add-contact btn btn-default btn-lg">
+        <span class="glyphicon glyphicon-plus"></span> Add Contact
+    </button>
 </script>
 
-<script id="new-contact-template" type="text/x-handlebars-template">
-<div class="form-group">
-    <div class="col-sm-3">
-        <input type="text" class="js-name form-control" placeholder="Name" />
+<script id="view-self-template" type="text/x-handlebars-template">
+    <h3>Hi! Your address is <tt>{{address}}</tt></h3>
+    <h4>Here is your public key</h4>
+    People can use it to send you encrypted mail. Scramble encrypts automatically.
+    <pre>{{public-key}}</pre>
+    <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
+    <div id="contact-private-key" class="collapse">
+        <h4>Private key</h4>
+        Your private key is a secret. It is backed up on the server, encrypted with your passphrase. 
+        The server never sees your unencrypted private key or your passphrase.
+        <pre>{{private-key}}</pre>
     </div>
-    <div class="col-sm-4">
-        <input type="text" class="js-address form-control" placeholder="Email address" />
+</script>
+
+<script id="view-contact-template" type="text/x-handlebars-template">
+    <h3>{{name}}</h3>
+    <h4><tt>{{address}}</tt></h4>
+    <h4>Public key</h4>
+    <pre>{{public-key}}</pre>
+    {{#if private-key}}
+        <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
+        <div class="collapse">
+            <h4>Private key</h4>
+            <pre>{{private-key}}</pre>
+        </div>
+    {{/if}}
+    <button class="js-save-contacts btn btn-default">Edit</button>
+</script>
+
+<script id="edit-contact-template" type="text/x-handlebars-template">
+    <div class="form-group">
+        <div class="col-sm-3">
+            <input type="text" class="js-name form-control" placeholder="Name" />
+        </div>
+        <div class="col-sm-4">
+            <input type="text" class="js-address form-control" placeholder="Email address" />
+        </div>
+        <div class="js-pubhash col-sm-3" >&nbsp;</div>
+        <a href="#" class="js-delete-button col-sm-1">[X]</a>
     </div>
-    <div class="js-pubhash col-sm-3" >&nbsp;</div>
-    <a href="#" class="js-delete-button col-sm-1">[X]</a>
-</div>
+    <button class="js-save-contacts btn btn-primary">Save</button>
 </script>
 
 
@@ -360,7 +391,10 @@
 <script type="text/javascript" src="/js/lib/handlebars.js"></script>
 <script type="text/javascript" src="/js/lib/openpgp.js"></script>
 <script type="text/javascript" src="/js/lib/scrypt.js"></script>
+
+<script type="text/javascript" src="/js/contacts.js"></script>
 <script type="text/javascript" src="/js/app.js"></script>
 <script type="text/javascript" src="/js/start.js"></script>
+
 </body>
 </html>

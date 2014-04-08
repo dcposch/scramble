@@ -12,7 +12,6 @@ body {
 /*
  * LOGIN 
  */
-
 .form-signin {
     margin-top:40px;
     max-width:400px;
@@ -35,7 +34,6 @@ body {
 /*
  * INBOX
  */
-
 .js-box-item.js-unread {
     font-weight:bold;
 }
@@ -78,3 +76,11 @@ body {
     width:870px;
 }
 
+
+
+/*
+ * CONTACTS
+ */
+.contact-email {
+    color:#888;
+}

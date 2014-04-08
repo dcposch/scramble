@@ -17,6 +17,7 @@ func StartHTTPServer() {
 	http.HandleFunc("/publickeys/query", publicKeysHandler)           // look up name->pubhash&pubkey
 	http.HandleFunc("/publickeys/reverse", auth(reverseQueryHandler)) // look up pubhash->name_address
 	http.HandleFunc("/nginx_proxy", nginxProxyHandler)                // needed for nginx smtp tls proxy
+	http.HandleFunc("/keybase/", keybaseHandler)                      // proxy the Keybase API
 
 	// Private Rest API
 	http.HandleFunc("/user/me/contacts", auth(contactsHandler)) // load contacts

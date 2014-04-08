@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	//"github.com/jaekwon/go-prelude/colors"
 )
 
 //
@@ -111,6 +111,7 @@ func privateKeyHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 type UserResponse struct {
 	EmailAddress     string
 	PublicHash       string
+	PublicKey        string
 	CipherPrivateKey string
 }
 
@@ -124,6 +125,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	res := UserResponse{
 		user.EmailAddress,
 		user.PublicHash,
+		user.PublicKey,
 		user.CipherPrivateKey,
 	}
 	resJSON, err := json.Marshal(res)
@@ -729,4 +731,27 @@ func writeJson(w http.ResponseWriter, res *interface{}) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resJSON)
+}
+
+// GET or POST /keybase/* to proxy the Keybase API
+var keybaseClient http.Client
+
+func keybaseHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Proxying %v", r.URL.Path)
+
+	// Rewrite the request URL
+	r.URL.Scheme = "https"
+	r.URL.User = nil
+	r.URL.Host = "keybase.io"
+	r.URL.Path = "/_/api/1.0/" + r.URL.Path[len("/keybase/"):]
+	r.RequestURI = ""
+
+	// Send the request to Keybase, proxy the response
+	proxyRes, err := keybaseClient.Do(r)
+	if err != nil {
+		log.Panicf("Couldn't proxy Keybase", err)
+	}
+	w.WriteHeader(proxyRes.StatusCode)
+	io.Copy(w, proxyRes.Body)
+	proxyRes.Body.Close()
 }
