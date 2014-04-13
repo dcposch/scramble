@@ -5,7 +5,12 @@
 body {
     overflow-y:scroll;
 }
-
+.deemphasize,.still-decrypting {
+    color:#888;
+}
+.active .deemphasize,.active .still-decrypting {
+    color:#ddd;
+}
 
 
 
@@ -34,10 +39,10 @@ body {
 /*
  * INBOX
  */
-.js-box-item.js-unread {
+.js-item.js-unread {
     font-weight:bold;
 }
-.js-box-item .js-subject {
+.js-item .js-subject {
     display:inline-block;
     width: 250px;
     overflow:hidden;
@@ -45,7 +50,7 @@ body {
     text-overflow:ellipsis;
     vertical-align:bottom;
 }
-.js-box-item .js-date {
+.js-item .js-date {
     display:inline-block;
     width: 130px;
     white-space:nowrap;
@@ -81,6 +86,12 @@ body {
 /*
  * CONTACTS
  */
-.contact-email {
-    color:#888;
+.contact-detail {
+    max-width:550px;
 }
+.contact-key {
+    font:11px Consolas,monospace;
+    color:#888;
+    white-space:pre;
+}
+

@@ -109,7 +109,7 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
-    <div class="navbar navbar-inverse">
+    <div class="navbar navbar-default">
         <div class="container-fluid">
             <div class="navbar-header">
                 <button type="button" class="navbar-toggle" data-toggle="collapse">
@@ -148,6 +148,12 @@
                 <div id="content"></div>
             </div>
         </div>
+
+        <div class="row footer">
+            <div class="col-md-12">
+                &nbsp; <!-- TODO: centered Rubik's cube logo -->
+            </div>
+        </div>
     </div>
 
 
@@ -176,82 +182,80 @@
                         <dt>esc</dt><dd>close</dd>
                     </dl>
                 </div>
-
-            </div>
-        </div>
-    </div>
+            </div> <!-- /.modal-content -->
+        </div> <!-- /.modal-dialog -->
+    </div> <!-- /.modal -->
 </script>
 
 
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
-{{#unless emailHeaders.length}}
-    <em>No messages here</em>
-{{/unless}}
-<div class="js-box-items list-group">
-    {{#each emailHeaders}}
-        {{!-- data-msg-id becomes .data("msgID") --}}
-        <a href="#"  id="box-item-{{hexMsgID}}"
-            class="js-box-item list-group-item {{#if isRead}}js-read{{else}}js-unread{{/if}}"
-            data-msg-id="{{msgID}}"
-            data-thread-id="{{threadID}}"
-            data-time="{{unixTime}}"
-            data-from="{{from}}"
-            data-to="{{to}}">
-            <span class="js-subject" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}#####{{/if}}</span>
-            <span class="js-date text-muted">{{prettyTime}}</span> 
-        </a>
-    {{/each}}
-</div>
-{{> box-pagination-partial}}
-<a href="#" data-toggle="modal" data-target="#modal-shortcuts">Keyboard shortcuts</a>
+    {{#unless emailHeaders.length}}
+        <em>No messages here</em>
+    {{/unless}}
+    <div class="js-items list-group">
+        {{#each emailHeaders}}
+            {{!-- data-msg-id becomes .data("msgID") --}}
+            <a href="#"  id="box-item-{{hexMsgID}}"
+                class="list-group-item js-item js-box-item {{#if isRead}}js-read{{else}}js-unread{{/if}}"
+                data-msg-id="{{msgID}}"
+                data-thread-id="{{threadID}}"
+                data-time="{{unixTime}}"
+                data-from="{{from}}"
+                data-to="{{to}}">
+                <span class="js-subject {{#unless subject}}still-decrypting{{/unless}}" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}Decrypting...{{/if}}</span>
+                <span class="js-date deemphasize">{{prettyTime}}</span> 
+            </a>
+        {{/each}}
+    </div>
+    {{> box-pagination-partial}}
+    <a href="#" data-toggle="modal" data-target="#modal-shortcuts">Keyboard shortcuts</a>
 </script>
 
 <script id="box-pagination-partial" type="text/x-handlebars-template">
-<div class="box-pagination">
-{{#ifCond totalPages '>' 1}}
-    {{#ifCond 1 '<' page}}
-        <a href="#" data-page="0">&#171;</a>
-    {{/ifCond}}
-    {{#each pages}}
-        {{#ifCond ../page '==' page}}
-            <span class="page-link page-current">{{page}}</span>
-        {{else}}
-            <a class="page-link" href="#" data-page="{{page}}" data-box="{{../../box}}">{{page}}</a>
+    <div class="box-pagination">
+    {{#ifCond totalPages '>' 1}}
+        {{#ifCond 1 '<' page}}
+            <a href="#" data-page="0">&#171;</a>
         {{/ifCond}}
-    {{/each}}
-    {{#ifCond page '<' totalPages}}
-        <a href="#" data-page="{{totalPages}}">&#187;</a>
+        {{#each pages}}
+            {{#ifCond ../page '==' page}}
+                <span class="page-link page-current">{{page}}</span>
+            {{else}}
+                <a class="page-link" href="#" data-page="{{page}}" data-box="{{../../box}}">{{page}}</a>
+            {{/ifCond}}
+        {{/each}}
+        {{#ifCond page '<' totalPages}}
+            <a href="#" data-page="{{totalPages}}">&#187;</a>
+        {{/ifCond}}
     {{/ifCond}}
-{{/ifCond}}
-</div>
+    </div>
 </script>
 
 
 
 <!-- THREAD (MANY EMAILS) -->
 <script id="thread-template" type="text/x-handlebars-template">
-<div id="thread" data-thread-id="{{threadID}}">
-    <div id="thread-subject">
-        <div class="lead" id="subject-header-{{hexThreadID}}">{{#if subject}}{{subject}}{{else}}#####{{/if}}</div>
-    </div>
-    <div id="thread-emails">
-    </div>
+    <div id="thread" data-thread-id="{{threadID}}">
+        <div id="thread-subject">
+            <div class="lead" id="subject-header-{{hexThreadID}}">{{#if subject}}{{subject}}{{else}}#####{{/if}}</div>
+        </div>
+        <div id="thread-emails">
+        </div>
 
-    <div class="btn-group js-thread-control controlButtons">
-        <button typ="button" class="btn btn-default js-reply-button">Reply</button>
-        <button typ="button" class="btn btn-default js-reply-all-button">Reply All</button>
-        <button typ="button" class="btn btn-default js-forward-button">Forward</button>
-        {{#ifCond box '==' "inbox"}}
-        <button typ="button" class="btn btn-default js-archive-button">Archive</button>
-        {{/ifCond}}
-        {{#ifCond box '==' "archive"}}
-        <button typ="button" class="btn btn-default js-move-to-inbox-button">Move to Inbox</button>
-        {{/ifCond}}
-        <button typ="button" class="btn btn-default js-delete-button">Delete</button>
+        <div class="btn-group js-thread-control controlButtons">
+            <button typ="button" class="btn btn-default js-reply-button">Reply</button>
+            <button typ="button" class="btn btn-default js-reply-all-button">Reply All</button>
+            <button typ="button" class="btn btn-default js-forward-button">Forward</button>
+            {{#ifCond box '==' "inbox"}}
+            <button typ="button" class="btn btn-default js-archive-button">Archive</button>
+            {{/ifCond}}
+            {{#ifCond box '==' "archive"}}
+            <button typ="button" class="btn btn-default js-move-to-inbox-button">Move to Inbox</button>
+            {{/ifCond}}
+            <button typ="button" class="btn btn-default js-delete-button">Delete</button>
+        </div>
     </div>
-
-</div>
 </script>
 
 
@@ -315,57 +319,81 @@
     </div>
 </script>
 
+<script id="drafts-list-template" type="text/x-handlebars-template">
+    {{#unless this.length}}
+        <em>No drafts yet</em>
+    {{/unless}}
+    <div class="js-items list-group">
+        {{#each this}}
+            <a href="#"  id="box-item-{{hexMsgID}}"
+                class="list-group-item js-item js-draft-item"
+                data-msg-id="{{msgID}}"
+                data-thread-id="{{threadID}}"
+                data-from="{{from}}"
+                data-to="{{to}}">
+                <span class="js-subject" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}Decrypting{{/if}}</span>
+            </a>
+        {{/each}}
+    </div>
+</script>
+
 
 
 <!-- CONTACTS -->
 <script id="contacts-list-template" type="text/x-handlebars-template">
-    {{#unless contacts.length}}
-        <em>No contacts yet... add one!</em>
-    {{/unless}}
-    <div class="js-box-items list-group">
-        <a href="#" data-address="me" class="list-group-item">
-            <div class="contact-name">Me</div>
-            <div class="contact-email">{{my-email}}</div> 
-        </a>
+    <div class="list-group js-items">
         {{#each contacts}}
-            <a href="#" data-address="{{address}}" class="list-group-item">
-                <div class="contact-name">{{name}}</div>
-                <div class="contact-email">{{address}}</div> 
-            </a>
+            {{> contact-partial}}
         {{/each}}
     </div>
+    {{#unless hasContacts}}
+        <div><em>No contacts yet... add one!</em></div>
+    {{/unless}}
     <button class="js-add-contact btn btn-default btn-lg">
         <span class="glyphicon glyphicon-plus"></span> Add Contact
     </button>
 </script>
 
-<script id="view-self-template" type="text/x-handlebars-template">
-    <h3>Hi! Your address is <tt>{{address}}</tt></h3>
-    <h4>Here is your public key</h4>
-    People can use it to send you encrypted mail. Scramble encrypts automatically.
-    <pre>{{public-key}}</pre>
-    <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
-    <div id="contact-private-key" class="collapse">
-        <h4>Private key</h4>
-        Your private key is a secret. It is backed up on the server, encrypted with your passphrase. 
-        The server never sees your unencrypted private key or your passphrase.
-        <pre>{{private-key}}</pre>
+<script id="contact-partial" type="text/x-handlebars-partial">
+    <a href="#" data-address="{{address}}" 
+        class="list-group-item js-item js-contact-item">
+        <div class="contact-name">{{name}}</div>
+        <div class="contact-email deemphasize">{{address}}</div> 
+    </a>
+</script>
+
+<script id="contact-self-template" type="text/x-handlebars-template">
+    <div class="contact-detail">
+        <h3>Hi!</h3>
+        <h4>Here is your public key</h4>
+        <p>People can use it to send you encrypted mail. Scramble encrypts automatically.</p>
+        <div class="contact-key">{{public-key}}</div>
+        <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
+        <div id="contact-private-key" class="collapse">
+            <h4>Private key</h4>
+            <p><em>Your private key is your secret. Don't give it to anyone.</em></p>
+            <p>It is backed up on the server, encrypted with your passphrase. 
+            The server never sees your unencrypted private key or your passphrase.</p>
+            <div class="contact-key">{{private-key}}</div>
+        </div>
     </div>
 </script>
 
 <script id="view-contact-template" type="text/x-handlebars-template">
-    <h3>{{name}}</h3>
-    <h4><tt>{{address}}</tt></h4>
-    <h4>Public key</h4>
-    <pre>{{public-key}}</pre>
-    {{#if private-key}}
-        <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
-        <div class="collapse">
-            <h4>Private key</h4>
-            <pre>{{private-key}}</pre>
-        </div>
-    {{/if}}
-    <button class="js-save-contacts btn btn-default">Edit</button>
+    <div class="contact-detail">
+        <h3>{{name}}</h3>
+        <h4><tt>{{address}}</tt></h4>
+        <h4>Public key</h4>
+        <div class="contact-key">{{public-key}}</div>
+        {{#if private-key}}
+            <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
+            <div class="collapse">
+                <h4>Private key</h4>
+                <div class="contact-key">{{private-key}}</div>
+            </div>
+        {{/if}}
+        <button class="js-save-contacts btn btn-default">Edit</button>
+    </div>
 </script>
 
 <script id="edit-contact-template" type="text/x-handlebars-template">

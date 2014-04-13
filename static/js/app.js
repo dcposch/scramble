@@ -102,7 +102,7 @@ viewState.clearEmails = function() {
     this.emails = null;
 }
 
-viewState.contacts = null; // plaintext address book, must *always* be good data.
+viewState.contacts = null; // plaintext address book
 viewState.notaries = null; // notaries that client trusts.
 
 
@@ -268,8 +268,8 @@ function cachedDecryptPgp(cacheKey, armoredText, publicKeyArmored, cb){
 //
 
 var keyMap = {
-    "j":readNextEmail,
-    "k":readPrevEmail,
+    "j":showNextItem,
+    "k":showPrevItem,
     "g":{
         "c":displayContacts,
         "i":function(){loadDecryptAndDisplayBox("inbox")},
@@ -324,7 +324,7 @@ function bindSidebarEvents() {
         loadDecryptAndDisplayBox("inbox");
     });
     $(".js-tab-sent").click(function(e) {
-        loadDecryptAndDisplayBox("sent");
+        loadDecryptAndDisplayBox("outbox");
     });
     $(".js-tab-archive").click(function(e) {
         loadDecryptAndDisplayBox("archive");
@@ -555,7 +555,7 @@ function validateNewPassword() {
 
 function bindBoxEvents() {
     // Click on an email to open it
-    $("#box .js-box-item").click(function(e) {
+    $("#box .js-item").click(function(e) {
         displayEmail($(e.currentTarget));
     });
     // Click on a pagination link
@@ -630,8 +630,8 @@ function decryptSubject(h) {
             subject = "(No subject)";
         }
         var hexMsgID = bin2hex(h.MessageID);
-        $("#subject-"+hexMsgID).text(subject);
-        $("#subject-header-"+hexMsgID).text(subject);
+        $("#subject-"+hexMsgID).removeClass("still-decrypting").text(subject);
+        $("#subject-header-"+hexMsgID).removeClass("still-decrypting").text(subject);
     })
 }
 
@@ -642,27 +642,37 @@ function prefetchAndDecryptThread(h){
     });
 }
 
-function readNextEmail() {
-    var msg;
-    if ($(".js-box-item.active").length == 0) {
-        msg = $(".js-box-item").first();
+function showNextItem() {
+    var item;
+    if ($(".js-item.active").length == 0) {
+        item = $(".js-item").first();
     } else {
-        msg = $(".js-box-item.active").next();
+        item = $(".js-item.active").next();
     }
-    if (msg.length > 0) {
-        displayEmail(msg);
+    if (item.length > 0) {
+        showEmailOrContact(item);
     }
 }
 
-function readPrevEmail() {
-    var msg;
-    if ($(".js-box-item.active").length == 0) {
-        msg = $(".js-box-item").last();
+function showPrevItem() {
+    var item;
+    if ($(".js-item.active").length == 0) {
+        item = $(".js-item").last();
     } else {
-        msg = $(".js-box-item.active").prev();
+        item = $(".js-item.active").prev();
     }
-    if (msg.length > 0) {
-        displayEmail(msg);
+    if (item.length > 0) {
+        showEmailOrContact(item);
+    }
+}
+
+function showEmailOrContact(item) {
+    if (item.hasClass("js-box-item")) {
+        displayEmail(item);
+    } else if(item.hasClass("js-contact-item")) {
+        displayContact(item);
+    } else {
+        console.warn(["Unrecognized item", item]);
     }
 }
 
@@ -732,8 +742,8 @@ function addContact() {
 
 
 /**
-    Takes an email, selects its js-box-item, shows the entire thread.
-    For convenience, you can pass in the li.js-box-item jquery element,
+    Takes an email, selects its js-item, shows the entire thread.
+    For convenience, you can pass in the li.js-item jquery element,
      which has the relevant .data() attributes.
 
     arg should either be $(<box item>) or an email ID object:  
@@ -761,8 +771,8 @@ function displayEmail(arg) {
     }
 
     $("#content").empty();
-    $(".js-box-item.active").removeClass("active");
-    $(".js-box-item[data-thread-id='"+emailID.threadID+"']").addClass("active");
+    $(".js-item.active").removeClass("active");
+    $(".js-item[data-thread-id='"+emailID.threadID+"']").addClass("active");
 
     cachedLoadEmail(emailID, function(emailDatas) {
         viewState.emails = emailDatas;
@@ -1055,7 +1065,8 @@ function displayCompose(to, subject, body) {
     if (body === undefined) {
         body = DEFAULT_SIGNATURE;
     }
-    $(".box").html("");
+    var drafts = []; // TODO
+    $(".box").html(render("drafts-list-template", drafts));
     viewState.clearEmails();
     setSelectedTab($(".js-tab-compose"));
     var elCompose = $(render("compose-template", {
@@ -1445,78 +1456,146 @@ function displayContacts() {
     loadAndDecryptContacts(function(contacts) {
         // clean up 
         viewState.clearEmails();
+        $("#content").html("");
 
         // go to Contacts
         setSelectedTab($(".js-tab-contacts"));
 
+        // sort contacts list. "me" first, then others by email
+        var me = getContactByAddress(contacts, sessionStorage["emailAddress"]);
+        me.name = "Me";    
+        contacts.sort(function(a,b){
+            if (a == b){
+                return 0;
+            } else if (a == me){
+                return -1;
+            } else if (b == me){
+                return 1;
+            } else if(a.address < b.address){
+                return -1;
+            } else if(a.address > b.address){
+                return 1;
+            } else{
+                return 0;
+            }
+        });
+
         // render contacts list in the sidebar
         var model = {
-            "name": "Me",
-            "address": sessionStorage["emailAddress"],
-            "public-key": sessionStorage["publicKeyArmored"],
-            "private-key": sessionStorage["privateKeyArmored"],
-            "contacts": contacts
+            "my-email": sessionStorage["emailAddress"],
+            "contacts": contacts,
+            "hasContacts": contacts.length > 1 // contacts other than self
         };
         $(".box").html(render("contacts-list-template", model));
 
         // render the user's own info as the content
-        $("#content").html(render("view-self-template", model));
         bindContactsEvents();
+        displayContact($(".js-item").first());
     });
 }
 
 function bindContactsEvents() {
-    $(".contacts li .js-delete-button").click(deleteRow);
-    $(".js-add-contact").click(newRow);
-    $(".js-save-contacts").click(function() {
-        var rows = $(".js-contacts-form > div");
-        var contacts = [];
-        var needResolution = {}; // need to find pubhash before saving {address: name}
-        for (var i = 0; i < rows.length; i++) {
-            var name = trim($(rows[i]).find(".js-name").val());
-            var address = trim($(rows[i]).find(".js-address").val());
-            var contact = getContact(address);
-            if (!address) {
-                continue;
-            } else if (!contact) {
-                needResolution[address] = name;
-                continue;
-            }
-            contacts.push({name:name, address:address, pubHash:contact.pubHash});
-        }
-
-        contactsErr = validateContacts(contacts);
-        if (contactsErr.errors.length > 0) {
-            alert(contactsErr.errors.join("\n"));
-            return;
-        }
-
-        lookupPublicKeys(Object.keys(needResolution), function(keyMap) {
-            for (var address in needResolution) {
-                if (keyMap[address].error) {
-                    alert("Error resolving email address "+address+":\n"+keyMap[address].error);
-                    return;
-                }
-                contacts.push({
-                    name:    needResolution[address],
-                    address: address,
-                    pubHash: keyMap[address].pubHash,
-                });
-            }
-            trySaveContacts(contacts, function() {
-                displayStatus("Contacts saved");
-                displayContacts();
-            });
-        });
+    $(".js-item").click(function(e){
+        displayContact($(e.currentTarget));
+    });
+    $(".js-add-contact").click(function(e){
+        var name = getNextUnnamed(); 
+        var elem = $(render("contact-partial", name));
+        $(".js-items").append(elem);
+        displayContact(elem, true);
     });
 }
-function newRow() {
-    var row = $(render("new-contact-template"));
-    row.find(".js-delete-button").click(deleteRow);
-    $(".js-contacts-form").append(row);
+
+function getNextUnnamed() {
+    var name = "Unnamed Contact"
+    for (var i = 2; isContactNameTaken(name); i++) {
+        name = "Unnamed Contact "+i;
+    }
+    return name;
 }
-function deleteRow(e) {
-    $(e.target).parent().remove();
+
+// Takes a contacts list item. The first argument should be a 1-element JQuery array.
+// The editMode argument should be true or false.
+// Selects the item. Shows the contact details.
+function displayContact(elem, editMode) {
+    // Get the contact
+    var address = elem.data("address");
+    var contact = getContact(address); 
+    if (contact == null){
+        // Should never happen
+        alert("Could not find contact "+address);
+        return;
+    }
+
+    // Select the item
+    $(".js-item.active").removeClass("active");
+    elem.addClass("active");
+
+    // Show the details
+    var model = {
+        "name": contact.name,
+        "address": contact.address
+    };
+    var html;
+    if (contact.name == "Me") {
+        model["public-key"] = sessionStorage["publicKeyArmored"];
+        model["private-key"] = sessionStorage["privateKeyArmored"];
+        html = render("contact-self-template", model);
+    } else {
+        model["public-key"] = "TODO";
+        html = render("contact-details-template", model);
+    }
+    $("#content").html(html);
+    bindContactDetails();
+}
+
+function bindContactDetails(){
+    // TODO
+}
+
+
+
+function saveContacts() {
+    // TODO REWRITE
+    var rows = $(".js-contacts-form > div");
+    var contacts = [];
+    var needResolution = {}; // need to find pubhash before saving {address: name}
+    for (var i = 0; i < rows.length; i++) {
+        var name = trim($(rows[i]).find(".js-name").val());
+        var address = trim($(rows[i]).find(".js-address").val());
+        var contact = getContact(address);
+        if (!address) {
+            continue;
+        } else if (!contact) {
+            needResolution[address] = name;
+            continue;
+        }
+        contacts.push({name:name, address:address, pubHash:contact.pubHash});
+    }
+
+    contactsErr = validateContacts(contacts);
+    if (contactsErr.errors.length > 0) {
+        alert(contactsErr.errors.join("\n"));
+        return;
+    }
+
+    lookupPublicKeys(Object.keys(needResolution), function(keyMap) {
+        for (var address in needResolution) {
+            if (keyMap[address].error) {
+                alert("Error resolving email address "+address+":\n"+keyMap[address].error);
+                return;
+            }
+            contacts.push({
+                name:    needResolution[address],
+                address: address,
+                pubHash: keyMap[address].pubHash,
+            });
+        }
+        trySaveContacts(contacts, function() {
+            displayStatus("Contacts saved");
+            displayContacts();
+        });
+    });
 }
 
 // Returns {contacts || errors}
@@ -1666,25 +1745,23 @@ function addContacts(contacts, newContacts) {
 }
 
 function getContactByAddress(allContacts, address){
+    if (address == null){
+        return null;
+    }
+    address = trimToLower(address);
     for (var i=0; i<allContacts.length; i++) {
         if (allContacts[i].address == address) {
             return allContacts[i];
         }
     }
+    return null;
 }
 
 function getContact(address) {
     if (viewState.contacts == null) {
         return null;
     }
-    address = trimToLower(address);
-    for (var i = 0; i < viewState.contacts.length; i++) {
-        var contact = viewState.contacts[i];
-        if (contact.address==address) {
-            return contact;
-        }
-    }
-    return null;
+    return getContactByAddress(viewState.contacts);
 }
 
 function contactNameFromAddress(address) {
@@ -1706,8 +1783,11 @@ function contactAddressFromName(name) {
             return contact.address;
         }
     }
-    keybaseLookup(name);
     return null;
+}
+
+function isContactNameTaken(name){
+    return contactAddressFromName(name) != null;
 }
 
 function namedAddrFromAddress(address) {
