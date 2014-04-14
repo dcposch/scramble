@@ -349,11 +349,22 @@
     {{#unless hasContacts}}
         <div><em>No contacts yet... add one!</em></div>
     {{/unless}}
-    <button class="js-add-contact btn btn-default btn-lg">
-        <span class="glyphicon glyphicon-plus"></span> Add Contact
-    </button>
+    <div class="row">
+        <div class="col-md-8">
+            <input type="email" class="form-control" id="contact-add-email" 
+                   placeholder="Enter email address"></input>
+        </div>
+        <div class="col-md-4">
+            <button class="js-add-contact form-control btn btn-default">
+                <span class="glyphicon glyphicon-plus"></span> Add Contact
+            </button>
+        </div>
+    </div>
 </script>
 
+<script id="contact-template" type="text/x-handlebars-template">
+    {{> contact-partial}}
+</script>
 <script id="contact-partial" type="text/x-handlebars-partial">
     <a href="#" data-address="{{address}}" 
         class="list-group-item js-item js-contact-item">
@@ -364,11 +375,13 @@
 
 <script id="contact-self-template" type="text/x-handlebars-template">
     <div class="contact-detail">
-        <h3>Hi!</h3>
+        <h3>Hi {{my-name}}!</h3>
         <h4>Here is your public key</h4>
         <p>People can use it to send you encrypted mail. Scramble encrypts automatically.</p>
         <div class="contact-key">{{public-key}}</div>
-        <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
+        <a href="#contact-private-key" id="contact-show-private-key" data-toggle="collapse" class="collapsed">
+            <span class="action"></span> private key
+        </a>
         <div id="contact-private-key" class="collapse">
             <h4>Private key</h4>
             <p><em>Your private key is your secret. Don't give it to anyone.</em></p>
@@ -379,9 +392,11 @@
     </div>
 </script>
 
-<script id="view-contact-template" type="text/x-handlebars-template">
+<script id="contact-detail-template" type="text/x-handlebars-template">
     <div class="contact-detail">
-        <h3>{{name}}</h3>
+        <h3 class="{{#unless name}}deemphasize{{/unless}}">
+            {{#if name}}{{name}}{{else}}No name{{/if}}
+        </h3>
         <h4><tt>{{address}}</tt></h4>
         <h4>Public key</h4>
         <div class="contact-key">{{public-key}}</div>

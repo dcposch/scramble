@@ -1499,24 +1499,27 @@ function bindContactsEvents() {
         displayContact($(e.currentTarget));
     });
     $(".js-add-contact").click(function(e){
-        var name = getNextUnnamed(); 
-        var elem = $(render("contact-partial", name));
+        var address = trim($("#contact-add-email").val());
+        if (address == "") {
+            alert("Enter an email address first");
+            return;
+        } else if (getContact(address) != null){
+            alert(address + " already exists");
+            return;
+        }
+
+        // TODO: save
+        var contact = {"address":address};
+        viewState.contacts.push(contact);
+        var elem = $(render("contact-template", contact));
         $(".js-items").append(elem);
         displayContact(elem, true);
     });
 }
 
-function getNextUnnamed() {
-    var name = "Unnamed Contact"
-    for (var i = 2; isContactNameTaken(name); i++) {
-        name = "Unnamed Contact "+i;
-    }
-    return name;
-}
-
 // Takes a contacts list item. The first argument should be a 1-element JQuery array.
 // The editMode argument should be true or false.
-// Selects the item. Shows the contact details.
+// Selects the item. Shows the contact detail.
 function displayContact(elem, editMode) {
     // Get the contact
     var address = elem.data("address");
@@ -1531,7 +1534,7 @@ function displayContact(elem, editMode) {
     $(".js-item.active").removeClass("active");
     elem.addClass("active");
 
-    // Show the details
+    // Show the detail
     var model = {
         "name": contact.name,
         "address": contact.address
@@ -1540,10 +1543,11 @@ function displayContact(elem, editMode) {
     if (contact.name == "Me") {
         model["public-key"] = sessionStorage["publicKeyArmored"];
         model["private-key"] = sessionStorage["privateKeyArmored"];
+        model["my-name"] = sessionStorage["token"];
         html = render("contact-self-template", model);
     } else {
         model["public-key"] = "TODO";
-        html = render("contact-details-template", model);
+        html = render("contact-detail-template", model);
     }
     $("#content").html(html);
     bindContactDetails();
@@ -1761,7 +1765,7 @@ function getContact(address) {
     if (viewState.contacts == null) {
         return null;
     }
-    return getContactByAddress(viewState.contacts);
+    return getContactByAddress(viewState.contacts, address);
 }
 
 function contactNameFromAddress(address) {

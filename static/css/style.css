@@ -94,4 +94,10 @@ body {
     color:#888;
     white-space:pre;
 }
+#contact-show-private-key .action:before{
+    content:"Hide";
+}
+#contact-show-private-key.collapsed .action:before{
+    content:"Show";
+}
 
