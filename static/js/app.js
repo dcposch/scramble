@@ -288,10 +288,12 @@ function bindKeyboardShortcuts() {
     var currentKeyMap = keyMap;
     $(document).keyup(function(e) {
         // no keyboard shortcuts while the user is typing
-        var tag = e.target.tagName.toLowerCase();
+        var target = e.target;
+        var tag = target.tagName.toLowerCase();
         if (tag=="textarea" ||
-            (tag=="input" && e.target.type=="text") ||
-            (tag=="input" && e.target.type=="password")) {
+            (tag=="input" && target.type=="text") ||
+            (tag=="input" && target.type=="email") ||
+            (tag=="input" && target.type=="password")) {
             return;
         }
 
@@ -973,7 +975,8 @@ function emailForward(email) {
 // Moves all emails in box for thread up to email.unixTime.
 // That way, server doesn't move new emails that the user hasn't seen.
 function threadMove(email, box) {
-    if (keepUnsavedWork()) { return; }
+    if (!email) return;
+    if (keepUnsavedWork()) return;
     // Do nothing if already moved.
     if (email._movedThread) {
         return;
@@ -1507,6 +1510,7 @@ function bindContactsEvents() {
             alert(address + " already exists");
             return;
         }
+        $("#contact-add-email").val("");
 
         // TODO: save
         var contact = {"address":address};
@@ -1535,28 +1539,63 @@ function displayContact(elem, editMode) {
     elem.addClass("active");
 
     // Show the detail
-    var model = {
-        "name": contact.name,
-        "address": contact.address
-    };
-    var html;
+    viewState.contact = contact;
     if (contact.name == "Me") {
-        model["public-key"] = sessionStorage["publicKeyArmored"];
-        model["private-key"] = sessionStorage["privateKeyArmored"];
-        model["my-name"] = sessionStorage["token"];
-        html = render("contact-self-template", model);
+        contact["public-key"] = sessionStorage["publicKeyArmored"];
+        contact["private-key"] = sessionStorage["privateKeyArmored"];
+        contact["my-name"] = sessionStorage["token"];
+        displaySelfDetails();
     } else {
-        model["public-key"] = "TODO";
-        html = render("contact-detail-template", model);
+        contact["public-key"] = "TODO";
+        displayContactDetails();
     }
-    $("#content").html(html);
+}
+
+function displaySelfDetails(){
+    $("#content").html(render("contact-self-template", viewState.contact));
+    bindContactDetails();
+}
+
+function displayContactDetails(){
+    $("#content").html(render("contact-detail-template", viewState.contact));
     bindContactDetails();
 }
 
 function bindContactDetails(){
-    // TODO
+    $(".js-edit-contact").click(displayContactEditDetails);
 }
 
+function displayContactEditDetails(){
+    $("#content").html(render("edit-contact-template", viewState.contact));
+    bindContactEditDetails();
+}
+
+
+function bindContactEditDetails(){
+    $(".js-save-contact").click(function(){
+        var name = trim($(".js-name").val());
+        var address = trimToLower($(".js-address").val());
+        if (address == "") {
+            alert("Enter an email address first");
+            return;
+        } else if (getContact(address) != null 
+                && getContact(address) != viewState.contact){
+            alert(address + " already exists");
+            return;
+        }
+        viewState.contact.name = name;
+        viewState.contact.address = address;
+
+        trySaveContacts(viewState.contacts, function() {
+            displayStatus("Contacts saved");
+            displayContacts();
+        });
+    });
+    $(".js-cancel-contact").click(displayContactDetails);
+    $(".js-keybase-lookup").click(function(){
+        // TODO
+    });
+}
 
 
 function saveContacts() {

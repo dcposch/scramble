@@ -407,22 +407,35 @@
                 <div class="contact-key">{{private-key}}</div>
             </div>
         {{/if}}
-        <button class="js-save-contacts btn btn-default">Edit</button>
+        <button class="js-edit-contact btn btn-default">Edit</button>
+        <button class="js-delete-contact btn btn-danger">Delete</button>
     </div>
 </script>
 
 <script id="edit-contact-template" type="text/x-handlebars-template">
-    <div class="form-group">
-        <div class="col-sm-3">
-            <input type="text" class="js-name form-control" placeholder="Name" />
+    <div class="contact-detail form form-horizontal">
+        <div class="form-group">
+            <input type="text" class="form-control input-lg js-name" 
+                   placeholder="Name" value="{{name}}" />
         </div>
-        <div class="col-sm-4">
-            <input type="text" class="js-address form-control" placeholder="Email address" />
+        <div class="form-group">
+            <input type="text" class="js-address form-control" 
+                   placeholder="Email address" value="{{address}}" />
         </div>
-        <div class="js-pubhash col-sm-3" >&nbsp;</div>
-        <a href="#" class="js-delete-button col-sm-1">[X]</a>
+        <div class="form-group">
+            <label class="control-label">Public Key</label>
+            <textarea class="js-public-key contact-key form-control" 
+                      rows="30">{{public-key}}</textarea>
+            <br />
+            <button class="js-keybase-lookup btn btn-default">
+                Look up through Keybase.io
+            </button>
+        </div>
+        <div class="form-group">
+            <button class="js-save-contact btn btn-primary">Save</button>
+            <button class="js-cancel-contact btn btn-default">Cancel</button>
+        </div>
     </div>
-    <button class="js-save-contacts btn btn-primary">Save</button>
 </script>
 
 
