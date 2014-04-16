@@ -5,23 +5,22 @@
 // Public key exchange
 //
 
-function keybaseLookup(user){
+function keybaseLookup(user, success, fail){
     return $.getJSON("/keybase/user/lookup.json?username="+user)
         .done(function(data){
-            console.log(arguments);
             if(data.status.code != 0){
-                alert("Couldn't find "+user+" in Keybase.");
+                fail("Couldn't find "+user+" in Keybase.");
                 return;
-            }
+            } 
             var keys = data.them.public_keys;
             if(!keys){
-                alert("Found "+user+" in Keybase, but they don't have a key!");
+                fail("Found "+user+" in Keybase, but they don't have a key!");
                 return;
             }
-            alert("Got key for "+user+": "+keys.primary.kid);
+            success(keys.primary);
         }).fail(function(){
-            alert("FAIL");
-            console.log(arguments);
+            console.warn(arguments);
+            fail("Couldn't reach Keybase");
         });
 }
 

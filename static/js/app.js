@@ -1593,10 +1593,39 @@ function bindContactEditDetails(){
     });
     $(".js-cancel-contact").click(displayContactDetails);
     $(".js-keybase-lookup").click(function(){
-        // TODO
+        var guessUser = viewState.contact.address.split("@")[0];
+
+        var modal = $("#modal-keybase");
+        modal.find(".js-keybase-user").val(guessUser);
+        modal.find(".js-keybase-proof").hide();
+        modal.find(".js-keybase-submit").hide();
+        modal.modal("show");
+        updateKeybaseUser();
     });
+
+    $("#modal-keybase .js-keybase-user").keyup(updateKeybaseUser);
 }
 
+var xhrKeybase;
+function updateKeybaseUser(){
+    if(xhrKeybase) {
+        xhrKeybase.abort();
+        xhrKeybase = null;
+    }
+    var user = $("#modal-keybase .js-keybase-user").val();
+    xhrKeybase = keybaseLookup(user, function(key){
+        var proof = $("<div class='contact-key'>").text(key.bundle);
+        $("#modal-keybase .js-keybase-error").hide();
+        $("#modal-keybase .js-keybase-proof").html(proof).show();
+        $("#modal-keybase .js-keybase-submit").show();
+        xhrKeybase = null;
+    }, function(error){
+        $("#modal-keybase .js-keybase-error").text(error).show();
+        $("#modal-keybase .js-keybase-proof").hide();
+        $("#modal-keybase .js-keybase-submit").hide();
+        xhrKeybase = null;
+    });
+}
 
 function saveContacts() {
     // TODO REWRITE

@@ -157,6 +157,7 @@
     </div>
 
 
+    <!-- KB SHORTCUTS MODAL -->
     <div class="modal fade" id="modal-shortcuts" tabindex="-1" role="dialog" >
         <div class="modal-dialog">
             <div class="modal-content">
@@ -181,6 +182,39 @@
                         <dt>tab+enter</dt><dd>send email</dd>
                         <dt>esc</dt><dd>close</dd>
                     </dl>
+                </div>
+            </div> <!-- /.modal-content -->
+        </div> <!-- /.modal-dialog -->
+    </div> <!-- /.modal -->
+
+    <!-- KEYBASE LOOKUP MODAL -->
+    <div class="modal fade" id="modal-keybase" tabindex="-1" role="dialog" >
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">Keybase.io lookup</h4>
+                </div>
+
+                <div class="modal-body form form-horizontal">
+                    <div class="form-group">
+                        <label class="col-xs-3">Name</label>
+                        <div class="col-xs-9">
+                            <input class="form-control js-keybase-user" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="js-keybase-error col-xs-12"></div>
+                        <div class="js-keybase-proof col-xs-12" style="display:none"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-xs-offset-3">
+                            <button class="btn btn-primary js-keybase-submit"
+                                    style="display:none">Accept Key</button>
+                        </div>
+                    </div>
                 </div>
             </div> <!-- /.modal-content -->
         </div> <!-- /.modal-dialog -->
