@@ -1466,7 +1466,6 @@ function displayContacts() {
 
         // sort contacts list. "me" first, then others by email
         var me = getContactByAddress(contacts, sessionStorage["emailAddress"]);
-        me.name = "Me";    
         contacts.sort(function(a,b){
             if (a == b){
                 return 0;
@@ -1540,13 +1539,11 @@ function displayContact(elem, editMode) {
 
     // Show the detail
     viewState.contact = contact;
-    if (contact.name == "Me") {
-        contact["public-key"] = sessionStorage["publicKeyArmored"];
-        contact["private-key"] = sessionStorage["privateKeyArmored"];
-        contact["my-name"] = sessionStorage["token"];
+    if (contact.address == sessionStorage["emailAddress"]) {
+        contact.publicKeyArmored = sessionStorage["publicKeyArmored"];
+        contact.privateKeyArmored = sessionStorage["privateKeyArmored"];
         displaySelfDetails();
     } else {
-        contact["public-key"] = "TODO";
         displayContactDetails();
     }
 }
@@ -1563,6 +1560,18 @@ function displayContactDetails(){
 
 function bindContactDetails(){
     $(".js-edit-contact").click(displayContactEditDetails);
+    $(".js-delete-contact").click(function(){
+        if(!confirm("Are you sure you want to delete "+viewState.contact.address+"?")){
+            return;
+        }
+        var newContacts = viewState.contacts.filter(function(c){
+            return c != viewState.contact;
+        });
+        trySaveContacts(newContacts, function() {
+            displayStatus("Contact deleted");
+            displayContacts();
+        });
+    });
 }
 
 function displayContactEditDetails(){
@@ -1575,6 +1584,7 @@ function bindContactEditDetails(){
     $(".js-save-contact").click(function(){
         var name = trim($(".js-name").val());
         var address = trimToLower($(".js-address").val());
+        var pubKey = trim($(".js-public-key").val());
         if (address == "") {
             alert("Enter an email address first");
             return;
@@ -1585,6 +1595,7 @@ function bindContactEditDetails(){
         }
         viewState.contact.name = name;
         viewState.contact.address = address;
+        viewState.contact.publicKeyArmored = pubKey;
 
         trySaveContacts(viewState.contacts, function() {
             displayStatus("Contacts saved");
@@ -1598,9 +1609,14 @@ function bindContactEditDetails(){
         var modal = $("#modal-keybase");
         modal.find(".js-keybase-user").val(guessUser);
         modal.find(".js-keybase-proof").hide();
-        modal.find(".js-keybase-submit").hide();
+        modal.find(".js-keybase-buttons").hide();
         modal.modal("show");
         updateKeybaseUser();
+    });
+    $(".js-keybase-submit").click(function(){
+        var pubKey = $(".js-keybase-public-key").text();
+        $(".js-public-key").val(pubKey);
+        $("#modal-keybase").modal('hide');
     });
 
     $("#modal-keybase .js-keybase-user").keyup(updateKeybaseUser);
@@ -1614,15 +1630,15 @@ function updateKeybaseUser(){
     }
     var user = $("#modal-keybase .js-keybase-user").val();
     xhrKeybase = keybaseLookup(user, function(key){
-        var proof = $("<div class='contact-key'>").text(key.bundle);
+        var proof = $("<div class='js-keybase-public-key contact-key'>").text(key.bundle);
         $("#modal-keybase .js-keybase-error").hide();
         $("#modal-keybase .js-keybase-proof").html(proof).show();
-        $("#modal-keybase .js-keybase-submit").show();
+        $("#modal-keybase .js-keybase-buttons").show();
         xhrKeybase = null;
     }, function(error){
         $("#modal-keybase .js-keybase-error").text(error).show();
         $("#modal-keybase .js-keybase-proof").hide();
-        $("#modal-keybase .js-keybase-submit").hide();
+        $("#modal-keybase .js-keybase-buttons").hide();
         xhrKeybase = null;
     });
 }
@@ -1691,6 +1707,7 @@ function validateContacts(contacts) {
         var address = trimToLower(contact.address);
         var addressMatch = address.match(REGEX_EMAIL);
         var pubHash = contact.pubHash ? trimToLower(contact.pubHash) : undefined;
+        var pubKey = contact.publicKeyArmored;
 
         if (name && !name.match(REGEX_CONTACT_NAME)) {
             errors.push("Invalid contact name: "+name);
@@ -1719,6 +1736,7 @@ function validateContacts(contacts) {
         var contact = {address:address};
         if (name)    { contact.name = name; }
         if (pubHash) { contact.pubHash = pubHash; }
+        if (pubKey) { contact.publicKeyArmored = pubKey; }
         contactsClean.push(contact);
     }
 

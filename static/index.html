@@ -210,9 +210,9 @@
                     </div>
 
                     <div class="form-group">
-                        <div class="col-xs-offset-3">
-                            <button class="btn btn-primary js-keybase-submit"
-                                    style="display:none">Accept Key</button>
+                        <div class="col-xs-12 js-keybase-buttons">
+                            <button class="btn btn-primary js-keybase-submit">Accept Key</button>
+                            <button class="btn btn-default" data-dismiss="modal">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -409,10 +409,10 @@
 
 <script id="contact-self-template" type="text/x-handlebars-template">
     <div class="contact-detail">
-        <h3>Hi {{my-name}}!</h3>
+        <h3>Hi {{name}}!</h3>
         <h4>Here is your public key</h4>
         <p>People can use it to send you encrypted mail. Scramble encrypts automatically.</p>
-        <div class="contact-key">{{public-key}}</div>
+        <div class="contact-key">{{publicKeyArmored}}</div>
         <a href="#contact-private-key" id="contact-show-private-key" data-toggle="collapse" class="collapsed">
             <span class="action"></span> private key
         </a>
@@ -421,7 +421,7 @@
             <p><em>Your private key is your secret. Don't give it to anyone.</em></p>
             <p>It is backed up on the server, encrypted with your passphrase. 
             The server never sees your unencrypted private key or your passphrase.</p>
-            <div class="contact-key">{{private-key}}</div>
+            <div class="contact-key">{{privateKeyArmored}}</div>
         </div>
     </div>
 </script>
@@ -433,14 +433,8 @@
         </h3>
         <h4><tt>{{address}}</tt></h4>
         <h4>Public key</h4>
-        <div class="contact-key">{{public-key}}</div>
-        {{#if private-key}}
-            <a href="#contact-private-key" data-toggle="collapse">Show private key</a>
-            <div class="collapse">
-                <h4>Private key</h4>
-                <div class="contact-key">{{private-key}}</div>
-            </div>
-        {{/if}}
+        <div class="contact-key">{{publicKeyArmored}}</div>
+        <br />
         <button class="js-edit-contact btn btn-default">Edit</button>
         <button class="js-delete-contact btn btn-danger">Delete</button>
     </div>
@@ -459,7 +453,7 @@
         <div class="form-group">
             <label class="control-label">Public Key</label>
             <textarea class="js-public-key contact-key form-control" 
-                      rows="30">{{public-key}}</textarea>
+                      rows="30">{{publicKeyArmored}}</textarea>
             <br />
             <button class="js-keybase-lookup btn btn-default">
                 Look up through Keybase.io
