@@ -1256,9 +1256,13 @@ function lookupPublicKeys(addresses, cb) {
     addresses.forEach(function(addr){
         if(cache.keyMap.hasOwnProperty(addr)){
             keyMap[addr] = cache.keyMap[addr];
-        } else {
-            addrsForLookup.push(addr);
+            return;
+        } 
+        var contact = getContact(addr);
+        if(contact && contact.publicKeyArmored){
+            keyMap[addr] = parsePublicKey(contact.publicKeyArmored);
         }
+        addrsForLookup.push(addr);
     });
 
     // all cached? great!
@@ -1350,30 +1354,15 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                     continue;
                 } else if (result.status == "OK") {
                     var pubKeyArmor = result.pubKey;
-                    // check pubKeyArmor against knownHashes.
-                    var computedHash = computePublicHash(pubKeyArmor);
-                    if (computedHash != knownHashes[addr]) {
-                        // this is a serious error. security breach?
-                        var error = "SECURITY WARNING! We received an incorrect key for "+addr;
-                        console.log(error, computedHash, knownHashes[addr]);
+                    var pubKeyObj = parsePublicKey(result.pubKey, knownHashes[addr]);
+                    if(pubKeyObj.error){
                         alert(error);
                         return; // halt, do not call cb.
                     }
                     if (needResolution.indexOf(addr) != -1) {
                         newResolutions.push({address:addr, pubHash:computedHash});
                     }
-                    // parse publicKey
-                    var pka = openpgp.read_publicKey(pubKeyArmor);
-                    if (pka.length == 1) {
-                        keyMap[addr] = {
-                            pubKey:      pka[0],
-                            pubKeyArmor: pubKeyArmor,
-                            pubHash:     computedHash,
-                        };
-                    } else {
-                        alert("Incorrect number of publicKeys in armor for address "+addr);
-                        return; // halt, do not call cb.
-                    }
+                    keyMap[addr] = pubKeyObj;
                 } else if (result.status == "NOT_SCRAMBLE") {
                     newResolutions.push({address:addr, pubHash: undefined});
                     keyMap[addr] = {
@@ -1396,6 +1385,23 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
             cb(keyMap, newResolutions);
         }, "json");
     });
+}
+
+// Returns {pubKey:..., pubKeyArmor:..., pubHash:..., error:...}
+function parsePublicKey(pubKeyArmor, expectedHash){
+    var computedHash = computePublicHash(pubKeyArmor);
+    if (typeof(expectedHash)!=="undefined" && expectedHash != computedHash){
+        return {error:"SECURITY WARNING! We received an incorrect key for "+addr};
+    }
+    var pka = openpgp.read_publicKey(pubKeyArmor);
+    if (pka.length != 1) {
+        return {error:"Incorrect number of publicKeys in armor for address "+addr};
+    }
+    return {
+        pubKey:      pka[0],
+        pubKeyArmor: pubKeyArmor,
+        pubHash:     computedHash,
+    };
 }
 
 // addrPubKeys: {toAddress: <pubKey>}
