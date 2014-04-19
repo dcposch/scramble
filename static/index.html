@@ -342,14 +342,17 @@
         <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
         <input type="hidden" name="threadID" value="{{threadID}}"/>
 
-        <div class="input-group">
-            <span class="input-group-addon to-label">To:</span>
-            <input name="to" type="text" class="form-control to" value="{{to}}" placeholder="You must choose at least one recipient." />
+        <div class="form-group">
+            <div class="input-group">
+                <span class="input-group-addon to-label">To:</span>
+                <input name="to" type="text" class="form-control to" value="{{to}}" placeholder="You must choose at least one recipient." />
+            </div>
+            <textarea name="body" rows="15" class="form-control body">{{body}}</textarea>
         </div>
 
-        <textarea name="body" rows="15" class="form-control body">{{body}}</textarea>
-
-        <input type="submit" class="js-send-button btn btn-primary" value="Send"></input>
+        <div class="form-group">
+            <input type="submit" class="js-send-button btn btn-primary" value="Send" />
+        </div>
     </div>
 </script>
 

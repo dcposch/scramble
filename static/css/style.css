@@ -74,11 +74,13 @@ body {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }
+.compose-form .to {
+    width:100%;
+}
 .compose-form .body {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     border-top-width:0;
-    width:870px;
 }
 
 

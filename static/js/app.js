@@ -1261,6 +1261,7 @@ function lookupPublicKeys(addresses, cb) {
         var contact = getContact(addr);
         if(contact && contact.publicKeyArmored){
             keyMap[addr] = parsePublicKey(contact.publicKeyArmored);
+            return;
         }
         addrsForLookup.push(addr);
     });
