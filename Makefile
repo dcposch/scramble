@@ -11,7 +11,7 @@ build: doc $(shell find . -name '*.go') $(shell find . -name '*.js')
 
 test: $(shell find . -name '*.go') $(shell find . -name '*.js')
 	go test scramble
-	cat static/js/stubs.js static/js/sugar.min.js static/js/openpgp.js static/js/scrypt.js static/js/app.js static/js/test.js | node
+	cd static/js && cat stubs.js lib/sugar.min.js lib/openpgp.js lib/scrypt.js app.js test.js | node
 
 lint: 
 	go get github.com/golang/lint/golint

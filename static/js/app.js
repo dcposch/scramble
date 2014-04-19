@@ -147,6 +147,7 @@ function main() {
 
     // initialize the ui
     initHandlebars();
+    initMomentJS();
     initAjaxAuth();
     bindKeyboardShortcuts();
 
@@ -2384,12 +2385,13 @@ function setHostPrefix(hostPrefix) {
 }
 
 
-moment.lang('en', {
-    calendar : {
-        sameDay : '[Today] LT',
-        lastDay : '[Yesterday]',
-        lastWeek: 'll',
-        sameElse : 'll'
-    }
-});
-
+function initMomentJS() {
+    moment.lang('en', {
+        calendar : {
+            sameDay : '[Today] LT',
+            lastDay : '[Yesterday]',
+            lastWeek: 'll',
+            sameElse : 'll'
+        }
+    });
+}
