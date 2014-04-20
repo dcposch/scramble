@@ -218,6 +218,7 @@ function startPgpDecryptWorkers(){
                         console.log("Warning decrypting "+msg.cacheKey+": "+warn);
                     });
                 }
+                console.log("Finished decrypting "+msg.cacheKey);
                 workers[job.worker].numInProgress--;
                 job.callback(msg.plaintext, msg.error);
                 delete pendingDecryption[msg.cacheKey];
@@ -244,7 +245,7 @@ function cachedDecryptPgp(cacheKey, armoredText, publicKeyArmored, cb){
     } else if (pendingDecryption[cacheKey]){
         console.log("Warning: skipping decryption, already in progress: "+cacheKey);
     } else {
-        console.log("Decoding "+cacheKey);
+        console.log("Decrypting "+cacheKey);
         var msg = {
             "type":"cipherText",
             "cacheKey":cacheKey,
@@ -793,6 +794,18 @@ function displayEmail(arg) {
     });
 }
 
+function cachedLoadEmail(params, cb){
+    if(cache.emailCache.hasOwnProperty(params.msgID)){
+        // NOTE: we may want to use params.box in the future.
+        cb(cache.emailCache[params.msgID]);
+    } else {
+        $.get(HOST_PREFIX+"/email/", params, function(emailData) {
+            cache.emailCache[params.msgID] = emailData;
+            cb(emailData);
+        }, "json");
+    }
+}
+
 function startDecryptEmailThread(emailDatas){
     // Asynchronously verify+decrypt
     var fromAddrs = emailDatas.map("From").map(trimToLower).unique();
@@ -809,18 +822,6 @@ function startDecryptEmailThread(emailDatas){
     });
 }
 
-function cachedLoadEmail(params, cb){
-    if(cache.emailCache.hasOwnProperty(params.msgID)){
-        // NOTE: we may want to use params.box in the future.
-        cb(cache.emailCache[params.msgID]);
-    } else {
-        $.get(HOST_PREFIX+"/email/", params, function(emailData) {
-            cache.emailCache[params.msgID] = emailData;
-            cb(emailData);
-        }, "json");
-    }
-}
-
 // Decrypts an email. Checks the signature, if there is one.
 // Expects data.CipherBody, sets data.plaintextBody
 function decryptAndVerifyEmail(data, keyMap) {
@@ -832,7 +833,8 @@ function decryptAndVerifyEmail(data, keyMap) {
             "regardless of whether it has a signature.");
     }
     cachedDecryptPgp(data.MessageID+" body", data.CipherBody, fromKey, function(plain){
-        $("#body-"+bin2hex(data.MessageID)).text(plain);
+        var html = createHyperlinks(plain);
+        $("#body-"+bin2hex(data.MessageID)).removeClass("still-decrypting").html(html);
     });
 }
 
@@ -2282,8 +2284,7 @@ function passphraseDecrypt(cipherText) {
             cipherText);
         console.log("Warning: old account, used backcompat AES key");
     }
-    plain = util.decode_utf8(plain);
-    return plain;
+    return util.decode_utf8(plain);
 }
 
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding

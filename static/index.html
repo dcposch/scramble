@@ -343,7 +343,7 @@
                 </small>
             </div>
 
-            <div class="email-body panel-body" id="body-{{hexMsgID}}">{{#if htmlBody}}{{{htmlBody}}}{{else}}Decrypting...{{/if}}</div>
+            <div id="body-{{hexMsgID}}" class="email-body panel-body {{#unless htmlBody}}still-decrypting{{/unless}}">{{#if htmlBody}}{{{htmlBody}}}{{else}}Decrypting...{{/if}}</div>
         </div>
 
         {{!-- This is where the compose box goes when replying/forwarding this email --}}
