@@ -86,7 +86,15 @@ body {
 
 
 /*
- * CONTACTS
+ * CONTACTS LIST
+ */
+.js-contact-item .badge {
+    margin-top:10px;
+}
+
+
+/*
+ * CONTACT DETAIL
  */
 .contact-detail {
     max-width:550px;

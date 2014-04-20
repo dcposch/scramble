@@ -405,6 +405,12 @@
 <script id="contact-partial" type="text/x-handlebars-partial">
     <a href="#" data-address="{{address}}" 
         class="list-group-item js-item js-contact-item">
+        {{#if hasKey}}
+            {{!-- Show a green lock if this contact has a public key --}}
+            <span class="badge success">
+                <span class="glyphicon glyphicon-lock"></span>
+            </span>
+        {{/if}}
         <div class="contact-name">{{name}}</div>
         <div class="contact-email deemphasize">{{address}}</div> 
     </a>
@@ -436,8 +442,15 @@
             {{#if name}}{{name}}{{else}}No name{{/if}}
         </h3>
         <h4><tt>{{address}}</tt></h4>
-        <h4>Public key</h4>
+        <br />
+        {{#if hasKey}}
+        <h4>Public Key</h4>
         <div class="contact-key">{{publicKeyArmored}}</div>
+        {{else}}
+        <p>You don't know this person's public key.</p>
+        <p>That means email sent to him or her will be unencrypted :(</p>
+        <p>Click Edit to add a key.</p>
+        {{/if}}
         <br />
         <button class="js-edit-contact btn btn-default">Edit</button>
         <button class="js-delete-contact btn btn-danger">Delete</button>
@@ -456,8 +469,14 @@
         </div>
         <div class="form-group">
             <label class="control-label">Public Key</label>
-            <textarea class="js-public-key contact-key form-control" 
-                      rows="30">{{publicKeyArmored}}</textarea>
+            {{#if pubHash}}
+                {{!-- For scramble contacts, which already have a notarized pubHash,
+                      the public key is not editable --}}
+                <div class="contact-key">{{publicKeyArmored}}</div>
+            {{else}}
+                <textarea class="js-public-key contact-key form-control" 
+                          rows="32">{{publicKeyArmored}}</textarea>
+            {{/if}}
             <br />
             <button class="js-keybase-lookup btn btn-default">
                 Look up through Keybase.io
