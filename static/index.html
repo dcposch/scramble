@@ -109,6 +109,56 @@
 
 <!-- PAGE STRUCTURE -->
 <script id="page-template" type="text/x-handlebars-template">
+    {{> navbar-partial}}
+
+    <div class="container-fluid">
+        <div class="row">
+            <div id="sidebar" class="col-md-4">
+                <div id="box" class="box"></div>
+            </div>
+            <div class="col-md-8">
+                <div id="statusBar"></div>
+                <div id="content"></div>
+            </div>
+        </div>
+
+        {{> footer-partial}}
+    </div>
+
+    {{> kb-shortcuts-modal-partial}}
+
+    {{> keybase-modal-partial}}
+</script>
+
+<!-- COMPOSE PAGE STRUCTURE -->
+<script id="compose-page-template" type="text/x-handlebars-template">
+    {{> navbar-partial}}
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div id="content"></div>
+                <div id="statusBar"></div>
+            </div>
+        </div>
+
+        {{> footer-partial}}
+    </div>
+
+    {{> kb-shortcuts-modal-partial}}
+
+    {{> keybase-modal-partial}}
+</script>
+
+<script id="footer-partial" type="text/x-handlebars-partial">
+    <div class="row footer">
+        <div class="col-md-12">
+            &nbsp; <!-- TODO: centered Rubik's cube logo -->
+        </div>
+    </div>
+</script>
+
+<script id="navbar-partial" type="text/x-handlebars-template">
     <div class="navbar navbar-default">
         <div class="container-fluid">
             <div class="navbar-header">
@@ -137,26 +187,9 @@
             </div>
         </div>
     </div>
+</script>
 
-    <div class="container-fluid">
-        <div class="row">
-            <div id="sidebar" class="col-md-4">
-                <div id="box" class="box"></div>
-            </div>
-            <div class="col-md-8">
-                <div id="statusBar"></div>
-                <div id="content"></div>
-            </div>
-        </div>
-
-        <div class="row footer">
-            <div class="col-md-12">
-                &nbsp; <!-- TODO: centered Rubik's cube logo -->
-            </div>
-        </div>
-    </div>
-
-
+<script id="kb-shortcuts-modal-partial" type="text/x-handlebars-template">
     <!-- KB SHORTCUTS MODAL -->
     <div class="modal fade" id="modal-shortcuts" tabindex="-1" role="dialog" >
         <div class="modal-dialog">
@@ -186,7 +219,9 @@
             </div> <!-- /.modal-content -->
         </div> <!-- /.modal-dialog -->
     </div> <!-- /.modal -->
+</script>
 
+<script id="keybase-modal-partial" type="text/x-handlebars-template">
     <!-- KEYBASE LOOKUP MODAL -->
     <div class="modal fade" id="modal-keybase" tabindex="-1" role="dialog" >
         <div class="modal-dialog">
@@ -221,7 +256,6 @@
     </div> <!-- /.modal -->
 </script>
 
-
 <!-- BOX -->
 <script id="box-template" type="text/x-handlebars-template">
     {{#unless emailHeaders.length}}
@@ -237,8 +271,8 @@
                 data-time="{{unixTime}}"
                 data-from="{{from}}"
                 data-to="{{to}}">
-                <span class="js-subject {{#unless subject}}still-decrypting{{/unless}}" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}Decrypting...{{/if}}</span>
                 <span class="js-date deemphasize">{{prettyTime}}</span> 
+                <span class="js-subject {{#unless subject}}still-decrypting{{/unless}}" id="subject-{{hexMsgID}}">{{#if subject}}{{subject}}{{else}}Decrypting...{{/if}}</span>
             </a>
         {{/each}}
     </div>
@@ -331,14 +365,6 @@
 <!-- COMPOSE -->
 <script id="compose-template" type="text/x-handlebars-template">
     <div class="form compose-form">
-        {{#if inline}}
-        <input type="hidden" name="subject" value="{{subject}}" />
-        {{else}}
-        <div class="form-group">
-            <input type="text" name="subject" value="{{subject}}" class="form-control input-lg" placeholder="Subject" />
-        </div>
-        {{/if}}
-
         <input type="hidden" name="ancestorIDs" value="{{ancestorIDs}}"/>
         <input type="hidden" name="threadID" value="{{threadID}}"/>
 
@@ -347,6 +373,13 @@
                 <span class="input-group-addon to-label">To:</span>
                 <input name="to" type="text" class="form-control to" value="{{to}}" placeholder="You must choose at least one recipient." />
             </div>
+
+            {{#if inline}}
+                <input type="hidden" name="subject" value="{{subject}}" />
+            {{else}}
+                <input type="text" name="subject" value="{{subject}}" class="form-control input-lg subject" placeholder="Subject" />
+            {{/if}}
+
             <textarea name="body" rows="15" class="form-control body">{{body}}</textarea>
         </div>
 
@@ -473,13 +506,14 @@
                 {{!-- For scramble contacts, which already have a notarized pubHash,
                       the public key is not editable --}}
                 <div class="contact-key">{{publicKeyArmored}}</div>
+                <p>This is a Scramble address, so it has a known public key.</p>
             {{else}}
                 <textarea class="js-public-key contact-key form-control" 
                           rows="32">{{publicKeyArmored}}</textarea>
+                <br />
+                <button class="js-keybase-lookup btn btn-default">
+                    Look up through Keybase.io
             {{/if}}
-            <br />
-            <button class="js-keybase-lookup btn btn-default">
-                Look up through Keybase.io
             </button>
         </div>
         <div class="form-group">

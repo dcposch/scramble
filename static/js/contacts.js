@@ -18,7 +18,10 @@ function keybaseLookup(user, success, fail){
                 return;
             }
             success(keys.primary);
-        }).fail(function(){
+        }).fail(function(xhr, reason){
+            if(reason == "abort"){
+                return;
+            }
             console.warn(arguments);
             fail("Couldn't reach Keybase");
         });
