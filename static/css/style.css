@@ -43,15 +43,11 @@ body {
     font-weight:bold;
 }
 .js-item .js-subject {
-    display:inline-block;
-    width: 250px;
     overflow:hidden;
-    white-space:nowrap;
-    text-overflow:ellipsis;
     vertical-align:bottom;
 }
 .js-item .js-date {
-    display:inline-block;
+    float:right;
     width: 130px;
     white-space:nowrap;
     text-align:right;
@@ -77,6 +73,10 @@ body {
 .compose-form .to {
     width:100%;
 }
+.compose-form .subject {
+    border-radius: 0;
+    border-top-width: 0;
+}
 .compose-form .body {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
@@ -88,9 +88,6 @@ body {
 /*
  * CONTACTS LIST
  */
-.js-contact-item .badge {
-    margin-top:10px;
-}
 
 
 /*

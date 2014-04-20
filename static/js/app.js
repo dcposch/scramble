@@ -318,16 +318,16 @@ function bindKeyboardShortcuts() {
 
 
 //
-// SIDEBAR
+// TABS & PAGE STRUCTURE
 //
 
-function bindSidebarEvents() {
+function bindTabEvents() {
     // Navigate to Inbox, Sent, or Archive
     $(".js-tab-inbox").click(function(e) {
         loadDecryptAndDisplayBox("inbox");
     });
     $(".js-tab-sent").click(function(e) {
-        loadDecryptAndDisplayBox("outbox");
+        loadDecryptAndDisplayBox("sent");
     });
     $(".js-tab-archive").click(function(e) {
         loadDecryptAndDisplayBox("archive");
@@ -358,9 +358,13 @@ function setSelectedTab(tab) {
     tab.addClass("active");
 }
 
-function displayStatus(msg) {
+function displayStatus(msg, cssClass) {
+    if(!cssClass) {
+        cssClass = "text-success";
+    }
     $("#statusBar")
         .text(msg)
+        .attr("class", cssClass)
         .show()
         .delay(1000)
         .fadeOut("slow");
@@ -608,7 +612,7 @@ function showEncryptedBox(boxSummary, box) {
     };
     data.pages = pages;
     $("#wrapper").html(render("page-template", data));
-    bindSidebarEvents();
+    bindTabEvents();
     setSelectedTab($(".js-tab-"+box));
     $("#box").html(render("box-template", data));
     bindBoxEvents();
@@ -1069,20 +1073,31 @@ function displayCompose(to, subject, body) {
     if (body === undefined) {
         body = DEFAULT_SIGNATURE;
     }
-    var drafts = []; // TODO
-    $(".box").html(render("drafts-list-template", drafts));
+
+    // Clean up
+    var data = {token: sessionStorage["token"]};
+    $("#wrapper").html(render("compose-page-template", data));
+    bindTabEvents();
     viewState.clearEmails();
+
+    // Go to Compose tab
     setSelectedTab($(".js-tab-compose"));
+
+    displayComposeStandalone(to, subject, body);
+}
+
+// Shows the standalone compose screen--
+// in other words, not part of an existing email thread
+function displayComposeStandalone(to, subject, body){
     var elCompose = $(render("compose-template", {
         to:          to,
         subject:     subject,
         body:        body,
-        bodyDefault: body,
     }));
     $("#content").empty().append(elCompose);
     bindComposeEvents(elCompose, function(emailData) {
         displayStatus("Sent");
-        displayCompose();
+        displayComposeStandalone();
     });
 }
 
@@ -1261,7 +1276,7 @@ function lookupPublicKeys(addresses, cb) {
         } 
         var contact = getContact(addr);
         if(contact && contact.publicKeyArmored){
-            keyMap[addr] = parsePublicKey(contact.publicKeyArmored);
+            keyMap[addr] = parsePublicKey(contact.publicKeyArmored, addr);
             return;
         }
         addrsForLookup.push(addr);
@@ -1356,13 +1371,13 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                     continue;
                 } else if (result.status == "OK") {
                     var pubKeyArmor = result.pubKey;
-                    var pubKeyObj = parsePublicKey(result.pubKey, knownHashes[addr]);
+                    var pubKeyObj = parsePublicKey(result.pubKey, addr, knownHashes[addr]);
                     if(pubKeyObj.error){
-                        alert(error);
+                        alert(pubKeyObj.error);
                         return; // halt, do not call cb.
                     }
                     if (needResolution.indexOf(addr) != -1) {
-                        newResolutions.push({address:addr, pubHash:computedHash});
+                        newResolutions.push({address:addr, pubHash:knownHashes[addr]});
                     }
                     keyMap[addr] = pubKeyObj;
                 } else if (result.status == "NOT_SCRAMBLE") {
@@ -1389,8 +1404,12 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
     });
 }
 
+// Takes PGP-armored public key and email address (needed for error messages).
+// Optionally takes an expected hash--if provided, verifies that 
+// pubHash(pubKeyArmor) == expectedHash
+//
 // Returns {pubKey:..., pubKeyArmor:..., pubHash:..., error:...}
-function parsePublicKey(pubKeyArmor, expectedHash){
+function parsePublicKey(pubKeyArmor, addr, expectedHash){
     var computedHash = computePublicHash(pubKeyArmor);
     if (typeof(expectedHash)!=="undefined" && expectedHash != computedHash){
         return {error:"SECURITY WARNING! We received an incorrect key for "+addr};
@@ -1467,7 +1486,9 @@ function displayContacts() {
     loadAndDecryptContacts(function(contacts) {
         // clean up 
         viewState.clearEmails();
-        $("#content").html("");
+        var data = {token: sessionStorage["token"]};
+        $("#wrapper").html(render("page-template", data));
+        bindTabEvents();
 
         // go to Contacts
         setSelectedTab($(".js-tab-contacts"));
@@ -1592,9 +1613,26 @@ function displaySelfDetails(contact){
 // Displays the detail view for the currently selected
 // contact (viewState.contacts).
 function displayContactDetails(){
-    var model = createContactViewModel(viewState.contact);
-    $("#content").html(render("contact-detail-template", model));
-    bindContactDetails();
+    loadContactPublicKey(viewState.contact, function(publicKeyArmored){
+        var model = createContactViewModel(viewState.contact);
+        model.publicKeyArmored = publicKeyArmored;
+        $("#content").html(render("contact-detail-template", model));
+        bindContactDetails();
+    });
+}
+
+// If contact has a public key set directly, calls cb(pubKeyArmored)
+// If contact is a Scramble contact, looks up pubKey, then calls cb(pubKeyArmored)
+// Otherwise, if no key is available, calls cb(null)
+function loadContactPublicKey(contact, cb){
+    if(contact.publicKeyArmored){
+        cb(contact.publicKeyArmored);
+    } else if(!contact.pubHash){
+        cb(null);
+    }
+    lookupPublicKeys([contact.address], function(keyMap) {
+        cb(keyMap[contact.address].pubKeyArmor);
+    });
 }
 
 function bindContactDetails(){
@@ -1614,9 +1652,12 @@ function bindContactDetails(){
 }
 
 function displayContactEditDetails(){
-    var model = createContactViewModel(viewState.contact);
-    $("#content").html(render("edit-contact-template", model));
-    bindContactEditDetails();
+    loadContactPublicKey(viewState.contact, function(publicKeyArmored){
+        var model = createContactViewModel(viewState.contact);
+        model.publicKeyArmored = publicKeyArmored;
+        $("#content").html(render("edit-contact-template", model));
+        bindContactEditDetails();
+    });
 }
 
 
@@ -1624,7 +1665,6 @@ function bindContactEditDetails(){
     $(".js-save-contact").click(function(){
         var name = trim($(".js-name").val());
         var address = trimToLower($(".js-address").val());
-        var pubKey = trim($(".js-public-key").val());
         if (address == "") {
             alert("Enter an email address first");
             return;
@@ -1638,6 +1678,7 @@ function bindContactEditDetails(){
         // For Scramble contacts--which have a notarized pubHash--
         // the public key is not editable
         if(!viewState.contact.pubHash){
+            var pubKey = trim($(".js-public-key").val());
             viewState.contact.publicKeyArmored = pubKey;
         }
 
@@ -2100,7 +2141,7 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
         });
         if(missingNotariesForAddress.length > MAX_MISSING_NOTARIES){
             missingAddresses.push(address);
-        } else {
+        } else if (missingNotariesForAddress.length > 0) {
             // this address is *NOT* available from at least one notary, or
             // at least one notary server is down
             console.log("Warning: did NOT get a public key for "+address+
