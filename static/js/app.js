@@ -1018,6 +1018,10 @@ function threadMove(email, box) {
     // Disable buttons while moving
     email._movedThread = true;
     var elEmail = getEmailElement(email.msgID);
+    if(!elEmail){
+        // Already moved/archived/deleted, nothing to do
+        return;
+    }
     var elThread = elEmail.closest("#thread");
 	elThread.find(".js-thread-control button").prop("disabled", true);
     
@@ -1048,11 +1052,11 @@ function getEmailElement(msgID) {
 }
 
 function showNextThread() {
-    var newSelection = $(".box .current").next();
+    var newSelection = $(".js-box-item.active").next();
     if (newSelection.length == 0) {
-        newSelection = $(".box .current").prev();
+        newSelection = $(".js-box-item.active").prev();
     }
-    $(".box .current").remove();
+    $(".js-box-item.active").remove();
     displayEmail(newSelection);
 }
 
