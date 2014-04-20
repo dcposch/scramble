@@ -1857,11 +1857,11 @@ function validateContacts(contacts) {
         }
 
         var cleanContact = {
-            address:address,
-            name:name,
-            pubHash:pubHash,
-            publicHashArmored:pubKey
+            address:address
         };
+        if(name){ cleanContact.name = name; }
+        if(pubHash){ cleanContact.pubHash = pubHash; }
+        if(pubKey){ cleanContact.publicKeyArmored = pubKey; }
         cleanContacts.push(cleanContact);
     }
 
