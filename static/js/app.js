@@ -170,6 +170,7 @@ function login(failureCb){
         sessionStorage["privateKeyArmored"] = decryptPrivateKey(data.CipherPrivateKey);
 
         startPgpDecryptWorkers();
+        startPgpWorkerWatcher();
 
         loadDecryptAndDisplayBox("inbox");
     }, "json").fail(function(xhr){
@@ -229,6 +230,28 @@ function startPgpDecryptWorkers(){
         };
         workers.push(worker);
     }
+}
+
+// Show decrypt queue size in tab bar, in real time
+function startPgpWorkerWatcher(){
+    var totalInProgress = 0;
+    setInterval(function(){
+        var newTotal = 0;
+        for(var i = 0; i < workers.length; i++){
+            newTotal += workers[i].numInProgress;
+        }
+        if(newTotal == totalInProgress){
+            return;
+        }
+        totalInProgress = newTotal;
+
+        // Show in tab bar
+        var msg = "";
+        if(totalInProgress > 0){
+            msg = "Decrypting " + totalInProgress;
+        }
+        $("#debug-num-decrypting").text(msg);
+    }, 100);
 }
 
 // Asynchronously decrypts (and optionally verifies) a PGP message
