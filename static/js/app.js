@@ -82,7 +82,7 @@ viewState.getLastEmail = function() {
         return null;
     }
     return createEmailViewModel(this.emails[this.emails.length-1]);
-}
+};
 // Returns the last email from another user.
 viewState.getLastEmailFromAnother = function() {
     if (!this.emails) {
@@ -96,11 +96,11 @@ viewState.getLastEmailFromAnother = function() {
     }
     // just return the last email even from self.
     return this.getLastEmail();
-}
+};
 viewState.clearEmails = function() {
     this.box = null;
     this.emails = null;
-}
+};
 
 viewState.contacts = null; // plaintext address book
 viewState.notaries = null; // notaries that client trusts.
@@ -154,7 +154,7 @@ function main() {
     // are we logged in?
     if (!isLoggedIn()) {
         console.log("Please log in.");
-        displayLogin();
+        showLogin();
     } else {
         console.log("Auth tokens already present, logging in.");
         login();
@@ -172,7 +172,7 @@ function login(failureCb){
         startPgpDecryptWorkers();
         startPgpWorkerWatcher();
 
-        loadDecryptAndDisplayBox("inbox");
+        loadDecryptAndShowBox("inbox");
     }, "json").fail(function(xhr){
         clearCredentials(); 
         if(failureCb){
@@ -180,7 +180,7 @@ function login(failureCb){
         } else {
             alert("Login failed. Please refresh and try again.");
         }
-    })
+    });
 }
 
 function decryptPrivateKey(cipherPrivateKeyHex){
@@ -205,30 +205,30 @@ function startPgpDecryptWorkers(){
             "type":"key",
             "privateKey": sessionStorage["privateKeyArmored"]
         }));
-        worker.onmessage = function(evt){
-            var msg = JSON.parse(evt.data);
-            switch (msg.type) {
-            case "decrypt":
-                var job = pendingDecryption[msg.cacheKey];
-                cache.plaintextCache[msg.cacheKey] = msg.plaintext;
-                if(msg.error){
-                    console.log("Error decrypting "+msg.cacheKey+": "+msg.error);
-                }
-                if(msg.warnings){
-                    msg.warnings.forEach(function(warn){
-                        console.log("Warning decrypting "+msg.cacheKey+": "+warn);
-                    });
-                }
-                console.log("Finished decrypting "+msg.cacheKey);
-                workers[job.worker].numInProgress--;
-                job.callback(msg.plaintext, msg.error);
-                delete pendingDecryption[msg.cacheKey];
-                break;
-            case "log":
-                console.log("Webworker:", msg.level, msg.message);
-            }
-        };
+        worker.onmessage = handlePgpWorkerMessage;
         workers.push(worker);
+    }
+}
+
+function handlePgpWorkerMessage(evt){
+    var msg = JSON.parse(evt.data);
+    if(msg.type == "decrypt"){
+        var job = pendingDecryption[msg.cacheKey];
+        cache.plaintextCache[msg.cacheKey] = msg.plaintext;
+        if(msg.error){
+            console.log("Error decrypting "+msg.cacheKey+": "+msg.error);
+        }
+        if(msg.warnings){
+            msg.warnings.forEach(function(warn){
+                console.log("Warning decrypting "+msg.cacheKey+": "+warn);
+            });
+        }
+        console.log("Finished decrypting "+msg.cacheKey);
+        workers[job.worker].numInProgress--;
+        job.callback(msg.plaintext, msg.error);
+        delete pendingDecryption[msg.cacheKey];
+    } else if(msg.type == "log"){
+        console.log("Webworker:", msg.level, msg.message);
     }
 }
 
@@ -296,17 +296,17 @@ var keyMap = {
     "j":showNextItem,
     "k":showPrevItem,
     "g":{
-        "c":displayContacts,
-        "i":function(){loadDecryptAndDisplayBox("inbox")},
-        "s":function(){loadDecryptAndDisplayBox("sent")},
-        "a":function(){loadDecryptAndDisplayBox("archive")}
+        "c":showContacts,
+        "i":function(){loadDecryptAndShowBox("inbox");},
+        "s":function(){loadDecryptAndShowBox("sent");},
+        "a":function(){loadDecryptAndShowBox("archive");}
     },
-    "c":displayCompose,
-    "r":function(){emailReply(viewState.getLastEmailFromAnother())},
-    "a":function(){emailReplyAll(viewState.getLastEmail())},
-    "f":function(){emailForward(viewState.getLastEmail())},
-    "y":function(){threadMove(viewState.getLastEmail(), "archive")},
-    "d":function(){threadMove(viewState.getLastEmail(), "trash")},
+    "c":showCompose,
+    "r":function(){emailReply(viewState.getLastEmailFromAnother());},
+    "a":function(){emailReplyAll(viewState.getLastEmail());},
+    "f":function(){emailForward(viewState.getLastEmail());},
+    "y":function(){threadMove(viewState.getLastEmail(), "archive");},
+    "d":function(){threadMove(viewState.getLastEmail(), "trash");},
 };
 
 function bindKeyboardShortcuts() {
@@ -336,7 +336,7 @@ function bindKeyboardShortcuts() {
             // pressed one key in a combination, wait for the next key
             currentKeyMap = mapping;
         }
-    })
+    });
 }
 
 
@@ -348,23 +348,23 @@ function bindKeyboardShortcuts() {
 function bindTabEvents() {
     // Navigate to Inbox, Sent, or Archive
     $(".js-tab-inbox").click(function(e) {
-        loadDecryptAndDisplayBox("inbox");
+        loadDecryptAndShowBox("inbox");
     });
     $(".js-tab-sent").click(function(e) {
-        loadDecryptAndDisplayBox("sent");
+        loadDecryptAndShowBox("sent");
     });
     $(".js-tab-archive").click(function(e) {
-        loadDecryptAndDisplayBox("archive");
+        loadDecryptAndShowBox("archive");
     });
 
     // Navigate to Compose
     $(".js-tab-compose").click(function(e) {
-        displayCompose();
+        showCompose();
     });
 
     // Navigate to Contacts
     $(".js-tab-contacts").click(function(e) {
-        displayContacts();
+        showContacts();
     });
 
     // Log out: click a link, deletes sessionStorage and refreshes the page
@@ -382,7 +382,7 @@ function setSelectedTab(tab) {
     tab.addClass("active");
 }
 
-function displayStatus(msg, cssClass) {
+function showStatus(msg, cssClass) {
     if(!cssClass) {
         cssClass = "text-success";
     }
@@ -422,7 +422,7 @@ function clearCredentials() {
     sessionStorage["hostPrefix"] = HOST_PREFIX;
 }
 
-function displayLogin() {
+function showLogin() {
     // not logged in. reset session state.
     clearCredentials();
 
@@ -445,7 +445,7 @@ function bindLoginEvents() {
     });
 
     var keys = null;
-    $("#generateButton").click(displayCreateAccountModal);
+    $("#generateButton").click(showCreateAccountModal);
 }
 
 function setAuthTokens(token, pass) {
@@ -470,7 +470,7 @@ function isLoggedIn() {
 // LOGIN - "CREATE ACCOUNT" MODAL
 //
 
-function displayCreateAccountModal() {
+function showCreateAccountModal() {
     // showModal("create-account-template");
     $('#createAccountModal').modal('show');
 
@@ -489,7 +489,9 @@ function displayCreateAccountModal() {
         $("#createButton").prop("disabled", false);
 
         // call cb, the user had already pressed the create button
-        if (cb) { cb() }
+        if (cb) { 
+            cb();
+        }
     });
 
     $("#createButton").click(function() {
@@ -497,7 +499,9 @@ function displayCreateAccountModal() {
         if (keys) {
             createAccount(keys);
         } else {
-            cb = function() { createAccount(keys) };
+            cb = function() { 
+                createAccount(keys); 
+            };
         }
     });
 }
@@ -509,14 +513,14 @@ function displayCreateAccountModal() {
 // encrypted private key to the server.
 function createAccount(keys) {
     var token = validateToken();
-    if (token == null) return false;
+    if (token === null) return false;
     var pass = validateNewPassword();
-    if (pass == null) return false;
+    if (pass === null) return false;
     var secondaryEmail = trim($("#secondaryEmail").val());
     
     if (secondaryEmail && !secondaryEmail.match(REGEX_EMAIL)) {
         alert(secondaryEmail+" is not a valid email address");
-        return
+        return;
     }
 
     // two passphrase hashes, one for login and one to encrypt the private key
@@ -556,8 +560,8 @@ function validateToken() {
     if (token.match(REGEX_TOKEN)) {
         return token;
     } else {
-        alert("User must be at least three characters long.\n"
-            + "Lowercase letters and numbers only, please.");
+        alert("User must be at least three characters long.\n" +
+              "Lowercase letters and numbers only, please.");
         return null;
     }
 }
@@ -587,26 +591,26 @@ function validateNewPassword() {
 function bindBoxEvents() {
     // Click on an email to open it
     $("#box .js-item").click(function(e) {
-        displayEmail($(e.currentTarget));
+        showEmail($(e.currentTarget));
     });
     // Click on a pagination link
     $("#box .box-pagination a").click(function(e) {
         var box = $(this).data("box");
         var page = $(this).data("page");
-        loadDecryptAndDisplayBox(box, page);
+        loadDecryptAndShowBox(box, page);
         return false;
     });
 }
 
-function loadDecryptAndDisplayBox(box, page) {
+function loadDecryptAndShowBox(box, page) {
     if (keepUnsavedWork()) { return; }
     box = box || "inbox";
     page = page || 1;
-    console.log("Loading, decrypting and displaying "+box+", page "+page);
+    console.log("Loading, decrypting and showing "+box+", page "+page);
     $.get(HOST_PREFIX+"/box/"+encodeURI(box),
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary) {
-            console.log("Decrypting and displaying "+box);
+            console.log("Decrypting and showing "+box);
             showEncryptedBox(summary, box);
             startDecryptingBox(summary);
         }, 'json').fail(function(xhr) {
@@ -632,8 +636,8 @@ function showEncryptedBox(boxSummary, box) {
     };
     var pages = [];
     for (var i=0; i<data.totalPages; i++) {
-        pages.push({page:i+1})
-    };
+        pages.push({page:i+1});
+    }
     data.pages = pages;
     $("#wrapper").html(render("page-template", data));
     bindTabEvents();
@@ -655,15 +659,15 @@ function startDecryptingBox(boxSummary, box) {
 
 function decryptSubject(h) {
     cachedDecryptPgp(h.ThreadID+" subject", h.CipherSubject, null, function(subject){
-        if (subject == null) {
+        if (subject === null) {
             subject = "(Decryption failed)";
-        } else if (trim(subject)=="") {
+        } else if (trim(subject)==="") {
             subject = "(No subject)";
         }
         var hexMsgID = bin2hex(h.MessageID);
         $("#subject-"+hexMsgID).removeClass("still-decrypting").text(subject);
         $("#subject-header-"+hexMsgID).removeClass("still-decrypting").text(subject);
-    })
+    });
 }
 
 function prefetchAndDecryptThread(h){
@@ -675,7 +679,7 @@ function prefetchAndDecryptThread(h){
 
 function showNextItem() {
     var item;
-    if ($(".js-item.active").length == 0) {
+    if ($(".js-item.active").length === 0) {
         item = $(".js-item").first();
     } else {
         item = $(".js-item.active").next();
@@ -687,7 +691,7 @@ function showNextItem() {
 
 function showPrevItem() {
     var item;
-    if ($(".js-item.active").length == 0) {
+    if ($(".js-item.active").length === 0) {
         item = $(".js-item").last();
     } else {
         item = $(".js-item.active").prev();
@@ -699,9 +703,9 @@ function showPrevItem() {
 
 function showEmailOrContact(item) {
     if (item.hasClass("js-box-item")) {
-        displayEmail(item);
+        showEmail(item);
     } else if(item.hasClass("js-contact-item")) {
-        displayContact(item);
+        showContact(item);
     } else {
         console.warn(["Unrecognized item", item]);
     }
@@ -743,9 +747,15 @@ function bindEmailEvents() {
     $(".js-thread-control .js-reply-button").click(withLastEmailFromAnother(emailReply));
     $(".js-thread-control .js-reply-all-button").click(withLastEmail(emailReplyAll));
     $(".js-thread-control .js-forward-button").click(withLastEmail(emailForward));
-    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){threadMove(email, "archive")}));
-    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){threadMove(email, "inbox")}));
-    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){threadMove(email, "trash")}));
+    $(".js-thread-control .js-archive-button").click(withLastEmail(function(email){
+        threadMove(email, "archive");
+    }));
+    $(".js-thread-control .js-move-to-inbox-button").click(withLastEmail(function(email){
+        threadMove(email, "inbox");
+    }));
+    $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){
+        threadMove(email, "trash");
+    }));
 }
 
 function addContact() {
@@ -766,7 +776,7 @@ function addContact() {
             {name:name, address:addr, pubHash:pubHash}
         );
         trySaveContacts(contacts, function() {
-            displayStatus("Contact saved");
+            showStatus("Contact saved");
         });
     });
 }
@@ -783,14 +793,14 @@ function addContact() {
         threadID (thread id of the selected email)
     }
 */
-function displayEmail(arg) {
+function showEmail(arg) {
     if (keepUnsavedWork()) { return; }
 
     var emailID;
     if(!arg){
         return;
     } else if (arg instanceof jQuery) {
-        if (arg.length == 0) {
+        if (arg.length === 0) {
             return;
         }
         emailID = {
@@ -864,7 +874,7 @@ function decryptAndVerifyEmail(data, keyMap) {
 function createEmailViewModel(data) {
     // Parse From, To, etc
     var fromAddress = namedAddrFromAddress(data.From);
-    var toAddresses = data.To=="" ? [] : 
+    var toAddresses = data.To==="" ? [] : 
         data.To.split(",").map(namedAddrFromAddress);
 
     // The model for rendering the email template
@@ -898,11 +908,11 @@ function showEmailThread(emailDatas) {
     
     // Render HTML
     var tid = emails[emails.length-1].threadID;
-    var subj = cache.plaintextCache[tid+" subject"]
+    var subj = cache.plaintextCache[tid+" subject"];
     var thread = {
         threadID:    tid,
         hexThreadID: bin2hex(tid),
-        subject:     subj=="" ? "(No subject)" : subj,
+        subject:     subj==="" ? "(No subject)" : subj,
         box:         viewState.box,
     };
     var elThread = $(render("thread-template", thread)).data("thread", thread);
@@ -946,14 +956,14 @@ function markAsRead(emails, isRead){
 }
 
 // Turns URLS into links in the plaintext.
-// Returns HTML
+// Returns safe, escaped HTML
 function createHyperlinks(text) {
     var exp = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-    var match;
+    var match, rawPart, safePart;
     var safeParts = [], lastIx = 0;
     while((match = exp.exec(text)) !== null){
-        var rawPart = text.substr(lastIx, match.index-lastIx);
-        var safePart = Handlebars.Utils.escapeExpression(rawPart);
+        rawPart = text.substr(lastIx, match.index-lastIx);
+        safePart = Handlebars.Utils.escapeExpression(rawPart);
         safeParts.push(safePart);
 
         var rawUrl = match[0];
@@ -962,8 +972,8 @@ function createHyperlinks(text) {
 
         lastIx = match.index+match[0].length;
     }
-    var rawPart = text.substr(lastIx);
-    var safePart = Handlebars.Utils.escapeExpression(rawPart);
+    rawPart = text.substr(lastIx);
+    safePart = Handlebars.Utils.escapeExpression(rawPart);
     safeParts.push(safePart);
 
     return safeParts.join("");
@@ -973,7 +983,7 @@ function emailReply(email) {
     if (!email) return;
     var replyTo = email.fromAddress.name || email.fromAddress.address;
     cachedDecryptPgp(email.threadID + " subject", email.cipherSubject, null, function(subject){
-        displayComposeInline(email, replyTo, subject, undefined);
+        showComposeInline(email, replyTo, subject, undefined);
     });
 }
 
@@ -986,7 +996,7 @@ function emailReplyAll(email) {
             // don't reply to our self
             return addr.address != sessionStorage["emailAddress"];
         });
-    if (allRecipientsExceptMe.length == 0) {
+    if (allRecipientsExceptMe.length === 0) {
         // replying to myself...
         allRecipientsExceptMe = [namedAddrFromAddress(email.from)];
     }
@@ -994,12 +1004,12 @@ function emailReplyAll(email) {
     var replyTo = allRecipientsExceptMe.map(function(addr) {
         return addr.name || addr.address;
     }).join(",");
-    displayComposeInline(email, replyTo, email.subject, undefined);
+    showComposeInline(email, replyTo, email.subject, undefined);
 }
 
 function emailForward(email) {
     if (!email) return;
-    displayComposeInline(email, "", email.subject, email.plainBody);
+    showComposeInline(email, "", email.subject, email.plainBody);
 }
 
 // Moves all emails in box for thread up to email.unixTime.
@@ -1036,7 +1046,7 @@ function threadMove(email, box) {
     }).done(function() {
         $("#thread").remove();
         showNextThread();
-        displayStatus("Moved to "+box);
+        showStatus("Moved to "+box);
     }).fail(function(xhr) {
         alert("Move to "+box+" failed: "+xhr.responseText);
     });
@@ -1053,11 +1063,11 @@ function getEmailElement(msgID) {
 
 function showNextThread() {
     var newSelection = $(".js-box-item.active").next();
-    if (newSelection.length == 0) {
+    if (newSelection.length === 0) {
         newSelection = $(".js-box-item.active").prev();
     }
     $(".js-box-item.active").remove();
-    displayEmail(newSelection);
+    showEmail(newSelection);
 }
 
 
@@ -1097,7 +1107,7 @@ function bindComposeEvents(elCompose, cb) {
     });
 }
 
-function displayCompose(to, subject, body) {
+function showCompose(to, subject, body) {
     if (keepUnsavedWork()) { return; }
     if (body === undefined) {
         body = DEFAULT_SIGNATURE;
@@ -1112,12 +1122,12 @@ function displayCompose(to, subject, body) {
     // Go to Compose tab
     setSelectedTab($(".js-tab-compose"));
 
-    displayComposeStandalone(to, subject, body);
+    showComposeStandalone(to, subject, body);
 }
 
 // Shows the standalone compose screen--
 // in other words, not part of an existing email thread
-function displayComposeStandalone(to, subject, body){
+function showComposeStandalone(to, subject, body){
     var elCompose = $(render("compose-template", {
         to:          to,
         subject:     subject,
@@ -1125,12 +1135,12 @@ function displayComposeStandalone(to, subject, body){
     }));
     $("#content").empty().append(elCompose);
     bindComposeEvents(elCompose, function(emailData) {
-        displayStatus("Sent");
-        displayComposeStandalone();
+        showStatus("Sent");
+        showComposeStandalone();
     });
 }
 
-function displayComposeInline(email, to, subject, body) {
+function showComposeInline(email, to, subject, body) {
     var elEmail = getEmailElement(email.msgID);
     var bodyDefault;
     if (body !== undefined) {
@@ -1167,8 +1177,8 @@ function displayComposeInline(email, to, subject, body) {
 
     // Bind events (eg Send button)
     bindComposeEvents(elCompose, function(emailData) {
-        displayStatus("Sent");
-        displayEmail(emailData);
+        showStatus("Sent");
+        showEmail(emailData);
     });
 
 }
@@ -1189,7 +1199,7 @@ function keepUnsavedWork() {
 function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) {
     // validate email addresses
     var toAddresses = to.split(",").map(trimToLower).filter(Boolean);
-    if (toAddresses.length == 0) {
+    if (toAddresses.length === 0) {
         return failCb("Enter an email address to send to");
     }
 
@@ -1229,7 +1239,7 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) 
         toAddresses.forEach(function(toAddr){
             var result = keyMap[toAddr];
             pubKeys[toAddr] = result.pubKey || "";
-        })
+        });
 
         // If errors, abort.
         if (errors.length > 0) {
@@ -1237,7 +1247,7 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) 
         }
 
         sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeys, subject, body, cb, failCb);
-    })
+    });
 
     return false;
 }
@@ -1248,13 +1258,13 @@ function sendEmail(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb) 
 function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb, failCb){
     var addrs = Object.keys(pubKeysByAddr);
     var missingKeys = addrs.filter(function(addr){
-        return pubKeysByAddr[addr] == "";
+        return pubKeysByAddr[addr] === "";
     });
 
     if (missingKeys.length > 0) {
-        if (confirm("Could not find public keys for: "+missingKeys.join(", ")
-            +" \nSend unencrypted to all recipients?")) {
-            var to = Object.keys(pubKeysByAddr).join(",")
+        if (confirm("Could not find public keys for: "+missingKeys.join(", ")+
+            " \nSend unencrypted to all recipients?")) {
+            var to = Object.keys(pubKeysByAddr).join(",");
             sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb);
         }
     } else {
@@ -1312,7 +1322,7 @@ function lookupPublicKeys(addresses, cb) {
     });
 
     // all cached? great!
-    if(addrsForLookup.length == 0){
+    if(addrsForLookup.length === 0){
         return cb(keyMap, []);
     }
 
@@ -1331,38 +1341,37 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
     var keyMap = {};         // {<address>: {pubHash, pubKeyArmor, pubKey || error}
     var newResolutions = []; // [{address,pubHash}]
 
-    loadNotaries(function(notaryKeys) {
+    var needResolution = []; // addresses that need to be notarized
+    var needPubKey = []; // addresses for which we need pubkeys
+    var knownHashes = {};   // {<address>: <pubHash>}
 
-        var needResolution = []; // addresses that need to be notarized
-        var needPubKey = []; // addresses for which we need pubkeys
-        var notaries = Object.keys(notaryKeys);
-        var knownHashes = {};   // {<address>: <pubHash>}
-
-        for (var i=0; i<addresses.length; i++) {
-            var addr = addresses[i];
-            var contact = getContact(addr);
-            if (contact) {
-                if (contact.pubHash) {
-                    needPubKey.push(addr);
-                    knownHashes[addr] = contact.pubHash;
-                } else {
-                    knownHashes[addr] = undefined;
-                    cache.keyMap[addr] = keyMap[addr] = {
-                        pubHash:     undefined,
-                        pubKeyArmor: undefined,
-                        pubKey:      undefined,
-                    };
-                }
-            } else {
-                needResolution.push(addr);
+    addresses.forEach(function(addr){
+        var contact = getContact(addr);
+        if (contact) {
+            if (contact.pubHash) {
                 needPubKey.push(addr);
+                knownHashes[addr] = contact.pubHash;
+            } else {
+                knownHashes[addr] = undefined;
+                cache.keyMap[addr] = keyMap[addr] = {
+                    pubHash:     undefined,
+                    pubKeyArmor: undefined,
+                    pubKey:      undefined,
+                };
             }
+        } else {
+            needResolution.push(addr);
+            needPubKey.push(addr);
         }
+    });
 
-        // Nothing to look up
-        if (needResolution.length == 0 && needPubKey.length == 0) {
-            return cb(keyMap, newResolutions);
-        }
+    // Nothing to look up
+    if (needResolution.length === 0 && needPubKey.length === 0) {
+        return cb(keyMap, newResolutions);
+    }
+
+    loadNotaries(function(notaryKeys) {
+        var notaries = Object.keys(notaryKeys);
 
         var params = {
             needResolution: needResolution.join(","),
@@ -1384,16 +1393,15 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
                 }
                 if (res.warnings.length > 0) {
                     alert(res.warnings.join("\n\n"));
-                    // continue
                 }
-                for (var addr in res.pubHashes) {
-                    knownHashes[addr] = res.pubHashes[addr];
+                for (var a in res.pubHashes) {
+                    knownHashes[a] = res.pubHashes[a];
                 }
             }
 
             // de-armor keys and set pubHash on the results,
             // and verify against knownHashes.
-            for (var addr in publicKeys) {
+            for(var addr in publicKeys) {
                 var result = publicKeys[addr];
                 if (result.status == "ERROR" || result.status == "NO_SUCH_USER") {
                     keyMap[addr] = {error:result.error};
@@ -1421,10 +1429,11 @@ function lookupPublicKeysFromNotaries(addresses, cb) {
 
             // ensure that we have results for all the query addresses.
             for (var i=0; i<addresses.length; i++) {
-                var addr = addresses[i];
-                if (keyMap[addr] == null) {
-                    console.log("Missing lookup result for "+addr+". Bad server impl?");
-                    keyMap[addr] = {error:"ERROR: Missing lookup result"};
+                var address = addresses[i];
+                if (keyMap[address] === null) {
+                    console.log("Missing lookup result for "+address+". "+
+                                "Bad server impl?");
+                    keyMap[address] = {error:"ERROR: Missing lookup result"};
                 }
             }
 
@@ -1464,7 +1473,7 @@ function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, 
     // Encrypt message for all recipients in `addrPubKeys`
     var pubKeys = Object.values(addrPubKeys);
     pubKeys.push(publicKey[0]);
-    pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyId() });
+    pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyId(); });
     
     // Embed the subject into the body for verification
     var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
@@ -1510,7 +1519,7 @@ function sendEmailPost(data, cb, failCb) {
 // CONTACTS
 //
 
-function displayContacts() {
+function showContacts() {
     if (keepUnsavedWork()) { return; }
     loadAndDecryptContacts(function(contacts) {
         // clean up 
@@ -1553,7 +1562,7 @@ function displayContacts() {
 
         // render the user's own info as the content
         bindContactsEvents();
-        displayContact($(".js-item").first());
+        showContact($(".js-item").first());
     });
 }
 
@@ -1578,14 +1587,14 @@ function createContactViewModel(c){
 
 function bindContactsEvents() {
     $(".js-item").click(function(e){
-        displayContact($(e.currentTarget));
+        showContact($(e.currentTarget));
     });
     $(".js-add-contact").click(function(e){
         var address = trim($("#contact-add-email").val());
-        if (address == "") {
+        if (address === "") {
             alert("Enter an email address first");
             return;
-        } else if (getContact(address) != null){
+        } else if (getContact(address) !== null){
             alert(address + " already exists");
             return;
         }
@@ -1596,18 +1605,18 @@ function bindContactsEvents() {
         viewState.contacts.push(contact);
         var elem = $(render("contact-template", contact));
         $(".js-items").append(elem);
-        displayContact(elem, true);
+        showContact(elem, true);
     });
 }
 
 // Takes a contacts list item. The first argument should be a 1-element JQuery array.
 // The editMode argument should be true or false.
 // Selects the item. Shows the contact detail.
-function displayContact(elem, editMode) {
+function showContact(elem, editMode) {
     // Get the contact
     var address = elem.data("address");
     var contact = getContact(address); 
-    if (contact == null){
+    if (contact === null){
         // Should never happen
         alert("Could not find contact "+address);
         return;
@@ -1620,9 +1629,9 @@ function displayContact(elem, editMode) {
     // Show the detail
     viewState.contact = contact;
     if (contact.address == sessionStorage["emailAddress"]) {
-        displaySelfDetails(contact);
+        showSelfDetails(contact);
     } else {
-        displayContactDetails();
+        showContactDetails();
     }
 }
 
@@ -1630,7 +1639,7 @@ function displayContact(elem, editMode) {
 // corresponding to the logged in user.
 // 
 // This page lets the user see his own public+private keys.
-function displaySelfDetails(contact){
+function showSelfDetails(contact){
     var model = createContactViewModel(contact);
     model.publicKeyArmored = sessionStorage["publicKeyArmored"];
     model.privateKeyArmored = sessionStorage["privateKeyArmored"];
@@ -1641,7 +1650,7 @@ function displaySelfDetails(contact){
 
 // Displays the detail view for the currently selected
 // contact (viewState.contacts).
-function displayContactDetails(){
+function showContactDetails(){
     loadContactPublicKey(viewState.contact, function(publicKeyArmored){
         var model = createContactViewModel(viewState.contact);
         model.publicKeyArmored = publicKeyArmored;
@@ -1665,7 +1674,7 @@ function loadContactPublicKey(contact, cb){
 }
 
 function bindContactDetails(){
-    $(".js-edit-contact").click(displayContactEditDetails);
+    $(".js-edit-contact").click(showContactEditDetails);
     $(".js-delete-contact").click(function(){
         if(!confirm("Are you sure you want to delete "+viewState.contact.address+"?")){
             return;
@@ -1674,13 +1683,13 @@ function bindContactDetails(){
             return c != viewState.contact;
         });
         trySaveContacts(newContacts, function() {
-            displayStatus("Contact deleted");
-            displayContacts();
+            showStatus("Contact deleted");
+            showContacts();
         });
     });
 }
 
-function displayContactEditDetails(){
+function showContactEditDetails(){
     loadContactPublicKey(viewState.contact, function(publicKeyArmored){
         var model = createContactViewModel(viewState.contact);
         model.publicKeyArmored = publicKeyArmored;
@@ -1694,11 +1703,11 @@ function bindContactEditDetails(){
     $(".js-save-contact").click(function(){
         var name = trim($(".js-name").val());
         var address = trimToLower($(".js-address").val());
-        if (address == "") {
+        if (address === "") {
             alert("Enter an email address first");
             return;
-        } else if (getContact(address) != null 
-                && getContact(address) != viewState.contact){
+        } else if (getContact(address) !== null &&
+                   getContact(address) !== viewState.contact){
             alert(address + " already exists");
             return;
         }
@@ -1712,11 +1721,11 @@ function bindContactEditDetails(){
         }
 
         trySaveContacts(viewState.contacts, function() {
-            displayStatus("Contacts saved");
-            displayContacts();
+            showStatus("Contacts saved");
+            showContacts();
         });
     });
-    $(".js-cancel-contact").click(displayContactDetails);
+    $(".js-cancel-contact").click(showContactDetails);
     $(".js-keybase-lookup").click(function(){
         var guessUser = viewState.contact.address.split("@")[0];
 
@@ -1794,8 +1803,8 @@ function saveContacts() {
             });
         }
         trySaveContacts(contacts, function() {
-            displayStatus("Contacts saved");
-            displayContacts();
+            showStatus("Contacts saved");
+            showContacts();
         });
     });
 }
@@ -1812,7 +1821,7 @@ function validateContacts(contacts) {
     var errors = [];
     var lnames = {};         // unique by lowercased name
     var addresses = {};      // unique by address
-    var contactsClean = [];
+    var cleanContacts = [];
 
     for (var i = 0; i < contacts.length; i++) {
         var contact = contacts[i];
@@ -1827,7 +1836,7 @@ function validateContacts(contacts) {
             errors.push("Invalid contact name: "+name);
         }
 
-        if (address == "") {
+        if (address === "") {
             errors.push("No email address for name: "+name);
         } else if (!addressMatch) {
             errors.push("Invalid email address: "+address);
@@ -1847,14 +1856,16 @@ function validateContacts(contacts) {
             }
         }
 
-        var contact = {address:address};
-        if (name)    { contact.name = name; }
-        if (pubHash) { contact.pubHash = pubHash; }
-        if (pubKey) { contact.publicKeyArmored = pubKey; }
-        contactsClean.push(contact);
+        var cleanContact = {
+            address:address,
+            name:name,
+            pubHash:pubHash,
+            publicHashArmored:pubKey
+        };
+        cleanContacts.push(cleanContact);
     }
 
-    return {contacts:contactsClean, errors:errors};
+    return {contacts:cleanContacts, errors:errors};
 }
 
 function trySaveContacts(contacts, done) {
@@ -1875,7 +1886,7 @@ function trySaveContacts(contacts, done) {
             // '~' is a high ord character.
             return "~"+contact.address;
         }
-    })
+    });
 
     // set viewState.contacts now, before posting.
     // this prevents race conditions.
@@ -1893,7 +1904,7 @@ function trySaveContacts(contacts, done) {
     $.post(HOST_PREFIX+"/user/me/contacts", bin2hex(cipherContacts), "text")
         .done(done)
         .fail(function(xhr) {
-            alert("Saving contacts failed: "+xhr.responseText)
+            alert("Saving contacts failed: "+xhr.responseText);
         });
 }
 
@@ -1903,58 +1914,54 @@ function trySaveContacts(contacts, done) {
 //   name and pubHash are optional.
 // Returns new array of contacts
 function addContacts(contacts, newContacts) {
-
     // convenience
     if (! (newContacts instanceof Array)) {
         newContacts = [newContacts];
     }
 
     // create a new array, don't modify the old one.
-    var allContacts = [];
-    for (var i=0; i<contacts.length; i++) {
-        var c = contacts[i];
-        allContacts.push({name:c.name, pubHash:c.pubHash, address:c.address});
-    }
+    var allContacts = contacts.map(function(c){
+        return {name:c.name, pubHash:c.pubHash, address:c.address};
+    });
     // defensively delete reference to original contacts.
     contacts = null;
 
-    for (var i=0; i<newContacts.length; i++) {
-        var newContact = newContacts[i];
+    // add each of [newContacts] to [allContacts]
+    newContacts.forEach(function(newContact){
         var name = newContact.name;
         var address = newContact.address;
         var pubHash = newContact.pubHash;
-
         if (!address) {
             throw "addContacts() new contacts require address";
         }
 
+        // If address is already in contacts, just set the name.
+        // Otherwise, create a new one
         var existing = getContactByAddress(allContacts, address);
         if (existing) {
-            // if address is already in contacts, just set the name.
             if(name) {
                 existing.name = name;
             }
         } else {
-            var newContact = {
+            var c = {
                 name:    name ? trim(name) : undefined,
                 address: trimToLower(address),
                 pubHash: pubHash ? trimToLower(pubHash) : undefined,
             };
-
-            allContacts.push(newContact);
+            allContacts.push(c);
         }
-    }
+    });
 
     return allContacts;
 }
 
 function getContactByAddress(allContacts, address){
-    if (address == null){
+    if (address === null){
         return null;
     }
     address = trimToLower(address);
     for (var i=0; i<allContacts.length; i++) {
-        if (allContacts[i].address == address) {
+        if (allContacts[i].address === address) {
             return allContacts[i];
         }
     }
@@ -1962,7 +1969,7 @@ function getContactByAddress(allContacts, address){
 }
 
 function getContact(address) {
-    if (viewState.contacts == null) {
+    if (viewState.contacts === null) {
         return null;
     }
     return getContactByAddress(viewState.contacts, address);
@@ -1977,13 +1984,13 @@ function contactNameFromAddress(address) {
 }
 
 function contactAddressFromName(name) {
-    if (viewState.contacts == null) {
+    if (viewState.contacts === null) {
         return null;
     }
     name = trimToLower(name);
     for (var i = 0; i < viewState.contacts.length; i++) {
         var contact = viewState.contacts[i];
-        if (contact.name && contact.name.toLowerCase() == name) {
+        if (contact.name && contact.name.toLowerCase() === name) {
             return contact.address;
         }
     }
@@ -1991,7 +1998,7 @@ function contactAddressFromName(name) {
 }
 
 function isContactNameTaken(name){
-    return contactAddressFromName(name) != null;
+    return contactAddressFromName(name) !== null;
 }
 
 function namedAddrFromAddress(address) {
@@ -2023,7 +2030,7 @@ function loadAndDecryptContacts(fn) {
             return;
         }
         var parsed = JSON.parse(jsonContacts);
-        if (parsed.version == undefined) {
+        if (parsed.version === undefined) {
             migrateContactsReverseLookup(parsed, function(contacts) {
                 viewState.contacts = contacts;
                 fn(viewState.contacts);
@@ -2053,7 +2060,7 @@ function migrateContactsReverseLookup(contacts, fn) {
     var pubHashToName = {};
     for (var i=0; i<contacts.length; i++) {
         var contact = contacts[i];
-        if (contact.pubHash == undefined) {
+        if (contact.pubHash === undefined) {
             var pubHash = contact.address.split("@")[0];
             if (pubHash.length != 16 && pubHash.length != 40) {
                 alert("Error: expected legacy contacts list to have hash address: "+contact.address);
@@ -2073,7 +2080,7 @@ function migrateContactsReverseLookup(contacts, fn) {
         $.post(HOST_PREFIX+"/publickeys/reverse", params, function(pubHashToAddress) {
             var addresses = [], hashesDeleted = [];
             for (var hash in pubHashToAddress) {
-                if (pubHashToAddress[hash]=="") {
+                if (pubHashToAddress[hash]==="") {
                     console.log("Warning: deleting nonexistent legacy contact "+hash+"@scramble.io");
                     hashesDeleted.push(hash);
                 } else {
@@ -2089,7 +2096,7 @@ function migrateContactsReverseLookup(contacts, fn) {
                     var pubHash = keyMap[address].pubHash;
                     newContacts.push({name:pubHashToName[pubHash], pubHash:pubHash, address:address});
                 }
-                var hashesFound = newContacts.map("pubHash")
+                var hashesFound = newContacts.map("pubHash");
                 var remaining = lookup.subtract(hashesFound).subtract(hashesDeleted);
                 if (remaining.length > 0) {
                     alert("Error: contacts migration failed for address(es): "+remaining.join(","));
@@ -2098,7 +2105,7 @@ function migrateContactsReverseLookup(contacts, fn) {
                 trySaveContacts(newContacts, function() {
                     fn(newContacts);
                 });
-            })
+            });
         }, "json");
     } else {
         fn(contacts); // nothing to upgrade
@@ -2163,8 +2170,7 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
     // In the future we'll be more flexible with occasional errors,
     //  especially when we have more notaries serving.
     var missingNotaries = [], missingAddresses = [];
-    for (var i=0; i<addresses.length; i++) {
-        var address = addresses[i];
+    addresses.forEach(function(address){
         var missingNotariesForAddress = notaries.filter(function(notary){
             return !notarized[address] || notarized[address].indexOf(notary) < 0;
         });
@@ -2178,7 +2184,7 @@ function verifyNotaryResponses(notaryKeys, addresses, notaryResults) {
                 "However, we got enough responses to proceed.");
         }
         addAllToSet(missingNotariesForAddress, missingNotaries);
-    }
+    });
     if(missingAddresses.length > 0){
         // for at least one address, we did not get enough notary responses to proceed
         errors.push("Couldn't get a trusted public key for "+missingAddresses.join(", ")+". "+
@@ -2337,13 +2343,13 @@ function computePublicHash(str) {
     // 16 5-bit chars = 80 bits
     var ccA = "a".charCodeAt(0);
     var cc2 = "2".charCodeAt(0);
-    for (var i = 0; i < 16; i++) {
+    for (var k = 0; k < 16; k++) {
         var digit =
-            sha1Bits[i*5]*16 + 
-            sha1Bits[i*5+1]*8 + 
-            sha1Bits[i*5+2]*4 + 
-            sha1Bits[i*5+3]*2 + 
-            sha1Bits[i*5+4];
+            sha1Bits[k*5]*16 + 
+            sha1Bits[k*5+1]*8 + 
+            sha1Bits[k*5+2]*4 + 
+            sha1Bits[k*5+3]*2 + 
+            sha1Bits[k*5+4];
         if (digit < 26) {
             hash += String.fromCharCode(ccA+digit);
         } else {
