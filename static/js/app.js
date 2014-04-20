@@ -1472,9 +1472,13 @@ function displayContacts() {
         // go to Contacts
         setSelectedTab($(".js-tab-contacts"));
 
+        // create view models
+        var contactViewModels = contacts.map(createContactViewModel);
+        var me = getContactByAddress(contactViewModels, sessionStorage["emailAddress"]);
+        me.name = "Me";
+
         // sort contacts list. "me" first, then others by email
-        var me = getContactByAddress(contacts, sessionStorage["emailAddress"]);
-        contacts.sort(function(a,b){
+        contactViewModels.sort(function(a,b){
             if (a == b){
                 return 0;
             } else if (a == me){
@@ -1492,9 +1496,8 @@ function displayContacts() {
 
         // render contacts list in the sidebar
         var model = {
-            "my-email": sessionStorage["emailAddress"],
-            "contacts": contacts,
-            "hasContacts": contacts.length > 1 // contacts other than self
+            "contacts": contactViewModels,
+            "hasContacts": contactViewModels.length > 1 // contacts other than self
         };
         $(".box").html(render("contacts-list-template", model));
 
@@ -1502,6 +1505,25 @@ function displayContacts() {
         bindContactsEvents();
         displayContact($(".js-item").first());
     });
+}
+
+// Takes a contact object. Returns a new object with the same fields
+// and some additional fields:
+//
+// Contact fields           {"name", "address", "pubHash", "pubKeyArmored",
+// ...additional fields:     "hasKey":true/false, 
+//                           "myName":"dcposch"
+//                          }
+//
+// (Remember that we save encrypt(JSON.stringify([{contact object}, ...]))
+function createContactViewModel(c){
+    return {
+        "name":c.name,
+        "address":c.address,
+        "pubHash":c.pubHash,
+        "publicKeyArmored":c.publicKeyArmored,
+        "hasKey":!!(c.pubHash || c.publicKeyArmored)
+    };
 }
 
 function bindContactsEvents() {
@@ -1548,21 +1570,30 @@ function displayContact(elem, editMode) {
     // Show the detail
     viewState.contact = contact;
     if (contact.address == sessionStorage["emailAddress"]) {
-        contact.publicKeyArmored = sessionStorage["publicKeyArmored"];
-        contact.privateKeyArmored = sessionStorage["privateKeyArmored"];
-        displaySelfDetails();
+        displaySelfDetails(contact);
     } else {
         displayContactDetails();
     }
 }
 
-function displaySelfDetails(){
-    $("#content").html(render("contact-self-template", viewState.contact));
+// Displays a special detail view for the "contact"
+// corresponding to the logged in user.
+// 
+// This page lets the user see his own public+private keys.
+function displaySelfDetails(contact){
+    var model = createContactViewModel(contact);
+    model.publicKeyArmored = sessionStorage["publicKeyArmored"];
+    model.privateKeyArmored = sessionStorage["privateKeyArmored"];
+    model.name = sessionStorage["token"];
+    $("#content").html(render("contact-self-template", model));
     bindContactDetails();
 }
 
+// Displays the detail view for the currently selected
+// contact (viewState.contacts).
 function displayContactDetails(){
-    $("#content").html(render("contact-detail-template", viewState.contact));
+    var model = createContactViewModel(viewState.contact);
+    $("#content").html(render("contact-detail-template", model));
     bindContactDetails();
 }
 
@@ -1583,7 +1614,8 @@ function bindContactDetails(){
 }
 
 function displayContactEditDetails(){
-    $("#content").html(render("edit-contact-template", viewState.contact));
+    var model = createContactViewModel(viewState.contact);
+    $("#content").html(render("edit-contact-template", model));
     bindContactEditDetails();
 }
 
@@ -1603,7 +1635,11 @@ function bindContactEditDetails(){
         }
         viewState.contact.name = name;
         viewState.contact.address = address;
-        viewState.contact.publicKeyArmored = pubKey;
+        // For Scramble contacts--which have a notarized pubHash--
+        // the public key is not editable
+        if(!viewState.contact.pubHash){
+            viewState.contact.publicKeyArmored = pubKey;
+        }
 
         trySaveContacts(viewState.contacts, function() {
             displayStatus("Contacts saved");
