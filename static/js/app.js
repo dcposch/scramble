@@ -2513,7 +2513,9 @@ function initMomentJS() {
             sameDay : '[Today] LT',
             lastDay : '[Yesterday]',
             lastWeek: 'll',
-            sameElse : 'll'
+            sameElse: 'll',
+            nextDay : 'll',
+            nextWeek: 'll'
         }
     });
 }
