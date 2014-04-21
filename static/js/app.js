@@ -1496,9 +1496,14 @@ function parsePublicKey(pubKeyArmor, addr, expectedHash){
     if (typeof(expectedHash)!=="undefined" && expectedHash != computedHash){
         return {error:"SECURITY WARNING! We received an incorrect key for "+addr};
     }
-    var pka = openpgp.read_publicKey(pubKeyArmor);
+    var pka;
+    try {
+        pka  = openpgp.read_publicKey(pubKeyArmor);
+    } catch(e){
+        return {error:"Couldn't parse PGP public key for "+addr+". Please make sure it's a valid PGP armored public key."};
+    }
     if (pka.length != 1) {
-        return {error:"Incorrect number of publicKeys in armor for address "+addr};
+        return {error:"Incorrect number of public keys in armor for address "+addr};
     }
     return {
         pubKey:      pka[0],
@@ -1678,6 +1683,8 @@ function showContact(elem, editMode) {
     viewState.contact = contact;
     if (contact.address == sessionStorage["emailAddress"]) {
         showSelfDetails(contact);
+    } else if(editMode) {
+        showContactEditDetails();
     } else {
         showContactDetails();
     }
@@ -1715,10 +1722,11 @@ function loadContactPublicKey(contact, cb){
         cb(contact.publicKeyArmored);
     } else if(!contact.pubHash){
         cb(null);
+    } else {
+        lookupPublicKeys([contact.address], function(keyMap) {
+            cb(keyMap[contact.address].pubKeyArmor);
+        });
     }
-    lookupPublicKeys([contact.address], function(keyMap) {
-        cb(keyMap[contact.address].pubKeyArmor);
-    });
 }
 
 function bindContactDetails(){
@@ -1765,6 +1773,14 @@ function bindContactEditDetails(){
         // the public key is not editable
         if(!viewState.contact.pubHash){
             var pubKey = trim($(".js-public-key").val());
+            if(pubKey != ""){
+                // Make sure this is a valid PGP key
+                var pubKeyObj = parsePublicKey(pubKey, address);
+                if (pubKeyObj.error){
+                    alert(pubKeyObj.error);
+                    return;
+                }
+            }
             viewState.contact.publicKeyArmored = pubKey;
         }
 
@@ -1811,49 +1827,6 @@ function updateKeybaseUser(){
         $("#modal-keybase .js-keybase-proof").hide();
         $("#modal-keybase .js-keybase-buttons").hide();
         xhrKeybase = null;
-    });
-}
-
-function saveContacts() {
-    // TODO REWRITE
-    var rows = $(".js-contacts-form > div");
-    var contacts = [];
-    var needResolution = {}; // need to find pubhash before saving {address: name}
-    for (var i = 0; i < rows.length; i++) {
-        var name = trim($(rows[i]).find(".js-name").val());
-        var address = trim($(rows[i]).find(".js-address").val());
-        var contact = getContact(address);
-        if (!address) {
-            continue;
-        } else if (!contact) {
-            needResolution[address] = name;
-            continue;
-        }
-        contacts.push({name:name, address:address, pubHash:contact.pubHash});
-    }
-
-    contactsErr = validateContacts(contacts);
-    if (contactsErr.errors.length > 0) {
-        alert(contactsErr.errors.join("\n"));
-        return;
-    }
-
-    lookupPublicKeys(Object.keys(needResolution), function(keyMap) {
-        for (var address in needResolution) {
-            if (keyMap[address].error) {
-                alert("Error resolving email address "+address+":\n"+keyMap[address].error);
-                return;
-            }
-            contacts.push({
-                name:    needResolution[address],
-                address: address,
-                pubHash: keyMap[address].pubHash,
-            });
-        }
-        trySaveContacts(contacts, function() {
-            showStatus("Contacts saved");
-            showContacts();
-        });
     });
 }
 
@@ -1925,16 +1898,6 @@ function trySaveContacts(contacts, done) {
         alert(contactsErr.errors.join("\n"));
         return;
     } 
-
-    // sort the contacts book
-    contacts = contactsErr.contacts.sortBy(function(contact) {
-        if (contact.name) {
-            return contact.name;
-        } else {
-            // '~' is a high ord character.
-            return "~"+contact.address;
-        }
-    });
 
     // set viewState.contacts now, before posting.
     // this prevents race conditions.

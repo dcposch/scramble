@@ -93,6 +93,13 @@ body {
 /*
  * CONTACTS LIST
  */
+.js-contact-item {
+    overflow:hidden;
+}
+.contact-name, .contact-email {
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
 
 
 /*
