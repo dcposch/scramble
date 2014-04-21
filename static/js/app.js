@@ -321,6 +321,10 @@ function bindKeyboardShortcuts() {
             (tag=="input" && target.type=="password")) {
             return;
         }
+        // don't interpret "Ctrl C" as "c" and accidentally go to Compose, etc
+        if(e.shiftKey || e.ctrlKey || e.altKey){
+            return;
+        }
 
         var code = e.which || e.charCode;
         var mapping = currentKeyMap[code] || 
