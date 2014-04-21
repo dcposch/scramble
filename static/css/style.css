@@ -11,7 +11,12 @@ body {
 .active .deemphasize,.active .still-decrypting {
     color:#ddd;
 }
-
+@font-face {
+  font-family: 'Droid Sans Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Droid Sans Mono'), local('DroidSansMono'), url(/css/droid-sans-mono.ttf) format('truetype');
+}
 
 
 /*
@@ -54,7 +59,7 @@ body {
 }
 .email-body {
     white-space:pre-wrap;
-    font:12px Consolas,monospace;
+    font:12px "Droid Sans Mono",monospace;
 }
 .email-body:before,.email-body:after {
     white-space:normal;
@@ -77,7 +82,7 @@ body {
     border-radius: 0;
     border-top-width: 0;
 }
-.compose-form .body {
+.compose-form .email-body {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     border-top-width:0;
@@ -97,7 +102,7 @@ body {
     max-width:550px;
 }
 .contact-key {
-    font:11px Consolas,monospace;
+    font:11px "Droid Sans Mono",monospace;
     color:#888;
     white-space:pre;
 }
