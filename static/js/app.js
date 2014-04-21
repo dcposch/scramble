@@ -83,7 +83,7 @@ viewState.getLastEmail = function() {
         return null;
     }
     return this.emails[this.emails.length-1];
-}
+};
 // Returns the last email from another user.
 viewState.getLastEmailFromAnother = function() {
     if (!this.emails) {
@@ -776,7 +776,7 @@ function bindEmailEvents() {
 // Returns {subject:<subject line>, body:<body...>, ok:<boolean>}
 function parseBody(plaintextBody) {
     var parts = REGEX_BODY.exec(plaintextBody);
-    if (parts == null) {
+    if (parts === null) {
         // for legacy emails
         return {subject:"(Unknown subject)", body:plaintextBody, ok:false};
     } else {
@@ -913,7 +913,11 @@ function decryptAndVerifyEmail(email, keyMap, cb) {
             email.plainSubject = "(Encrypted message)";
             email.plainBody = plain;
         }
-        email.htmlBody = createHyperlinks(email.plainBody);
+        if (email.plainBody) {
+            email.htmlBody = createHyperlinks(email.plainBody);
+        } else {
+            email.htmlBody = "<div class='text-danger'>Decryption failed</div>";
+        }
         cb(email);
     });
 }
@@ -1773,7 +1777,7 @@ function bindContactEditDetails(){
         // the public key is not editable
         if(!viewState.contact.pubHash){
             var pubKey = trim($(".js-public-key").val());
-            if(pubKey != ""){
+            if(pubKey !== ""){
                 // Make sure this is a valid PGP key
                 var pubKeyObj = parsePublicKey(pubKey, address);
                 if (pubKeyObj.error){

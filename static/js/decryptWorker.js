@@ -9,13 +9,13 @@
 
 // Work around OpenPGP.js...
 var window = {};
-var ls = {}
+var ls = {};
 window.localStorage = {
-    getItem: function(key){return ls[key]||null},
-    setItem: function(key,val){ls[key]=val}
+    getItem: function(key){return ls[key]||null;},
+    setItem: function(key,val){ls[key]=val;}
 };
 
-importScripts("lib/openpgp.js")
+importScripts("lib/openpgp.js");
 openpgp.init();
 util.print_error = function(str) {
     postMessage(JSON.stringify({type:"log", level:"error", message:str}));
@@ -39,7 +39,7 @@ self.onmessage = function(evt){
         // Decrypt messages
         var response = {type:"decrypt", cacheKey:msg.cacheKey};
         try {
-            var publicKey = undefined;
+            var publicKey;
             if (msg.publicKeyArmored) {
                 publicKey = openpgp.read_publicKey(msg.publicKeyArmored)[0];
             }
@@ -52,7 +52,7 @@ self.onmessage = function(evt){
         }
         postMessage(JSON.stringify(response));
     }
-}
+};
 
 // Decrypts a PGP message destined for our user, given their private key
 // If publicKey exists, it is used to verify the sender's signature.
@@ -72,8 +72,9 @@ function decryptPgp(armoredText, publicKey) {
             break;
         }
     }
-    if (sessionKey == null) {
+    if (sessionKey === null) {
         warnings.push("Matching PGP session key not found");
+        sessionKey = msg.sessionKeys[0];
     }
     if (privateKey.length != 1) {
         warnings.push("Expected 1 PGP private key, found "+privateKey.length);
@@ -85,7 +86,7 @@ function decryptPgp(armoredText, publicKey) {
     var text;
     if (publicKey) {
         var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}]);
-        if (res.length == 0) {
+        if (res.length === 0) {
             text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
         } else if (!res[0].signatureValid) {
             // old messages will pop this error modal.
@@ -106,6 +107,6 @@ function decryptPgp(armoredText, publicKey) {
     //  from openpgp.js, which will most likely do nothing.
     var decodedText = util.decode_utf8(text);
 
-    return {"warnings":warnings,"plaintext":decodedText}
+    return {"warnings":warnings,"plaintext":decodedText};
 }
 

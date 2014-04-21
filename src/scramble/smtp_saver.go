@@ -53,13 +53,17 @@ func saveEmail(msg *SMTPMessage) bool {
 }
 
 func deliverMailLocally(msg *SMTPMessage) error {
-
 	var cipherSubject, cipherBody string
 	cipherPackets := regexSMTPTemplatep.FindAllString(msg.data.textBody, -1)
 	// TODO: better way to distinguish between encrypted and unencrypted mail
 	if len(cipherPackets) == 2 {
+		// Scramble-style mail: encrypted subject, encrypted body
 		cipherSubject = cipherPackets[0]
 		cipherBody = cipherPackets[1]
+	} else if len(cipherPackets) == 1 {
+		// Mail from an outside PGP implementation: encrypted body only
+		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
+		cipherBody = cipherPackets[0]
 	} else {
 		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
 		var textBody string
