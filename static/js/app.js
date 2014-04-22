@@ -315,7 +315,7 @@ var keyMap = {
 
 function bindKeyboardShortcuts() {
     var currentKeyMap = keyMap;
-    $(document).keyup(function(e) {
+    $(document).keydown(function(e) {
         // no keyboard shortcuts while the user is typing
         var target = e.target;
         var tag = target.tagName.toLowerCase();
@@ -1314,6 +1314,8 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAdd
             " \nSend unencrypted to all recipients?")) {
             var to = Object.keys(pubKeysByAddr).join(",");
             sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb);
+        } else {
+            failCb("Aborted send, it would have been unencrypted since we're missing keys");
         }
     } else {
         sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb, failCb);
@@ -1357,16 +1359,14 @@ function lookupPublicKeys(addresses, cb) {
     // first, try the cache
     var addrsForLookup = [];
     addresses.forEach(function(addr){
-        if(cache.keyMap.hasOwnProperty(addr)){
-            keyMap[addr] = cache.keyMap[addr];
-            return;
-        } 
         var contact = getContact(addr);
         if(contact && contact.publicKeyArmored){
             keyMap[addr] = parsePublicKey(contact.publicKeyArmored, addr);
-            return;
+        } else if(cache.keyMap.hasOwnProperty(addr)){
+            keyMap[addr] = cache.keyMap[addr];
+        } else {
+            addrsForLookup.push(addr);
         }
-        addrsForLookup.push(addr);
     });
 
     // all cached? great!
