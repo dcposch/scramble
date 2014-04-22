@@ -1149,8 +1149,10 @@ function bindComposeEvents(elCompose, cb) {
                 body:        body,
             });
         }, function(error) {
-            alert(error);
-            elCompose.find(".sendButton").prop("disabled", false);
+            if(error) {
+                alert(error);
+            }
+            elCompose.find(".js-send-button").prop("disabled", false);
         });
     });
 }
@@ -1315,7 +1317,7 @@ function sendEmailEncryptedIfPossible(msgID, threadID, ancestorIDs, pubKeysByAdd
             var to = Object.keys(pubKeysByAddr).join(",");
             sendEmailUnencrypted(msgID, threadID, ancestorIDs, to, subject, body, cb, failCb);
         } else {
-            failCb("Aborted send, it would have been unencrypted since we're missing keys");
+            failCb();
         }
     } else {
         sendEmailEncrypted(msgID, threadID, ancestorIDs, pubKeysByAddr, subject, body, cb, failCb);
