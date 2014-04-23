@@ -344,9 +344,11 @@
                         {{> email-address-partial}}
                     {{/each}}
                 </small>
+                <small><a href="#" class="js-show-orig pull-right">Show Original</a></small>
             </div>
 
             <div id="body-{{hexMsgID}}" class="email-body panel-body {{#unless htmlBody}}still-decrypting{{/unless}}">{{#if htmlBody}}{{{htmlBody}}}{{else}}Decrypting...{{/if}}</div>
+            <div class="encrypted-body panel-body">{{cipherBody}}</div>
         </div>
 
         {{!-- This is where the compose box goes when replying/forwarding this email --}}

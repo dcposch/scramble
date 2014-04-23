@@ -57,14 +57,17 @@ body {
     white-space:nowrap;
     text-align:right;
 }
-.email-body {
+.email-body, .encrypted-body {
     white-space:pre-wrap;
     font:12px "Droid Sans Mono",monospace;
 }
-.email-body:before,.email-body:after {
+.email-body:before,.email-body:after,
+.encrypted-body:before,.encrypted-body:after {
     white-space:normal;
 }
-
+.encrypted-body {
+    display:none; /* controlled via "Show Original" */
+}
 
 
 

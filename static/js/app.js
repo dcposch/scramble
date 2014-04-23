@@ -764,6 +764,24 @@ function bindEmailEvents() {
     $(".js-thread-control .js-delete-button").click(withLastEmail(function(email){
         threadMove(email, "trash");
     }));
+
+    $(".js-show-orig").click(toggleShowOriginal);
+}
+
+function toggleShowOriginal(e){
+    var elem = e.currentTarget;
+    var panel = $(elem).closest(".panel");
+    if($(elem).hasClass("js-show-orig")){
+        $(elem).removeClass("js-show-orig").addClass("js-hide-orig");
+        $(elem).text("Show Decrypted");
+        panel.find(".email-body").hide();
+        panel.find(".encrypted-body").show();
+    } else {
+        $(elem).removeClass("js-hide-orig").addClass("js-show-orig");
+        $(elem).text("Show Original");
+        panel.find(".email-body").show();
+        panel.find(".encrypted-body").hide();
+    }
 }
 
 // plaintextBody is of the form:
