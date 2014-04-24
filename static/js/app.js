@@ -1841,7 +1841,9 @@ function updateKeybaseUser(){
     }
     var user = $("#modal-keybase .js-keybase-user").val();
     xhrKeybase = keybaseLookup(user, function(key){
-        var proof = $("<div class='js-keybase-public-key contact-key'>").text(key.bundle);
+        var link = $("<a />").prop("href", "https://keybase.io/"+user).text("Verify "+user+" on Keybase");
+        var key = $("<div class='js-keybase-public-key contact-key'>").text(key.bundle);
+        var proof = $("<div />").append(link).append(key);
         $("#modal-keybase .js-keybase-error").hide();
         $("#modal-keybase .js-keybase-proof").html(proof).show();
         $("#modal-keybase .js-keybase-buttons").show();
