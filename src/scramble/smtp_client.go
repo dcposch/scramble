@@ -1,6 +1,7 @@
 package scramble
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
@@ -52,13 +53,25 @@ func mxLookUp(host string) (string, error) {
 	return bestServer, nil
 }
 
-func smtpSend(msg *OutgoingEmail) error {
+func smtpRandomMsgID() string {
+	b := make([]byte, 20)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%x@scramble.io", b)
+}
+
+func SmtpSend(msg *OutgoingEmail) error {
+	if msg.MessageID == "" {
+		msg.MessageID = smtpRandomMsgID()
+	}
+
 	mxHostAddrs, failedAddrs := ParseEmailAddresses(msg.To).GroupByMxHost()
 	if len(failedAddrs) != 0 {
 		// This should never happen.
-		panic("Could not resolve some MX records in smtpSend: " + failedAddrs.String())
+		panic("Could not resolve some MX records in SmtpSend: " + failedAddrs.String())
 	}
-	// TODO: parallel send?
 
 	errs := []string{}
 	for mxHost, addrLists := range mxHostAddrs {
@@ -97,7 +110,7 @@ func smtpSendSafe(msg *OutgoingEmail) {
 			log.Println("<!> " + errorString)
 		}
 	}()
-	err := smtpSend(msg)
+	err := SmtpSend(msg)
 	if err != nil {
 		log.Printf("SMTP failure: %v", err)
 	}

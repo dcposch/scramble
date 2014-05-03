@@ -7,7 +7,8 @@ build: doc $(shell find . -name '*.go') $(shell find . -name '*.js')
 	go get scramble
 	mkdir -p bin
 	go build -o bin/scramble src/cmd/scramble/*.go
-	cp bin/scramble static/bin/scramble
+	go build -o bin/scramble-notify src/cmd/scramble-notify/*.go
+	cp bin/* static/bin/
 
 test: $(shell find . -name '*.go') $(shell find . -name '*.js')
 	go test scramble
@@ -46,3 +47,4 @@ static/doc/%.html: doc/%.md doc/head.html
 
 static/doc/index.html: static/doc/why.html static/doc/quick-start.html
 	cp static/doc/why.html static/doc/index.html
+

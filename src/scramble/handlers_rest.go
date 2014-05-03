@@ -330,7 +330,7 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 
 	// Deliver mail outside synchronously
 	// In the future we may want more advanced logic.
-	err = smtpSend(outgoingEmail)
+	err = SmtpSend(outgoingEmail)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}

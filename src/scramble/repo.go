@@ -525,6 +525,29 @@ func ThreadMarkAsRead(address string, messageID string, isRead bool) {
 	}
 }
 
+// Finds users with new unread mail
+// Returns a list of all the secondary emails
+func GetUsersWithUnreadMail(minAgeMins int, maxAgeMins int) []string {
+	currentUnixTime := time.Now().UTC().Unix()
+	minUnixTime := currentUnixTime - int64(maxAgeMins)*60
+	maxUnixTime := currentUnixTime - int64(minAgeMins)*60
+	rows, err := db.Query(
+		"SELECT DISTINCT secondary_email FROM user u "+
+			"INNER JOIN box b ON b.address=CONCAT(u.token,'@',u.email_host) "+
+			"WHERE b.box='inbox' AND b.is_read=0 AND b.unix_time>? AND b.unix_time<?",
+		minUnixTime, maxUnixTime)
+	if err != nil {
+		panic(err)
+	}
+	emails := make([]string, 0)
+	for rows.Next() {
+		var email string
+		rows.Scan(&email)
+		emails = append(emails, email)
+	}
+	return emails
+}
+
 // Deletes messages of a thread from any of a user's box.
 // If the email is no longer referenced, it gets deleted
 //  from the email table as well.
