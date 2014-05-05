@@ -122,13 +122,6 @@ cache.plaintextCache = {}; // cache key -> plaintext
 
 
 //
-// WEB WORKERS
-//
-var workers = [];
-var pendingDecryption = {}; // cache key -> callback function
-
-
-//
 // LOAD THE SITE
 // Called on load: $(main)
 //
@@ -194,69 +187,6 @@ function decryptPrivateKey(cipherPrivateKeyHex){
     return privateKeyArmored;
 }
 
-// Starts web workers
-//
-// See decryptWorker.js for a more detailed explanation
-// of what they do and what messages they send+receive
-function startPgpDecryptWorkers(){
-    for(var i = 0; i < 4; i++){
-        var worker = new Worker("js/decryptWorker.js");
-        worker.numInProgress = 0;
-        worker.postMessage(JSON.stringify({
-            "type":"key",
-            "privateKey": sessionStorage["privateKeyArmored"]
-        }));
-        worker.onmessage = handlePgpWorkerMessage;
-        workers.push(worker);
-    }
-}
-
-function handlePgpWorkerMessage(evt){
-    var msg = JSON.parse(evt.data);
-    if(msg.type == "decrypt"){
-        var job = pendingDecryption[msg.cacheKey];
-        cache.plaintextCache[msg.cacheKey] = msg.plaintext;
-        if(msg.error){
-            console.log("Error decrypting "+msg.cacheKey+": "+msg.error);
-        }
-        if(msg.warnings){
-            msg.warnings.forEach(function(warn){
-                console.log("Warning decrypting "+msg.cacheKey+": "+warn);
-            });
-        }
-        console.log("Finished decrypting "+msg.cacheKey);
-        workers[job.worker].numInProgress--;
-        for(var i = 0; i < job.callbacks.length; i++){
-            job.callbacks[i](msg.plaintext, msg.error);
-        }
-        delete pendingDecryption[msg.cacheKey];
-    } else if(msg.type == "log"){
-        console.log("Webworker:", msg.level, msg.message);
-    }
-}
-
-// Show decrypt queue size in tab bar, in real time
-function startPgpWorkerWatcher(){
-    var totalInProgress = 0;
-    setInterval(function(){
-        var newTotal = 0;
-        for(var i = 0; i < workers.length; i++){
-            newTotal += workers[i].numInProgress;
-        }
-        if(newTotal == totalInProgress){
-            return;
-        }
-        totalInProgress = newTotal;
-
-        // Show in tab bar
-        var msg = "";
-        if(totalInProgress > 0){
-            msg = "Decrypting " + totalInProgress;
-        }
-        $("#debug-num-decrypting").text(msg);
-    }, 100);
-}
-
 // Asynchronously decrypts (and optionally verifies) a PGP message
 //
 // Requires:
@@ -264,30 +194,22 @@ function startPgpWorkerWatcher(){
 // * ASCII-armored ciphertext
 // * (optional) ASCII-armored public key for signature verification or null
 // * a callback cb(plaintext)
-function cachedDecryptPgp(cacheKey, armoredText, publicKeyArmored, cb){
-    var plain = cache.plaintextCache[cacheKey];
+function cachedDecryptPgp(id, armoredText, publicKeyArmored, cb){
+    var plain = cache.plaintextCache[id];
     if (typeof(plain) !== "undefined"){
         cb(plain);
-    } else if (pendingDecryption[cacheKey]){
-        pendingDecryption[cacheKey].callbacks.push(cb);
-        console.log("Warning: skipping decryption, already in progress: "+cacheKey);
+    } else if (pendingDecryption[id]){
+        pendingDecryption[id].callbacks.push(cb);
+        console.log("Warning: skipping decryption, already in progress: "+id);
     } else {
-        console.log("Decrypting "+cacheKey);
-        var msg = {
-            "type":"cipherText",
-            "cacheKey":cacheKey,
+        console.log("Decrypting "+id);
+        var job = {
+            "type":"decrypt-verify",
+            "id":id,
             "armoredText":armoredText,
             "publicKeyArmored":publicKeyArmored
         };
-        var bestWorker = 0;
-        for(var i = 1; i < workers.length; i++){
-            if(workers[i].numInProgress < workers[bestWorker].numInProgress){
-                bestWorker = i;
-            }
-        }
-        pendingDecryption[cacheKey] = {"callbacks":[cb],"worker":bestWorker};
-        workers[bestWorker].numInProgress++;
-        workers[bestWorker].postMessage(JSON.stringify(msg));
+        workerSubmitJob(job, cb);
     }
 }
 
@@ -479,38 +401,30 @@ function isLoggedIn() {
 //
 
 function showCreateAccountModal() {
-    // showModal("create-account-template");
     $('#createAccountModal').modal('show');
 
-
+    var job = {
+        "id": "gen",
+        "type": "generate-key-pair"
+    };
     var keys;
-    var cb;
-
-    // defer the slow part, so that the modal actually appears
-    $('#createAccountModal').on('shown.bs.modal', function() {
-        // create a new mailbox. this takes a few seconds...
-        keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
+    workerSubmitJob(job, function(response){
+        keys = response;
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
         // Show the user progress
         $(".js-generating-keys").text("Done!");
         $("#createButton").prop("disabled", false);
-
-        // call cb, the user had already pressed the create button
-        if (cb) { 
-            cb();
-        }
     });
 
     $("#createButton").click(function() {
-        $('#createAccountModal').modal('hide');
-        if (keys) {
-            createAccount(keys);
-        } else {
-            cb = function() { 
-                createAccount(keys); 
-            };
-        }
+        createAccount(keys, function(err) {
+            if (err) {
+                alert(err);
+            } else {
+                $('#createAccountModal').modal('hide');
+            }
+        });
     });
 }
 
@@ -519,16 +433,15 @@ function showCreateAccountModal() {
 // and the passphrase strong enough.
 // Posts the token, a hash of the passphrase, public key, and 
 // encrypted private key to the server.
-function createAccount(keys) {
+function createAccount(keys, cb) {
     var token = validateToken();
-    if (token === null) return false;
+    if (token === null) return cb("Invalid token");
     var pass = validateNewPassword();
-    if (pass === null) return false;
+    if (pass === null) return cb("Invalid passphrase");
     var secondaryEmail = trim($("#secondaryEmail").val());
     
     if (secondaryEmail && !secondaryEmail.match(REGEX_EMAIL)) {
-        alert(secondaryEmail+" is not a valid email address");
-        return;
+        return cb(secondaryEmail+" is not a valid email address");
     }
 
     // two passphrase hashes, one for login and one to encrypt the private key
@@ -556,11 +469,10 @@ function createAccount(keys) {
     $.post(HOST_PREFIX+"/user/new", data, function() {
         //TODO: verify that what we load matches what we just generated
         login();
+        cb();
     }).fail(function(xhr) {
-        alert(xhr.responseText);
+        cb(xhr.responseText);
     });
-    
-    return true;
 }
 
 function validateToken() {

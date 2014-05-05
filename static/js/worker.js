@@ -33,26 +33,50 @@ self.onmessage = function(evt){
     var msg = JSON.parse(evt.data);
 
     // Set private key to use for decryption
-    if(msg.type == "key"){
-        privateKey = openpgp.read_privateKey(msg.privateKey);
-    } else if(msg.type == "cipherText"){
-        // Decrypt messages
-        var response = {type:"decrypt", cacheKey:msg.cacheKey};
-        try {
-            var publicKey;
-            if (msg.publicKeyArmored) {
-                publicKey = openpgp.read_publicKey(msg.publicKeyArmored)[0];
-            }
-            var decrypted = decryptPgp(msg.armoredText, publicKey);
-            response.error = decrypted.error;
-            response.warnings = decrypted.warnings;
-            response.plaintext = decrypted.plaintext;
-        } catch(err){
-            response.error = ""+err;
-        }
-        postMessage(JSON.stringify(response));
+    if(msg.type == "set-key"){
+        handleSetKey(msg);
+    } else if(msg.type == "decrypt-verify"){
+        handleDecrypt(msg);
+    } else if(msg.type == "generate-key-pair"){
+        handleGenKeyPair(msg);
     }
 };
+
+//
+// Handlers for each job type
+// 
+function handleSetKey(msg) {
+    privateKey = openpgp.read_privateKey(msg.privateKey);
+}
+function handleDecrypt(msg) {
+    var response = {
+        type:"decrypt", 
+        id:msg.id
+    };
+    try {
+        var publicKey;
+        if (msg.publicKeyArmored) {
+            publicKey = openpgp.read_publicKey(msg.publicKeyArmored)[0];
+        }
+        var decrypted = decryptPgp(msg.armoredText, publicKey);
+        response.error = decrypted.error;
+        response.warnings = decrypted.warnings;
+        response.plaintext = decrypted.plaintext;
+    } catch(err){
+        response.error = ""+err;
+    }
+    postMessage(JSON.stringify(response));
+}
+function handleGenKeyPair(msg) {
+    // create a new mailbox. this takes a few seconds...
+    var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
+    var response = {
+        "id": msg.id,
+        "publicKeyArmored": key.publicKeyArmored,
+        "privateKeyArmored": key.privateKeyArmored
+    };
+    postMessage(JSON.stringify(response));
+}
 
 // Decrypts a PGP message destined for our user, given their private key
 // If publicKey exists, it is used to verify the sender's signature.
