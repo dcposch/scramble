@@ -1255,7 +1255,7 @@ function keepUnsavedWork() {
     $("input[data-default], textarea[data-default]").each(function() {
         var el = $(this);
         if (trim(el.val()) != trim(el.data("default"))) {
-            if(!confirm(el.data("displayName")+" is not saved, continue?")) {
+            if(!confirm("Email has not been sent, continue?")) {
                 keepUnsaved = true;
             }
         }
