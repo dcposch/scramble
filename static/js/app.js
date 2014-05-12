@@ -1209,7 +1209,7 @@ function showComposeStandalone(to, subject, body){
 }
 
 function showComposeInline(email, to, subject, body) {
-    var elEmail = getEmailElement(email.msgID);
+    var elEmail = $("#thread-emails");
     var bodyDefault;
     if (body !== undefined) {
         if (keepUnsavedWork()) { return; }
@@ -1237,11 +1237,10 @@ function showComposeInline(email, to, subject, body) {
         body:        body,
         bodyDefault: bodyDefault,
     }));
-    elEmail.find(".email-compose").empty().append(elCompose);
+    elEmail.find(".email-compose").last().empty().append(elCompose);
 
-    // Scroll down to the Compose box
-    var y = $(elCompose).position().top;
-    $("#thread-emails").scrollTop(y);
+    // Focus the Compose box
+    setTimeout(function(){elCompose.find("textarea[name=body]").focus();}, 200);
 
     // Bind events (eg Send button)
     bindComposeEvents(elCompose, function(emailData) {
