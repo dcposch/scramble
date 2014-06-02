@@ -11,10 +11,7 @@
 // See https://tools.ietf.org/html/rfc4880
 //
 
-var KEY_TYPE_RSA = 1;
-var KEY_SIZE = 2048;
-
-var ALGO_SHA1 = 2;
+var NUM_WORKERS = 1;
 var ALGO_AES128 = 7;
 
 var BOX_PAGE_SIZE = 20;
@@ -138,6 +135,8 @@ function main() {
             "through the SOCKS proxy which the Tor Browser Bundle / Vidalia provides.");
         return;
     }
+    startPgpDecryptWorkers(NUM_WORKERS);
+    startPgpWorkerWatcher();
 
     // initialize the ui
     initHandlebars();
@@ -162,10 +161,11 @@ function login(failureCb){
         sessionStorage["pubHash"] = data.PublicHash;
         sessionStorage["publicKeyArmored"] = data.PublicKey;
         sessionStorage["privateKeyArmored"] = decryptPrivateKey(data.CipherPrivateKey);
-
-        startPgpDecryptWorkers();
-        startPgpWorkerWatcher();
-
+        
+        workerSendAll({
+            "type":"set-key",
+            "privateKey": sessionStorage["privateKeyArmored"]
+        });
         loadDecryptAndShowBox("inbox");
     }, "json").fail(function(xhr){
         clearCredentials(); 
@@ -198,18 +198,22 @@ function cachedDecryptPgp(id, armoredText, publicKeyArmored, cb){
     var plain = cache.plaintextCache[id];
     if (typeof(plain) !== "undefined"){
         cb(plain);
-    } else if (pendingDecryption[id]){
-        pendingDecryption[id].callbacks.push(cb);
-        console.log("Warning: skipping decryption, already in progress: "+id);
+    } else if (pendingJobs[id]){
+        pendingJobs[id].callbacks.push(cb);
+        console.log("Warning: skipping job, already in progress: "+id);
     } else {
         console.log("Decrypting "+id);
         var job = {
             "type":"decrypt-verify",
             "id":id,
             "armoredText":armoredText,
-            "publicKeyArmored":publicKeyArmored
+            "publicKeyArmored":publicKeyArmored,
+            "randomBase64":randomBase64(65000) //+armoredText.length*2)
         };
-        workerSubmitJob(job, cb);
+        workerSubmitJob(job, function(msg){
+            cache.plaintextCache[msg.id] = msg.plaintext;
+            cb(msg.plaintext, msg.error);
+        });
     }
 }
 
@@ -405,11 +409,13 @@ function showCreateAccountModal() {
 
     var job = {
         "id": "gen",
-        "type": "generate-key-pair"
+        "type": "generate-key-pair",
+        "randomBase64": randomBase64(1000)
     };
-    var keys;
+    var keys = {};
     workerSubmitJob(job, function(response){
-        keys = response;
+        keys.publicKeyArmored = response.publicKeyArmored;
+        keys.privateKeyArmored = response.privateKeyArmored;
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
         // Show the user progress
@@ -434,18 +440,22 @@ function showCreateAccountModal() {
 // Posts the token, a hash of the passphrase, public key, and 
 // encrypted private key to the server.
 function createAccount(keys, cb) {
-    var token = validateToken();
-    if (token === null) return cb("Invalid token");
-    var pass = validateNewPassword();
-    if (pass === null) return cb("Invalid passphrase");
+    var token = $("#createToken").val();
+    var pass1 = $("#createPass").val();
+    var pass2 = $("#confirmPass").val();
     var secondaryEmail = trim($("#secondaryEmail").val());
-    
-    if (secondaryEmail && !secondaryEmail.match(REGEX_EMAIL)) {
-        return cb(secondaryEmail+" is not a valid email address");
-    }
+
+    // validate
+    var err = validateToken(token);
+    if(err) return cb(err);
+    err = validateNewPassword(pass1, pass2);
+    if(err) return cb(err);
+    err = validateOptionalEmail(secondaryEmail);
+    if(err) return cb(err);
 
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
+    var pass = pass1;
     var aesKey = computeAesKey(token, pass);
     var passHash = computeAuth(token, pass);
 
@@ -475,33 +485,33 @@ function createAccount(keys, cb) {
     });
 }
 
-function validateToken() {
-    var token = $("#createToken").val();
+function validateToken(token) {
     if (token.match(REGEX_TOKEN)) {
-        return token;
-    } else {
-        alert("User must be at least three characters long.\n" +
-              "Lowercase letters and numbers only, please.");
         return null;
+    } else {
+        return "User must be at least three characters long.\n" +
+              "Lowercase letters and numbers only, please.";
     }
 }
 
-function validateNewPassword() {
-    var pass1 = $("#createPass").val();
-    var pass2 = $("#confirmPass").val();
+function validateNewPassword(pass1, pass2) {
     if (pass1 != pass2) {
-        alert("Passphrases must match");
-        return null;
+        return "Passphrases must match";
     }
     if (pass1.length < 10) {
-        alert("Your passphrase is too short.\n" + 
-              "An ordinary password is not strong enough here.\n" +
-              "For help, see http://xkcd.com/936/");
-        return null;
+        return "Your passphrase is too short.\n" + 
+               "An ordinary password is not strong enough here.\n" +
+               "For help, see http://xkcd.com/936/";
     }
-    return pass1;
+    return null;
 }
 
+function validateOptionalEmail(email){
+    if (email && !email.match(REGEX_EMAIL)) {
+        return email+" is not a valid email address";
+    }
+    return null;
+}
 
 
 //
@@ -1062,7 +1072,7 @@ function bindComposeEvents(elCompose, cb) {
 
         // generate 160-bit (20 byte) message id
         // secure random generator, so it will be unique
-        var msgID = bin2hex(openpgp_crypto_getRandomBytes(20))+"@"+window.location.hostname;
+        var msgID = bin2hex(randomBytes(20))+"@"+window.location.hostname;
         var threadID    = elCompose.find("[name='threadID']").val() || msgID;
         var ancestorIDs = elCompose.find("[name='ancestorIDs']").val() || "";
         var subject     = elCompose.find("[name='subject']").val();
@@ -1433,15 +1443,13 @@ function parsePublicKey(pubKeyArmor, addr, expectedHash){
     }
     var pka;
     try {
-        pka  = openpgp.read_publicKey(pubKeyArmor);
+        pka  = openpgp.key.readArmored(pubKeyArmor).keys[0];
     } catch(e){
         return {error:"Couldn't parse PGP public key for "+addr+". Please make sure it's a valid PGP armored public key."};
     }
-    if (pka.length != 1) {
-        return {error:"Incorrect number of public keys in armor for address "+addr};
-    }
+    // return {error:"Incorrect number of public keys in armor for address "+addr};
     return {
-        pubKey:      pka[0],
+        pubKey:      pka,
         pubKeyArmor: pubKeyArmor,
         pubHash:     computedHash,
     };
@@ -1452,17 +1460,17 @@ function sendEmailEncrypted(msgID, threadID, ancestorIDs, addrPubKeys, subject, 
     // Get the private key so we can sign the encrypted message
     var privateKey = getPrivateKey();
     // Get the public key so we can also read it in the sent box
-    var publicKey = getPublicKey();
+    //var publicKey = getPublicKey();
 
     // Encrypt message for all recipients in `addrPubKeys`
     var pubKeys = Object.values(addrPubKeys);
-    pubKeys.push(publicKey[0]);
-    pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyId(); });
+    //pubKeys.push(publicKey[0]);
+    pubKeys = pubKeys.unique(function(pubKey) { return pubKey.getKeyIds()[0]; });
     
     // Embed the subject into the body for verification
-    var cipherSubject = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subject);
+    var cipherSubject = openpgp.signAndEncryptMessage(pubKeys, privateKey, subject);
     var subjectAndBody = "Subject: "+subject+"\n\n"+body;
-    var cipherBody = openpgp.write_signed_and_encrypted_message(privateKey[0], pubKeys, subjectAndBody);
+    var cipherBody = openpgp.signAndEncryptMessage(pubKeys, privateKey, subjectAndBody);
 
     // Send our message
     var data = {
@@ -2169,7 +2177,7 @@ function parseNotaries(notaries) {
     var parsed = {};
     for (var host in notaries) {
         var pubKey = notaries[host];
-        parsed[host] = openpgp.read_publicKey(pubKey);
+        parsed[host] = openpgp.key.readArmored(pubKey);
     }
     return parsed;
 }
@@ -2179,7 +2187,7 @@ function parseNotaries(notaries) {
 // returns true or false
 function verifyNotarySignature(notaryRes, notaryPublicKey) {
     var toSign = notaryRes.address+"="+(notaryRes.pubHash||"")+"@"+notaryRes.timestamp;
-    var sig = openpgp.read_message(notaryRes.signature);
+    var sig = openpgp.message.readArmored(notaryRes.signature);
     return sig[0].signature.verify(toSign, {obj:notaryPublicKey[0]});
 }
 
@@ -2200,7 +2208,7 @@ function computeAesKey(token, pass) {
 // Backcompat only: uses SHA1 to create a AES-128 key (binary)
 // Returns 128-bit binary
 function computeAesKeyOld(token, pass) {
-    var sha1 = new jsSHA("2"+token+pass, "ASCII").getHash("SHA-1", "ASCII");
+    var sha1 = openpgp.crypto.hash.sha1("2"+token+pass);
     return sha1.substring(0, 16); // 16 bytes = 128 bits
 }
 
@@ -2225,7 +2233,7 @@ function computeScrypt(pass, salt, nbytes) {
 // Backcompat only: old SHA1 auth token
 // Returns 160-bit hex
 function computeAuthOld(token, pass) {
-    return new jsSHA("1"+token+pass, "ASCII").getHash("SHA-1", "HEX");
+    return bin2hex(openpgp.crypto.hash.sha1("1"+token+pass));
 }
 
 // Symmetric encryption using a key derived from the user's passphrase
@@ -2235,13 +2243,13 @@ function passphraseEncrypt(plainText) {
         alert("Missing passphrase. Please log out and back in.");
         return null;
     }
-    var prefixRandom = openpgp_crypto_getPrefixRandom(ALGO_AES128);
-    plainText = util.encode_utf8(plainText);
-    return openpgp_crypto_symmetricEncrypt(
+    var prefixRandom = openpgp.crypto.getPrefixRandom("aes128");
+    plainText = openpgp.util.encode_utf8(plainText);
+    return openpgp.crypto.cfb.encrypt(
         prefixRandom, 
-        ALGO_AES128, 
-        sessionStorage["passKey"], 
-        plainText);
+        "aes128", 
+        plainText,
+        sessionStorage["passKey"]);
 }
 
 // Symmetric decryption using a key derived from the user's passphrase
@@ -2253,19 +2261,19 @@ function passphraseDecrypt(cipherText) {
     }
     var plain;
     try {
-        plain = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, 
+        plain = openpgp.crypto.cfb.decrypt(
+            "aes128", 
             sessionStorage["passKey"], 
             cipherText);
     } catch(e) {
         // Backcompat: people with old accounts had weaker key derivation
-        plain = openpgp_crypto_symmetricDecrypt(
-            ALGO_AES128, 
+        plain = openpgp.crypto.cfb.decrypt(
+            "aes128", 
             sessionStorage["passKeyOld"], 
             cipherText);
         console.log("Warning: old account, used backcompat AES key");
     }
-    return util.decode_utf8(plain);
+    return openpgp.util.decode_utf8(plain);
 }
 
 // Returns the first 80 bits of a SHA1 hash, encoded with a 5-bit ASCII encoding
@@ -2273,7 +2281,7 @@ function passphraseDecrypt(cipherText) {
 // This is the same algorithm and format Onion URLS use
 function computePublicHash(str) {
     // SHA1 hash
-    var sha1Hex = new jsSHA(str, "ASCII").getHash("SHA-1", "HEX");
+    var sha1Hex = bin2hex(openpgp.crypto.hash.sha1(str));
 
     // extract the first 80 bits as a string of "1" and "0"
     var sha1Bits = [];
@@ -2309,13 +2317,7 @@ function computePublicHash(str) {
 
 function getPrivateKey() {
     var armor = sessionStorage["privateKeyArmored"];
-    return openpgp.read_privateKey(armor);
-}
-
-function getPublicKey(fn) {
-    var privateKey = getPrivateKey();
-    var publicKey = openpgp.read_publicKey(privateKey[0].extractPublicKey());
-    return publicKey;
+    return openpgp.key.readArmored(armor).keys[0];
 }
 
 
@@ -2334,7 +2336,6 @@ function addAllToSet(arrA, arrB){
 
 function initPGP() {
   if (window.crypto.getRandomValues) {
-    openpgp.init();
     return true;
   } else {
     alert("Sorry, you'll need a modern browser to use Scramble.\n"+
@@ -2413,11 +2414,21 @@ function addIfNotContains(elems, newElem) {
     }
 }
 
+function randomBase64(n){
+    var randomBuf = new Uint8Array(n);
+    window.crypto.getRandomValues(randomBuf);
+    return btoa(String.fromCharCode.apply(null, randomBuf));
+}
+function randomBytes(n){
+    var randBuf = new Uint8Array(n);
+    window.crypto.getRandomValues(randBuf);
+    return String.fromCharCode.apply(null, randBuf);
+}
 function bin2hex(str) {
-    return util.hexstrdump(str);
+    return openpgp.util.hexstrdump(str);
 }
 function hex2bin(str) {
-    return util.hex2bin(str);
+    return openpgp.util.hex2bin(str);
 }
 function trim(str) {
     return str.replace(/^\s+|\s+$/g,'');

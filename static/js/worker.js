@@ -6,27 +6,19 @@
 // and bodies of emails are given placeholders---then filled in as
 // decryption of each message completes.
 
+var KEY_TYPE_RSA = 1;
+var KEY_SIZE = 2048;
+
 
 // Work around OpenPGP.js...
-var window = {};
 var ls = {};
+var window = {};
 window.localStorage = {
     getItem: function(key){return ls[key]||null;},
     setItem: function(key,val){ls[key]=val;}
 };
-
-importScripts("lib/openpgp.js");
-openpgp.init();
-util.print_error = function(str) {
-    postMessage(JSON.stringify({type:"log", level:"error", message:str}));
-};
-util.print_warning = function(str) {
-    postMessage(JSON.stringify({type:"log", level:"warn", message:str}));
-};
-util.print_info = function(str) {
-    // ignore
-};
-
+importScripts("/js/lib/openpgp.min.js");
+var openpgp = window.openpgp;
 var privateKey;
 
 self.onmessage = function(evt){
@@ -46,91 +38,71 @@ self.onmessage = function(evt){
 // Handlers for each job type
 // 
 function handleSetKey(msg) {
-    privateKey = openpgp.read_privateKey(msg.privateKey);
+    privateKey = openpgp.key.readArmored(msg.privateKey).keys[0];
 }
 function handleDecrypt(msg) {
     var response = {
         type:"decrypt", 
         id:msg.id
     };
+    setRandom(msg.randomBase64);
     try {
-        var publicKey;
+        var publicKeys;
         if (msg.publicKeyArmored) {
-            publicKey = openpgp.read_publicKey(msg.publicKeyArmored)[0];
+            publicKeys = openpgp.key.readArmored(msg.publicKeyArmored).keys;
         }
-        var decrypted = decryptPgp(msg.armoredText, publicKey);
+        var decrypted = decryptPgp(msg.armoredText, publicKeys);
         response.error = decrypted.error;
         response.warnings = decrypted.warnings;
         response.plaintext = decrypted.plaintext;
     } catch(err){
         response.error = ""+err;
     }
+    var dbg = "Text "+response.plaintext.length+" rand "+(65000-openpgp.crypto.random.randomBuffer.size);
+    postMessage(JSON.stringify({"type":"log", "message":dbg}));
     postMessage(JSON.stringify(response));
 }
 function handleGenKeyPair(msg) {
+    setRandom(msg.randomBase64);
+    
     // create a new mailbox. this takes a few seconds...
-    var keys = openpgp.generate_key_pair(KEY_TYPE_RSA, KEY_SIZE, "");
+    var keys = openpgp.generateKeyPair({
+        "keyType":KEY_TYPE_RSA, 
+        "numBits":KEY_SIZE,
+        "userId":"",
+        "passphrase":"foo"
+    });
     var response = {
         "id": msg.id,
-        "publicKeyArmored": key.publicKeyArmored,
-        "privateKeyArmored": key.privateKeyArmored
+        "publicKeyArmored": keys.publicKeyArmored,
+        "privateKeyArmored": keys.privateKeyArmored
     };
     postMessage(JSON.stringify(response));
+}
+
+// secure random values must be generated outside, 
+// since WebCrypto is not yet available from Web Workers...
+function setRandom(randomBase64) {
+    var randomBuf = new Uint8Array(atob(randomBase64)
+        .split("")
+        .map(function(c) { return c.charCodeAt(0); }));
+    openpgp.crypto.random.randomBuffer.init(randomBuf.length);
+    openpgp.crypto.random.randomBuffer.set(randomBuf);
 }
 
 // Decrypts a PGP message destined for our user, given their private key
 // If publicKey exists, it is used to verify the sender's signature.
 // This is a slow operation (60ms)
-function decryptPgp(armoredText, publicKey) {
-    var warnings = [];
-
-    var msgs = openpgp.read_message(armoredText);
-    if (msgs.length != 1) {
-        warnings.push("Expected 1 PGP message, found "+msgs.length);
-    }
-    var msg = msgs[0];
-    var sessionKey = null;
-    for (var i=0; i<msg.sessionKeys.length; i++) {
-        if (msg.sessionKeys[i].keyId.bytes == privateKey[0].getKeyId()) {
-            sessionKey = msg.sessionKeys[i];
-            break;
-        }
-    }
-    if (sessionKey === null) {
-        warnings.push("Matching PGP session key not found");
-        sessionKey = msg.sessionKeys[0];
-    }
-    if (privateKey.length != 1) {
-        warnings.push("Expected 1 PGP private key, found "+privateKey.length);
-    }
-    var keymat = { key: privateKey[0], keymaterial: privateKey[0].privateKeyPacket};
-    if (!keymat.keymaterial.decryptSecretMPIs("")) {
-        return {"error":"Error. The private key is passphrase protected."};
-    }
-    var text;
-    if (publicKey) {
-        var res = msg.decryptAndVerifySignature(keymat, sessionKey, [{obj:publicKey}]);
-        if (res.length === 0) {
-            text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
-        } else if (!res[0].signatureValid) {
-            // old messages will pop this error modal.
-            return {"error":"Error. The signature is invalid!"};
-        } else {
-            // valid signature, hooray
-            text = res[0].text;
-        }
+function decryptPgp(armoredText, publicKeys) {
+    var warnings = [], text;
+    var msg = openpgp.message.readArmored(armoredText);
+    if(publicKeys){
+        var res = openpgp.decryptAndVerifyMessage(privateKey, publicKeys, msg);
+        text = res.text;
     } else {
-        text = msg.decryptWithoutVerification(keymat, sessionKey)[0];
+        text = openpgp.decryptMessage(privateKey, msg);
     }
-
-    // HACK:
-    // openpgp.js will only call util.decode_utf8 if the filehint is 'u',
-    //  while golang's openpgp library only encodes to 't'.
-    // For now, let's just always call util.decode_utf8.
-    //  this will cause util.decode_utf8 to get double called for messages
-    //  from openpgp.js, which will most likely do nothing.
-    var decodedText = util.decode_utf8(text);
-
+    var decodedText = openpgp.util.decode_utf8(text);
     return {"warnings":warnings,"plaintext":decodedText};
 }
 
