@@ -1,8 +1,10 @@
 .*.swp
 static/doc/*.html
+static/js/app.js
 scramble.sql
 build
 bin/
 pkg/
 .settings/
 src/*.*/
+node_modules/

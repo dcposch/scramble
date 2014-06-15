@@ -1,46 +1,57 @@
-GOPATH := $(shell pwd)
 
 run: build
 	./static/bin/scramble
 
-build: doc $(shell find . -name '*.go') $(shell find . -name '*.js')
+build: build-go build-js
+	echo "Build done"
+
+
+
+#
+# BUILD
+#
+
+GOPATH := $(shell pwd)
+SRCS_GO := $(wildcard src/scramble/*.go)
+SRCS_JS := $(wildcard static/js/lib/*.js static/js/*.js)
+SRCS_MD := $(wildcard doc/*.md)
+OUTPUT_HTML := $(SRCS_MD:%.md=static/%.html)
+
+build-go: $(SRCS_GO)
 	go get scramble
 	mkdir -p bin
 	go build -o bin/scramble src/cmd/scramble/*.go
 	go build -o bin/scramble-notify src/cmd/scramble-notify/*.go
 	cp bin/* static/bin/
 
-test: $(shell find . -name '*.go') $(shell find . -name '*.js')
+build-js: $(SRCS_JS)
+	npm install
+	mkdir -p build/js
+	jsx components/ build/js/
+	browserify build/js/* > static/js/app.js
+
+
+#
+# UNIT TESTS
+#
+
+test: lint $(SRCS_GO) $(SRCS_JS)
 	go test scramble
 	cd static/js && cat stubs.js lib/sugar.min.js lib/openpgp.js lib/scrypt.js app.js test.js | node
 
-lint: 
+lint: $(SRCS_GO)
 	go get github.com/golang/lint/golint
 	$(GOPATH)/bin/golint *.go
 
-chrome:
-	rm -rf build/chrome_extension
-	mkdir -p build/chrome_extension
-	cp static/chrome_extension/* build/chrome_extension/
-	cp static/index.html build/chrome_extension/
-	cp static/favicon.ico build/chrome_extension/
-	cp -r static/js build/chrome_extension/js
-	cp -r static/css build/chrome_extension/css
-	echo "\nChrome extension built to ./build/chrome_extension!\n"
 
-MARKDOWN := $(shell ls doc/*.md)
-HTML := $(MARKDOWN:%.md=static/%.html)
-doc: $(HTML) static/doc/index.html
 
-static/doc/never-forget.html: doc/never-forget.md
-	mkdir -p static/doc
-	markdown doc/never-forget.md > $@
+#
+# DOCUMENTATION
+#
 
-static/doc/slideshow.html: doc/slideshow.html
-	mkdir -p static/doc
-	cp doc/slideshow.html static/doc/slideshow.html
+doc: $(OUTPUT_HTML) static/doc/index.html
 
-static/doc/%.html: doc/%.md doc/head.html
+$(OUTPUT_HTML): $(SRCS_MD) doc/head.html
 	mkdir -p static/doc
 	cat doc/head.html > $@
 	markdown doc/$*.md >> $@

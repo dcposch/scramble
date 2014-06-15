@@ -122,7 +122,7 @@ cache.plaintextCache = {}; // cache key -> plaintext
 // Called on load: $(main)
 //
 
-function main() {
+window.main = function() {
     console.log("Hello World");
 
     // initialize browser crypto
