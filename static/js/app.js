@@ -12,7 +12,6 @@
 //
 
 var NUM_WORKERS = 1;
-var ALGO_AES128 = 7;
 
 var BOX_PAGE_SIZE = 20;
 
@@ -127,7 +126,7 @@ function main() {
     console.log("Hello World");
 
     // initialize browser crypto
-    if (!initPGP()) {
+    if (!window.crypto.getRandomValues) {
         alert("Sorry, your browser doesn't support cryptography.\n"+
             "You'll need a recent version of Chrome, Firefox, or Safari.\n\n"+
             "The Tor Browser Bundle unfortunately ships an old version of FF :(\n"+
@@ -2334,31 +2333,13 @@ function addAllToSet(arrA, arrB){
     }
 }
 
-function initPGP() {
-  if (window.crypto.getRandomValues) {
-    return true;
-  } else {
-    alert("Sorry, you'll need a modern browser to use Scramble.\n"+
-          "Use Chrome >= 11, Safari >= 3.1 or Firefox >= 21");
-    return false;
-  }   
-}
-
-// openpgp really wants this function.
-function showMessages(msg) {
-    var err = $("<div />").html(msg).text();
-    console.log("OpenPGP.js - "+err);
-    if (err.toLowerCase().startsWith("error")) {
-        throw err;
-    }
-}
-
 // Renders a Handlebars template, reading from a <script> tag. Returns HTML.
 var templates = {};
 function render(templateID, data) {
     if (!templates) {
+        alert("Missing template "+templateID);
+        return "";
     }
-
     return templates[templateID](data);
 }
 
@@ -2407,13 +2388,6 @@ function getUserEmail() {
     return sessionStorage["token"]+"@"+window.location.hostname;
 }
 
-// Appends an element to an array, if it's not already in the array
-function addIfNotContains(elems, newElem) {
-    if (elems.indexOf(newElem) < 0) {
-        elems.push(newElem);
-    }
-}
-
 function randomBase64(n){
     var randomBuf = new Uint8Array(n);
     window.crypto.getRandomValues(randomBuf);
@@ -2448,12 +2422,6 @@ function initAjaxAuth() {
         }
     });
 }
-
-function setHostPrefix(hostPrefix) {
-    HOST_PREFIX = hostPrefix;
-    sessionStorage["hostPrefix"] = hostPrefix;
-}
-
 
 function initMomentJS() {
     moment.lang('en', {
