@@ -28,7 +28,7 @@ function workerSendAll(msg){
 function handlePgpWorkerMessage(evt){
     var msg = JSON.parse(evt.data);
     if(msg.type == "log"){
-        console.log("Webworker:", msg.level, msg.message);
+        console.log("Webworker:", msg.level || "", msg.message);
         return;
     }
 
