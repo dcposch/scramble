@@ -5,7 +5,6 @@
 //
 
 
-
 //
 // CONSTANTS
 // See https://tools.ietf.org/html/rfc4880
@@ -122,13 +121,27 @@ cache.plaintextCache = {}; // cache key -> plaintext
 
 var Api = require("./scramble-api");
 
+var LoginPage = require("./Login");
+
+var Router = require("director").Router;
+var routes = {
+    "/": main,
+    "/inbox": showInbox,
+    "/inbox/:msg": showInbox 
+};
+var router = Router(routes);
+router.init();
+function showInbox(){
+    console.log("ShowInbox");
+}
+
 
 //
 // LOAD THE SITE
 // Called on load: $(main)
 //
 
-window.main = function() {
+window.main = function main() {
     console.log("Hello World");
 
     // initialize browser crypto
@@ -364,11 +377,8 @@ function showLogin() {
     // not logged in. reset session state.
     clearCredentials();
 
-    //initialize bootstrap modal
-    $('#createAccountModal').modal();
-
     // show the login ui
-    $("#wrapper").html(render("login-template"));
+    React.renderComponent(<Login />, document.getElementById("wrapper"));
     bindLoginEvents();
 }
 

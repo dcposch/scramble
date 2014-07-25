@@ -1,10 +1,9 @@
+#
+# RUN
+#
 
 run: build
 	./static/bin/scramble
-
-build: build-go build-js
-	echo "Build done"
-
 
 
 #
@@ -13,9 +12,14 @@ build: build-go build-js
 
 GOPATH := $(shell pwd)
 SRCS_GO := $(wildcard src/scramble/*.go)
-SRCS_JS := $(wildcard static/js/lib/*.js static/js/*.js)
-SRCS_MD := $(wildcard doc/*.md)
+SRCS_JS := $(wildcard src/js/lib/*.js src/js/*.js)
+SRCS_JSX := $(wildcard src/jsx/*.jsx)
+SRCS_GEN_JS := $(SRCS_JSX:.jsx=.js)
+
 OUTPUT_HTML := $(SRCS_MD:%.md=static/%.html)
+
+build: build-go build-js
+	echo "Build done"
 
 build-go: $(SRCS_GO)
 	go get scramble
@@ -24,11 +28,17 @@ build-go: $(SRCS_GO)
 	go build -o bin/scramble-notify src/cmd/scramble-notify/*.go
 	cp bin/* static/bin/
 
-build-js: $(SRCS_JS)
+src/jsx/%.js: src/jsx/%.jsx
+	jsx $^ > $@
+
+build-js: $(SRCS_JS) $(SRCS_GEN_JS)
 	npm install
-	mkdir -p build/js
-	jsx components/ build/js/
-	browserify build/js/* > static/js/app.js
+	browserify $(SRCS_JS) $(SRCS_GEN_JS) > static/js/app.js
+
+clean:
+	rm static/js/app.js
+	rm src/jsx/*.js
+	rm static/doc/*.html
 
 
 #
@@ -42,7 +52,6 @@ test: lint $(SRCS_GO) $(SRCS_JS)
 lint: $(SRCS_GO)
 	go get github.com/golang/lint/golint
 	$(GOPATH)/bin/golint *.go
-
 
 
 #
