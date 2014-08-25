@@ -20,7 +20,7 @@ var ALGO_AES128 = 7;
 var BOX_PAGE_SIZE = 20;
 
 var REGEX_TOKEN = /^[a-z0-9][a-z0-9][a-z0-9]+$/;
-var REGEX_EMAIL = /^([A-Z0-9._%+-=]+)@([A-Z0-9.-]+\.[A-Z]{2,4})$/i;
+var REGEX_EMAIL = /^([A-Z0-9._%+-=]+)@([A-Z0-9.-]+\.[A-Z][A-Z]+)$/i;
 var REGEX_BODY = /^Subject: (.*)(?:\r?\n)+([\s\S]*)$/i;
 var REGEX_CONTACT_NAME = /^[^@]*$/i;
 
