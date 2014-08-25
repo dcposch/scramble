@@ -382,10 +382,10 @@ function showLogin() {
     clearCredentials();
 
     // show the login ui
-    React.renderComponent((<Login 
-            onLogin={handleLogin} 
-            onCreateAccount={showCreateAccountModal} 
-         />), 
+    React.renderComponent((Login( 
+            {onLogin:handleLogin, 
+            onCreateAccount:showCreateAccountModal} 
+         )), 
         document.getElementById("wrapper"));
 }
 

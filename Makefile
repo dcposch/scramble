@@ -31,7 +31,7 @@ build-go: $(SRCS_GO)
 src/jsx/%.js: src/jsx/%.jsx
 	jsx $^ > $@
 
-build-js: $(SRCS_JS) $(SRCS_GEN_JS)
+build-js: $(SRCS_JS) $(SRCS_GEN_JS) package.json
 	npm install
 	browserify $(SRCS_JS) $(SRCS_GEN_JS) > static/js/app.js
 

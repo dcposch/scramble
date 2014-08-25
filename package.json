@@ -2,7 +2,12 @@
     "name": "Scramble",
     "version": "0.1.0",
     "dependencies": {
-        "react": "0.10.0"
+        "react": "0.10.0",
+        "director": "1.2.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dcposch/scramble"
     }
 }
 
