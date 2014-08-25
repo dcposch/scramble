@@ -216,7 +216,7 @@ func emailHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 // GET /email/ fetches an email & all messages
 //  in the given box for the given threadID
 func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
-	threadID := validateMessageID(r.FormValue("threadID"))
+	threadID := r.FormValue("threadID")
 
 	threadEmails := LoadThread(userID.EmailAddress, threadID)
 	if len(threadEmails) == 0 {
@@ -232,7 +232,7 @@ func emailFetchHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 
 // PUT /email/id can change things about an email, eg what box it's in
 func emailPutHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
-	id := validateMessageID(r.URL.Path[len("/email/"):])
+	id := r.URL.Path[len("/email/"):]
 	if r.FormValue("box") != "" {
 		newBox := validateBox(r.FormValue("box"))
 		threadMoveBox(id, userID, newBox)

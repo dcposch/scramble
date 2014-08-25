@@ -615,7 +615,7 @@ function loadDecryptAndShowBox(box, page) {
     box = box || "inbox";
     page = page || 1;
     console.log("Loading, decrypting and showing "+box+", page "+page);
-    $.get(HOST_PREFIX+"/box/"+encodeURI(box),
+    $.get(HOST_PREFIX+"/box/"+encodeURIComponent(box),
         { offset: (page-1)*BOX_PAGE_SIZE, limit: BOX_PAGE_SIZE },
         function(summary) {
             console.log("Decrypting and showing "+box);
@@ -1012,7 +1012,7 @@ function markAsRead(emails, isRead){
 	
 	// Persist the read/unread status
     $.ajax({
-        url: HOST_PREFIX+'/email/'+encodeURI(msgID),
+        url: HOST_PREFIX+'/email/'+encodeURIComponent(msgID),
         type: 'PUT',
         data: {isRead: isRead},
     }).done(function() {
@@ -1106,7 +1106,7 @@ function threadMove(email, box) {
         box: box
     };
     $.ajax({
-        url: HOST_PREFIX+'/email/'+encodeURI(email.msgID),
+        url: HOST_PREFIX+'/email/'+encodeURIComponent(email.msgID),
         type: 'PUT',
         data: params,
     }).done(function() {
