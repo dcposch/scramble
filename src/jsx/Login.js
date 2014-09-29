@@ -5,9 +5,8 @@ var ForkMe = require("./ForkMe");
 
 module.exports = React.createClass({displayName: 'exports',
     handleSignIn: function(){
-        // TODO: reactify
-        var username = $("#token").val();
-        var password = $("#pass").val();
+        var username = this.refs.token.state.value;
+        var password = this.refs.pass.state.value;
         this.props.onLogin(username, password);
     },
     handleCreateAccount: function(){
@@ -17,14 +16,14 @@ module.exports = React.createClass({displayName: 'exports',
         return (
         React.DOM.div( {className:"container"}, 
             React.DOM.div( {className:"row"}, 
-                React.DOM.div( {className:"form-signin center-block text-center", id:"login"}, 
+                React.DOM.div( {className:"form-signin center-block text-center"}, 
                     React.DOM.img( {src:"./img/black_rubik.svg", className:"logo-img"} ),
                     React.DOM.h1( {className:"text-center"}, "Scramble"),
                     React.DOM.h3( {className:"text-center"}, "Encrypted email for everyone"),
                     React.DOM.hr( {className:"invis"} ),
-                    React.DOM.input( {type:"text", className:"form-control", placeholder:"Username", required:"", autofocus:"", id:"token", name:"token"} ),
+                    React.DOM.input( {type:"text", className:"form-control", placeholder:"Username", required:"", autofocus:"", ref:"token"} ),
                     React.DOM.br(null ),
-                    React.DOM.input( {type:"password", className:"form-control", placeholder:"Passphrase", required:"", id:"pass", name:"pass"} ),
+                    React.DOM.input( {type:"password", className:"form-control", placeholder:"Passphrase", required:"", ref:"pass"} ),
                     React.DOM.br(null ),
                     React.DOM.button( {className:"btn btn-lg btn-default btn-block", type:"submit", onClick:this.handleSignIn}, "Sign in"),
                     React.DOM.br(null ),

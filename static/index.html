@@ -7,74 +7,7 @@
 </head>
 <body>
 <div id="wrapper"></div>
-
-
-<!-- LOGIN -->
-<script id="login-template" type="text/x-handlebars-template">
-
-    <!-- CREATE ACCOUNT MODAL -->
-    <div class="modal fade" id="createAccountModal">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                    <h4 class="modal-title">Welcome to Scramble!</h4>
-                </div>
-
-
-                <div class="modal-body form-horizontal" id="createForm">
-
-                    <div class="text-center">
-                        <em class="js-generating-keys">Generating PGP keys...</em>
-                    </div>
-                    <br/>
-
-                    <div class="form-group">
-                        <label for="createToken" class="col-sm-3 control-label">Username</label>
-                        <div class="col-sm-9">
-                            <input type="text" class="form-control" id="createToken" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="createPass" class="col-sm-3 control-label">Password</label>
-                        <div class="col-sm-9">
-                            <input type="password" class="form-control" id="createPass" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="confirmPass" class="col-sm-3 control-label">Confirm Password</label>
-                        <div class="col-sm-9">
-                            <input type="password" class="form-control" id="confirmPass" />
-                        </div>
-                    </div>
-
-                    <p class="help-block">Please choose a strong passphrase and don't forget it.<br/>
-                        The server won't know your passphrase or your private key. It can't read your mail.<br/>
-                        This is sweet... but it also means that "password reset" is impossible!
-                    </p>
-
-                    <div class="form-group">
-                        <label for="secondaryEmail" class="col-sm-3 control-label">Secondary Email</label>
-                        <div class="col-sm-9">
-                            <input type="text" class="form-control" id="secondaryEmail" />
-                        </div>
-                    </div>
-
-                    <p class="help-block">If you give us your other email, we'll keep you updated on our progress.<br/>
-                        We'll also remind you to check Scramble when you receive messages.
-                    </p>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" disabled="" id="createButton" >Create Account</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</script>
+<div id="modal"></div>
 
 
 <!-- PAGE STRUCTURE -->

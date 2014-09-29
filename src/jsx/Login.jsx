@@ -5,9 +5,8 @@ var ForkMe = require("./ForkMe");
 
 module.exports = React.createClass({
     handleSignIn: function(){
-        // TODO: reactify
-        var username = $("#token").val();
-        var password = $("#pass").val();
+        var username = this.refs.token.state.value;
+        var password = this.refs.pass.state.value;
         this.props.onLogin(username, password);
     },
     handleCreateAccount: function(){
@@ -17,14 +16,14 @@ module.exports = React.createClass({
         return (
         <div className="container">
             <div className="row">
-                <div className="form-signin center-block text-center" id="login">
+                <div className="form-signin center-block text-center">
                     <img src="./img/black_rubik.svg" className="logo-img" />
                     <h1 className="text-center">Scramble</h1>
                     <h3 className="text-center">Encrypted email for everyone</h3>
                     <hr className="invis" />
-                    <input type="text" className="form-control" placeholder="Username" required="" autofocus="" id="token" name="token" />
+                    <input type="text" className="form-control" placeholder="Username" required="" autofocus="" ref="token" />
                     <br />
-                    <input type="password" className="form-control" placeholder="Passphrase" required="" id="pass" name="pass" />
+                    <input type="password" className="form-control" placeholder="Passphrase" required="" ref="pass" />
                     <br />
                     <button className="btn btn-lg btn-default btn-block" type="submit" onClick={this.handleSignIn}>Sign in</button>
                     <br />

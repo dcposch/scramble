@@ -125,6 +125,7 @@ var Api = require("./scramble-api");
 
 var React = require("react");
 var Login = require("./Login");
+var CreateAccount = require("./CreateAccount");
 
 var Router = require("director").Router;
 var routes = {
@@ -356,10 +357,9 @@ function showStatus(msg, cssClass) {
 // MODAL DIALOGS
 //
 
-function showModal(templateName) {
-    var modalHtml = render(templateName);
-    $("#wrapper").append(modalHtml);
-    $(".link-close-modal").click(closeModal);
+function showModal(modal) {
+    React.renderComponent(modal,
+        document.getElementById("modal"));
 }
 
 function closeModal() {
@@ -431,32 +431,22 @@ function isLoggedIn() {
 //
 
 function showCreateAccountModal() {
-    $('#createAccountModal').modal('show');
+    var createModal = (CreateAccount( {onCreateAccount:createAccount}));
+    showModal(createModal);
 
+    // Asynchronously generate PGP keys
     var job = {
         "id": "gen",
         "type": "generate-key-pair",
         "randomBase64": randomBase64(1000)
     };
-    var keys = {};
     workerSubmitJob(job, function(response){
+        var keys = {};
         keys.publicKeyArmored = response.publicKeyArmored;
         keys.privateKeyArmored = response.privateKeyArmored;
         sessionStorage["pubHash"] = computePublicHash(keys.publicKeyArmored);
 
-        // Show the user progress
-        $(".js-generating-keys").text("Done!");
-        $("#createButton").prop("disabled", false);
-    });
-
-    $("#createButton").click(function() {
-        createAccount(keys, function(err) {
-            if (err) {
-                alert(err);
-            } else {
-                $('#createAccountModal').modal('hide');
-            }
-        });
+        createModal.setProps({"keys":keys});
     });
 }
 
@@ -465,23 +455,17 @@ function showCreateAccountModal() {
 // and the passphrase strong enough.
 // Posts the token, a hash of the passphrase, public key, and 
 // encrypted private key to the server.
-function createAccount(keys, cb) {
-    var token = $("#createToken").val();
-    var pass1 = $("#createPass").val();
-    var pass2 = $("#confirmPass").val();
-    var secondaryEmail = trim($("#secondaryEmail").val());
-
+function createAccount(token, pass, secondaryEmail, keys) {
     // validate
     var err = validateToken(token);
-    if(err) return cb(err);
-    err = validateNewPassword(pass1, pass2);
-    if(err) return cb(err);
+    if(err) return alert(err);
+    err = validateNewPassword(pass);
+    if(err) return alert(err);
     err = validateOptionalEmail(secondaryEmail);
-    if(err) return cb(err);
+    if(err) return alert(err);
 
     // two passphrase hashes, one for login and one to encrypt the private key
     // the server knows only the login hash, and must not know the private key
-    var pass = pass1;
     var aesKey = computeAesKey(token, pass);
     var passHash = computeAuth(token, pass);
 
@@ -505,9 +489,8 @@ function createAccount(keys, cb) {
     Api.postAccount(data).done(function() {
         //TODO: verify that what we load matches what we just generated
         login();
-        cb();
     }).fail(function(xhr) {
-        cb(xhr.responseText);
+        alert(xhr.responseText);
     });
 }
 
@@ -520,11 +503,8 @@ function validateToken(token) {
     }
 }
 
-function validateNewPassword(pass1, pass2) {
-    if (pass1 != pass2) {
-        return "Passphrases must match";
-    }
-    if (pass1.length < 10) {
+function validateNewPassword(pass) {
+    if (pass.length < 10) {
         return "Your passphrase is too short.\n" + 
                "An ordinary password is not strong enough here.\n" +
                "For help, see http://xkcd.com/936/";
