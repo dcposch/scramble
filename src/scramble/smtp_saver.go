@@ -11,8 +11,9 @@ package scramble
 
 import (
 	"bytes"
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/net/html"
 	"log"
 	"net/mail"
 	"regexp"
@@ -20,6 +21,9 @@ import (
 )
 
 var regexSMTPTemplatep = regexp.MustCompile(`(?s)-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----`)
+var regexWhitespace = regexp.MustCompile(`\s+`)
+var regexAllWhitespace = regexp.MustCompile(`^\s*$`)
+var regexTrailingSpace = regexp.MustCompile(`(?m) +$`)
 
 func StartSMTPSaver() {
 	// start some savemail workers
@@ -69,7 +73,11 @@ func deliverMailLocally(msg *SMTPMessage) error {
 		var textBody string
 		if msg.data.textBody == "" && msg.data.body != "" {
 			// HTML email, blank body with file attachments, etc
-			textBody = "(Sorry, Scramble only supports plain text email for now.)"
+			var err error
+			textBody, err = extractTextFromHTML(msg.data.body)
+			if err != nil {
+				return err
+			}
 		} else {
 			textBody = msg.data.textBody
 		}
@@ -115,6 +123,85 @@ func deliverMailLocally(msg *SMTPMessage) error {
 	}
 
 	return nil
+}
+
+// Extracts reasonably readable plain text from an HTML email
+// Note this is NOT an HTML sanitizer and the output is NOT safe to display as HTML.
+// The output should be displayed only as plain text.
+func extractTextFromHTML(dirtyHTML string) (string, error) {
+	var buffer bytes.Buffer
+	var err error
+	var tagNameStr = ""
+
+	z := html.NewTokenizer(strings.NewReader(dirtyHTML))
+	for {
+		tokenType := z.Next()
+		if tokenType == html.ErrorToken {
+			// HTML email is sometimes malformed...
+			// if there's a parse error, just return what we've parsed so far.
+			break
+		} else if tokenType == html.SelfClosingTagToken {
+			tagName, _ := z.TagName()
+			tagNameStr = string(tagName)
+			if tagNameStr == "br" {
+				_, err = buffer.WriteString("\n")
+			}
+		} else if tokenType == html.StartTagToken {
+			tagName, hasAttr := z.TagName()
+			tagNameStr = string(tagName)
+			// handle line breaks
+			if tagNameStr == "br" {
+				_, err = buffer.WriteString("\n")
+				continue
+			}
+			// finally, handle links
+			if tagNameStr != "a" {
+				continue
+			}
+			href := ""
+			var attrKey, attrVal []byte
+			for hasAttr {
+				attrKey, attrVal, hasAttr = z.TagAttr()
+				if string(attrKey) == "href" {
+					href = string(attrVal)
+				}
+			}
+			// write out the link target out as text
+			// very basic. user can decide whether to copy to URL bar
+			if href != "" {
+				_, err = buffer.WriteString("( link to " + href + " ) ")
+			}
+		} else if tokenType == html.TextToken {
+			if tagNameStr == "style" {
+				// ignore style tags
+				continue
+			}
+			textStr := string(z.Text())
+			if regexAllWhitespace.MatchString(textStr) {
+				// ignore runs of just whitespace
+				continue
+			}
+			textStr = regexWhitespace.ReplaceAllString(textStr, " ")
+			_, err = buffer.Write([]byte(textStr))
+		} else if tokenType == html.EndTagToken {
+			tagName, _ := z.TagName()
+			tagNameStr := string(tagName)
+			if tagNameStr == "span" || tagNameStr == "a" || tagNameStr == "th" || tagNameStr == "td" {
+				_, err = buffer.WriteString(" ")
+			} else {
+				_, err = buffer.WriteString("\n")
+			}
+		}
+	}
+
+	// if it worked, return a trimmed string
+	if err != nil {
+		return "", err
+	}
+	ret := buffer.String()
+	ret = regexTrailingSpace.ReplaceAllString(ret, "")
+	ret = strings.TrimSpace(ret)
+	return ret, nil
 }
 
 func joinAddresses(addrs []*mail.Address) string {

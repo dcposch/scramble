@@ -3,7 +3,7 @@
 package scramble
 
 import (
-	"code.google.com/p/go.crypto/openpgp"
+	"golang.org/x/crypto/openpgp"
 	"io/ioutil"
 	"log"
 	"net/http"

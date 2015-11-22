@@ -32,7 +32,7 @@ func migrateDb() {
 	// create the table, if needed
 	_, err := db.Exec(`create table if not exists migration (
         version int not null
-    ) engine=InnoDB`)
+    ) collate=ascii_bin`)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ func migrateCreateUser() error {
 
         primary key (token),
         unique index (public_hash)
-    )`)
+    ) collate=ascii_bin`)
 	return err
 }
 
@@ -92,7 +92,7 @@ func migrateCreateEmail() error {
         primary key (message_id, pub_hash_to),
         index (pub_hash_to, box),
         index (pub_hash_from)
-    )`)
+    ) collate=ascii_bin`)
 	return err
 }
 
@@ -163,7 +163,7 @@ func migrateEmailRefactor() error {
         cipher_body    LONGTEXT NOT NULL,
 
         primary key (message_id)
-    )`)
+    ) collate=ascii_bin`)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func migrateEmailRefactor() error {
         PRIMARY KEY (id),
         INDEX (address, box, unix_time),
         INDEX (address, message_id)
-    )`)
+    ) collate=ascii_bin`)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func migrateCreateNameResolution() error {
 		host           VARCHAR(255),
 		hash           CHAR(16),
 		index (host, name)
-    )`)
+    ) collate=ascii_bin`)
 	if err != nil {
 		return err
 	}
@@ -417,7 +417,7 @@ func migrateCreateMxHosts() error {
         unix_time    BIGINT NOT NULL,
 
         PRIMARY KEY (host)
-    )`)
+    ) collate=ascii_bin`)
 	return err
 }
 

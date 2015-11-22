@@ -21,7 +21,6 @@ package scramble
 import (
 	"bufio"
 	"bytes"
-	_ "code.google.com/p/go.crypto/ripemd160"
 	"compress/zlib"
 	"crypto/md5"
 	"encoding/base64"
@@ -30,6 +29,7 @@ import (
 	"fmt"
 	iconv "github.com/sloonz/go-iconv"
 	qprintable "github.com/sloonz/go-qprintable"
+	_ "golang.org/x/crypto/ripemd160"
 	"io"
 	"io/ioutil"
 	"log"

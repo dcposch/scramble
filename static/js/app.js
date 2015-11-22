@@ -2425,8 +2425,6 @@ function initPGP() {
     openpgp.init();
     return true;
   } else {
-    alert("Sorry, you'll need a modern browser to use Scramble.\n"+
-          "Use Chrome >= 11, Safari >= 3.1 or Firefox >= 21");
     return false;
   }   
 }
