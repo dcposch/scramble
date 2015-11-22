@@ -253,6 +253,7 @@ func threadMoveBox(id string, userID *UserID, newBox string) {
 
 // POST /email/ creates a new email from auth user
 func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
+	// parse input form
 	email := new(Email)
 	email.MessageID = validateMessageID(r.FormValue("msgID"))
 	email.ThreadID = validateMessageID(r.FormValue("threadID"))
@@ -261,6 +262,30 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 	email.UnixTime = time.Now().Unix()
 	email.From = userID.EmailAddress
 	email.To = r.FormValue("to")
+	formSubject := r.FormValue("subject")
+	formBody := r.FormValue("body")
+	formCipherSubject := r.FormValue("cipherSubject")
+	formCipherBody := r.FormValue("cipherBody")
+	isEncrypted := formCipherBody != ""
+
+	// egress filter to prevent abuse
+	// only whitelisted accounts may send outgoing mail
+	if !isEncrypted && !GetConfig().IsSendWhitelisted(userID.Token) {
+		errMessage := "Sorry, due to abuse, anonymous users can no longer send unencrypted mail.\n" +
+			"You will still receive mail, and you can still send mail to other Scramble users."
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(errMessage))
+		log.Printf("Egress filter: blocked unencrypted message from %s to %s",
+			email.From, email.To)
+		return
+	} else {
+		strEnc := "unencrypted"
+		if isEncrypted {
+			strEnc = "encrypted"
+		}
+		log.Printf("Egress filter: allowing %s message from %s to %s",
+			strEnc, email.From, email.To)
+	}
 
 	// for each address, lookup MX record & determine what to do.
 	mxHostAddrs, failedHostAddrs := ParseEmailAddresses(email.To).GroupByMxHostFlat()
@@ -273,9 +298,9 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		return
 	}
 
-	// Handle plaintext emails specially
+	// Handle plaintext vs encrypted outgoing emails
 	outgoingEmail := new(OutgoingEmail)
-	if r.FormValue("cipherBody") == "" { // unencrypted
+	if !isEncrypted { // unencrypted
 		// Gather local recipients
 		localRecipients := EmailAddresses{ParseEmailAddress(userID.EmailAddress)}
 		for mxHost, addrs := range mxHostAddrs {
@@ -285,16 +310,16 @@ func emailSendHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		}
 		localRecipients = localRecipients.Unique()
 		// Populate outgoingEmail
-		email.CipherSubject = encryptForUsers(r.FormValue("subject"), localRecipients.Strings())
-		email.CipherBody = encryptForUsers("Subject: "+r.FormValue("subject")+"\n\n"+
-			r.FormValue("body"), localRecipients.Strings())
+		email.CipherSubject = encryptForUsers(formSubject, localRecipients.Strings())
+		email.CipherBody = encryptForUsers("Subject: "+formSubject+"\n\n"+
+			formBody, localRecipients.Strings())
 		outgoingEmail.Email = *email
-		outgoingEmail.PlaintextSubject = r.FormValue("subject")
-		outgoingEmail.PlaintextBody = r.FormValue("body")
+		outgoingEmail.PlaintextSubject = formSubject
+		outgoingEmail.PlaintextBody = formBody
 		outgoingEmail.IsPlaintext = true
 	} else { // encrypted
-		email.CipherSubject = validateMessageArmor(r.FormValue("cipherSubject"))
-		email.CipherBody = validateMessageArmor(r.FormValue("cipherBody"))
+		email.CipherSubject = validateMessageArmor(formCipherSubject)
+		email.CipherBody = validateMessageArmor(formCipherBody)
 		outgoingEmail.Email = *email
 		outgoingEmail.IsPlaintext = false
 	}

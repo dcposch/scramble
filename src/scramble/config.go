@@ -31,6 +31,9 @@ type Config struct {
 	AncestorIDsMaxBytes int      // should match the VARCHAR() limit of email > ancestor_ids
 	AdminEmails         []string // alerted for server issues
 
+	// abuse prevention
+	SendWhitelist []string // whitelist of accounts allowed to send outgoing mail
+
 	// When adding more config options, also update validateConfig!
 }
 
@@ -93,6 +96,7 @@ var defaultConfig = Config{
 		"mailer", "daemon", "postmaster"},
 	10240,
 	[]string{},
+	[]string{},
 }
 
 var config Config
@@ -138,13 +142,24 @@ func writeDefaultConfig(configFile string) {
 	}
 }
 
-// Checks whether a given name (such as "admin" or "root")
-// is reserved, to prevent outside users from registering those user names
-func (cfg *Config) IsReservedName(name string) bool {
-	for _, n := range cfg.ReservedNames {
-		if strings.ToLower(n) == strings.ToLower(name) {
+func sliceContains(slice []string, elem string) bool {
+	for _, x := range slice {
+		if strings.ToLower(x) == strings.ToLower(elem) {
 			return true
 		}
 	}
 	return false
+}
+
+// Checks whether a given name (such as "admin" or "root")
+// is reserved, to prevent outside users from registering those user names
+func (cfg *Config) IsReservedName(name string) bool {
+	return sliceContains(cfg.ReservedNames, name)
+}
+
+// Checks whether a given account (such as "admin" or "johnsmith")
+// is allowed to send outgoing (unencrypted) mail.
+// Sending encrypted email to another Scramble account is always allowed.
+func (cfg *Config) IsSendWhitelisted(name string) bool {
+	return sliceContains(cfg.SendWhitelist, name)
 }
