@@ -60,11 +60,13 @@ type SMTPMessageData struct {
 	threadID    *EmailAddress
 	ancestorIDs EmailAddresses
 
-	from     *mail.Address
-	toList   []*mail.Address
-	ccList   []*mail.Address
-	subject  string
-	body     string
+	from    *mail.Address
+	toList  []*mail.Address
+	ccList  []*mail.Address
+	subject string
+	// entire SMTP body with content-encoding decoded
+	decodedBody string
+	// just the text/plain portion of the decoded body
 	textBody string
 }
 
@@ -367,13 +369,13 @@ func parseSMTPData(smtpData string) (*SMTPMessageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	data.body = string(bodyBytes)
+	encodedBody := string(bodyBytes)
 
 	// get the body as plain text. parse multipart mime if needed
 	contentType := parsed.Header.Get("Content-Type")
 	contentEncoding := parsed.Header.Get("Content-Transfer-Encoding")
-	decodedBody := decodeContent(data.body, contentEncoding)
-	data.textBody, err = readPlainText(decodedBody, contentType)
+	data.decodedBody = decodeContent(encodedBody, contentEncoding)
+	data.textBody, err = readPlainText(data.decodedBody, contentType)
 	if err != nil {
 		return nil, err
 	}

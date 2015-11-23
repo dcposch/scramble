@@ -2,7 +2,7 @@
  * Receives SMTP messages from the smtp_server module.
  *
  * Saves emails to the database, puts them into each recipient's inbox.
-
+ *
  * If the email is in plaintext, encrypts it with the recipient's
  * public key before storing.
  */
@@ -71,10 +71,10 @@ func deliverMailLocally(msg *SMTPMessage) error {
 	} else {
 		cipherSubject = encryptForUsers(msg.data.subject, msg.rcptTo)
 		var textBody string
-		if msg.data.textBody == "" && msg.data.body != "" {
+		if msg.data.textBody == "" && msg.data.decodedBody != "" {
 			// HTML email, blank body with file attachments, etc
 			var err error
-			textBody, err = extractTextFromHTML(msg.data.body)
+			textBody, err = extractTextFromHTML(msg.data.decodedBody)
 			if err != nil {
 				return err
 			}
