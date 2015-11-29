@@ -214,8 +214,11 @@ func handleClient(client *client) {
 				log.Println("Remote client address: " + client.remoteAddr)
 				responseAdd(client, "250 OK")
 			case strings.Index(cmd, "RCPT TO:") == 0:
-				email := extractEmail(input[8:])
-				if email == "" {
+				rawEmail := input[8:]
+				email := extractEmail(rawEmail)
+				// only accept mail for the current domain (eg scramble.io)
+				if !strings.HasSuffix(email, "@" + serverName) {
+					log.Println("Rejecting mail for " + rawEmail)
 					responseAdd(client, "550 Invalid address")
 					killClient(client)
 				} else {
@@ -525,10 +528,6 @@ func validateEmailData(client *client) error {
 	}
 	if len(client.rcptTo) == 0 {
 		return errors.New("missing RCPT TO")
-	}
-	for _, addr := range client.rcptTo {
-		// TODO check the hosts of the rcptTo addresses.
-		addr = addr // noop :P
 	}
 	return nil
 }
