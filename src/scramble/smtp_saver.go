@@ -114,8 +114,8 @@ func deliverMailLocally(msg *SMTPMessage) error {
 		oldEmail := LoadMessage(email.MessageID)
 		if oldEmail.From != email.From ||
 			oldEmail.To != email.To {
-			log.Panicf("Same MessageID, different headers! Email %s from %s to %s\n",
-				email.MessageID, email.To, email.From)
+			log.Printf("Discarding mail with duplicate MessageID %s from %s to %s\n",
+				email.MessageID, email.From, email.To)
 		}
 	} else {
 		// unknown error trying to save mail
