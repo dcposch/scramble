@@ -253,9 +253,6 @@ func handleClient(client *client) {
 			var err error
 			client.data, err = readSMTP(client)
 			if err == nil {
-				// DEBUG ONLY: log the full message so that we can diagnose SMTP problems
-				log.Printf("YOU'VE GOT MAIL\n%s\n", client.data)
-
 				// place on the channel so that one of the save mail workers can pick it up
 				smtpMessage, err := createSMTPMessage(client)
 
