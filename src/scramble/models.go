@@ -18,6 +18,7 @@ type UserID struct {
 	PublicHash      string
 	EmailAddress    string
 	EmailHost       string
+	IsBanned	bool
 }
 
 // EmailHeader has standard headers and an PGP-encrypted subject. No body.

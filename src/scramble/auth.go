@@ -29,11 +29,17 @@ func authenticateUserPass(token string, passHash string, passHashOld string) (*U
 	}
 
 	// verify password
-	if passHash == userID.PasswordHash && passHash != "" {
-		return userID, nil
+	if (passHash == "" || passHash != userID.PasswordHash) &&
+	   (passHashOld == "" || passHashOld != userID.PasswordHashOld) {
+		return nil, errors.New("Incorrect passphrase")
 	}
-	if passHashOld == userID.PasswordHashOld && passHashOld != "" {
-		return userID, nil
+
+	// check if the user is banned
+	if (userID.IsBanned) {
+		return nil, errors.New("User " + token + " has been banned. " +
+			"If you think this is in error, please address questions to hello@scramble.io")
 	}
-	return nil, errors.New("Incorrect passphrase")
+
+	// success
+	return userID, nil
 }

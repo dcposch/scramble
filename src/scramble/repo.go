@@ -108,13 +108,14 @@ func LoadUser(token string) *User {
 func LoadUserID(token string) *UserID {
 	var user UserID
 	user.Token = token
-	err := db.QueryRow("select"+
-		" password_hash, password_hash_old, public_hash, email_host"+
+	err := db.QueryRow("select " +
+		" password_hash, password_hash_old, public_hash, email_host, is_banned" +
 		" from user where token=?", token).Scan(
 		&user.PasswordHash,
 		&user.PasswordHashOld,
 		&user.PublicHash,
-		&user.EmailHost)
+		&user.EmailHost,
+		&user.IsBanned)
 	user.EmailAddress = user.Token + "@" + user.EmailHost
 	if err == sql.ErrNoRows {
 		return nil

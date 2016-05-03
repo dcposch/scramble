@@ -26,6 +26,7 @@ var migrations = []func() error{
 	migrateBoxRemoveError,
 	migrateAddUserSecondaryEmail,
 	migrateAddUnreadEmail,
+	migrateAddUserBan,
 }
 
 func migrateDb() {
@@ -446,6 +447,13 @@ func migrateAddUserSecondaryEmail() error {
 func migrateAddUnreadEmail() error {
 	_, err := db.Exec(`ALTER TABLE box ADD COLUMN
 		is_read BOOLEAN NOT NULL DEFAULT FALSE;
+	`)
+	return err
+}
+
+func migrateAddUserBan() error {
+	_, err := db.Exec(`ALTER TABLE user ADD COLUMN
+		is_banned BOOLEAN NOT NULL DEFAULT FALSE;
 	`)
 	return err
 }
