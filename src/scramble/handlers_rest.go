@@ -61,7 +61,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	user.EmailHost = computeEmailHost(r.Host)
 	user.EmailAddress = user.Token + "@" + user.EmailHost
 
-	log.Printf("Woot! New user %s %s\n", user.Token, user.PublicHash)
+	log.Printf("New user, token: %s, email: %s", user.Token, user.EmailAddress)
 
 	if !SaveUser(user) {
 		http.Error(w, "That username is taken", http.StatusBadRequest)
@@ -122,6 +122,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
+	log.Printf("Login successful: " + userID.Token)
 	res := UserResponse{
 		user.EmailAddress,
 		user.PublicHash,
