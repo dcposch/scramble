@@ -233,9 +233,10 @@ func encryptForUsers(plaintext string, addrs []string) string {
 	if len(keys) == 0 {
 		log.Printf("Warning: not encrypting incoming mail--unrecognized recipients")
 		return plaintext
+	} else if len(keys) != len(addrs) {
+		log.Printf("Warning: encrypting plaintext for %s, found only %d keys\n",
+			strings.Join(addrs, ","), len(keys))
 	}
-	log.Printf("Encrypting plaintext for %s, found %d keys\n",
-		strings.Join(addrs, ","), len(keys))
 
 	cipherBuffer := new(bytes.Buffer)
 	w, err := armor.Encode(cipherBuffer, "PGP MESSAGE", nil)

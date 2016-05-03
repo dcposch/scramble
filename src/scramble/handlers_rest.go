@@ -122,7 +122,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request, userID *UserID) {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
-	log.Printf("Login successful: " + userID.Token)
+	ip := r.RemoteAddr
+	if strings.HasPrefix(ip, "127.0.0.1:") {
+		ip = r.Header.Get("X-Real-IP") // NGINX reverse proxy
+        }
+	log.Printf("Login successful. User %s, IP %s", userID.Token, ip)
 	res := UserResponse{
 		user.EmailAddress,
 		user.PublicHash,
