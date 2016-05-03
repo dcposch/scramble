@@ -103,8 +103,8 @@ func deliverMailLocally(msg *SMTPMessage) error {
 			AddMessageToBox(email, addr, "inbox")
 		}
 
-		log.Printf("Saved new email %s from %s to %s\n",
-			email.MessageID, email.From, email.To)
+		log.Printf("Successfully saved mail from %s to %s, size %d, message ID %s\n",
+			email.From, email.To, email.MessageID)
 	} else if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
 		// tried to save mail, but the MessageID already exists
 		// this can happen, for example, if you send an email

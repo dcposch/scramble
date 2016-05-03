@@ -229,7 +229,7 @@ func LoadBoxByThread(address string, box string, offset, limit int) []EmailHeade
 		"    SELECT MAX(message_id) as message_id, MIN(is_read) as is_read FROM box "+
 		"       WHERE address=? AND box=? "+
 		"       GROUP BY thread_id "+
-		"       ORDER BY unix_time DESC "+
+		"       ORDER BY MAX(unix_time) DESC "+
 		"       LIMIT ?, ? "+
 		") AS m ON e.message_id = m.message_id "+
 		"ORDER BY e.unix_time DESC ",
